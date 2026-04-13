@@ -1,6 +1,6 @@
 import { useState } from 'react'
-import { INSTITUTIONS } from '../../data/mockData'
 import { AUDIT_RULE_CONFIGS, AUDIT_CANDIDATE_USERS, updateAuditRuleConfig } from '../../data/auditRuleConfig'
+import { appendSystemOperationLog, SYSTEM_ADMIN_OPERATOR, SYSTEM_AUDIT_INSTITUTIONS } from '../../data/systemAdminConfig'
 
 // ── 辅助小组件 ─────────────────────────────────────────────
 const TH = 'px-4 py-2.5 text-left text-xs font-medium text-gray-500 whitespace-nowrap'
@@ -45,7 +45,7 @@ export default function AuditRuleConfig() {
   const [form, setForm] = useState({})
   const [errors, setErrors] = useState({})
 
-  const institutions = INSTITUTIONS.filter(i => i.type === 'county' || i.type === 'primary')
+  const institutions = SYSTEM_AUDIT_INSTITUTIONS
 
   const visibleConfigs = configs.filter(c => c.institutionId === selectedInstId)
   const candidateUsers = AUDIT_CANDIDATE_USERS.filter(u => u.institutionId === selectedInstId)
@@ -77,10 +77,10 @@ export default function AuditRuleConfig() {
   function validate() {
     const errs = {}
     if (form.upwardAuditEnabled && !form.upwardAuditorUserId) {
-      errs.upwardAuditor = '请选择上转审核人'
+      errs.upwardAuditor = '请选择转入审核人'
     }
     if (form.downwardAuditEnabled && !form.downwardAuditorUserId) {
-      errs.downwardAuditor = '请选择下转审核人'
+      errs.downwardAuditor = '请选择转出审核人'
     }
     return errs
   }
@@ -99,12 +99,27 @@ export default function AuditRuleConfig() {
     }
 
     // 更新 module-level 数据
-    updateAuditRuleConfig(editingConfig.id, patch, '赵管理员')
+    updateAuditRuleConfig(editingConfig.id, patch, SYSTEM_ADMIN_OPERATOR)
+
+    appendSystemOperationLog({
+      domain: '审核规则',
+      type: '系统配置变更',
+      target: `${editingConfig.institutionName} · ${editingConfig.deptName}`,
+      detail: {
+        配置项: '审核规则',
+        机构: editingConfig.institutionName,
+        科室: editingConfig.deptName,
+        转入审核: `${editingConfig.upwardAuditEnabled ? '开启' : '关闭'} → ${patch.upwardAuditEnabled ? '开启' : '关闭'}`,
+        转入审核人: `${editingConfig.upwardAuditorName || '未设置'} → ${patch.upwardAuditorName || '未设置'}`,
+        转出审核: `${editingConfig.downwardAuditEnabled ? '开启' : '关闭'} → ${patch.downwardAuditEnabled ? '开启' : '关闭'}`,
+        转出审核人: `${editingConfig.downwardAuditorName || '未设置'} → ${patch.downwardAuditorName || '未设置'}`,
+      },
+    })
 
     // 更新本地 state 以即时刷新列表
     setConfigs(prev => prev.map(c =>
       c.id === editingConfig.id
-        ? { ...c, ...patch, updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'), updatedBy: '赵管理员' }
+        ? { ...c, ...patch, updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'), updatedBy: SYSTEM_ADMIN_OPERATOR }
         : c
     ))
     setDrawerOpen(false)
@@ -115,13 +130,14 @@ export default function AuditRuleConfig() {
       {/* 页面标题 */}
       <div className="mb-5">
         <h1 className="text-xl font-semibold text-gray-800">审核规则配置</h1>
-        <p className="text-sm text-gray-500 mt-0.5">配置各科室上转/下转的院内审核开关及审核人</p>
+        <p className="text-sm text-gray-500 mt-0.5">配置机构与科室的转入/转出院内审核规则</p>
       </div>
 
       {/* 说明提示 */}
       <div className="mb-4 px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800 space-y-1">
-        <p>⚠️ 上转院内审核默认开启；下转院内审核默认关闭（开启下转审核会导致压床风险）</p>
-        <p>⚠️ 急诊上转无论开关状态自动豁免院内审核（CHG-33）</p>
+        <p>⚠️ 本页承载既定业务规则配置，不改变急诊豁免等固定政策。</p>
+        <p>⚠️ 转入院内审核默认开启；转出院内审核默认关闭（开启转出审核会导致压床风险）。</p>
+        <p>⚠️ 急诊转入无论开关状态自动豁免院内审核。</p>
       </div>
 
       {/* 机构切换 */}
@@ -144,8 +160,8 @@ export default function AuditRuleConfig() {
           <thead className="bg-gray-50 border-b border-gray-200">
             <tr>
               <th className={TH}>科室名称</th>
-              <th className={TH}>上转审核</th>
-              <th className={TH}>下转审核</th>
+              <th className={TH}>转入审核</th>
+              <th className={TH}>转出审核</th>
               <th className={TH}>最后更新</th>
               <th className={TH}>操作</th>
             </tr>
@@ -207,7 +223,7 @@ export default function AuditRuleConfig() {
               {/* 上转审核 */}
               <div>
                 <div className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
-                  上转审核配置
+                  转入审核配置
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -248,7 +264,7 @@ export default function AuditRuleConfig() {
               {/* 下转审核 */}
               <div>
                 <div className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
-                  下转审核配置
+                  转出审核配置
                 </div>
                 <div className="space-y-4">
                   <div className="flex items-center justify-between">
@@ -289,7 +305,13 @@ export default function AuditRuleConfig() {
               {/* 说明 */}
               <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500 space-y-1">
                 <p>ℹ️ 开关关闭时审核人置灰，保存时自动清空审核人</p>
-                <p>ℹ️ 急诊上转无论此处配置如何，均自动豁免院内审核</p>
+                <p>ℹ️ 急诊转入无论此处配置如何，均自动豁免院内审核</p>
+              </div>
+
+              <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 space-y-1">
+                <p className="font-medium text-amber-800">生效影响提示</p>
+                <p>保存后本科室后续新提交的转入/转出单将按当前审核配置执行，已进入流程的单据不回写原审核路径。</p>
+                <p>本次修改的审核人、开关状态与修改人将写入配置日志。</p>
               </div>
             </div>
 

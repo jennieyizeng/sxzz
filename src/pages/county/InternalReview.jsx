@@ -4,7 +4,7 @@
  * Assumption: 内审流程为原型演示阶段，内审状态（pending/approved/rejected）
  *   未写入主状态机（state-machine.md），实际实施需产品确认是否作为独立状态节点。
  *
- * Assumption: 内审通过后，转诊单进入正式「待审核」队列，基层医生收到系统通知。
+ * Assumption: 内审通过后，转诊单进入正式「待受理」队列，基层医生收到系统通知。
  *   内审拒绝后，基层医生收到拒绝通知，转诊单停留在内审拒绝状态，不进入正式审核流程。
  *
  * TODO: 实际实现时，内审操作需调用后端接口，并与主状态机同步。
@@ -20,7 +20,7 @@ const MOCK_REVIEWS_INIT = [
     patient: '陈小明',
     patientAge: 55,
     patientGender: '男',
-    fromInst: '绵竹市拱星镇卫生院',
+    fromInst: 'xx市拱星镇卫生院',
     diagnosis: '急性心肌梗死',
     diagCode: 'I21.9',
     createdAt: '2026-03-19 08:30',
@@ -34,7 +34,7 @@ const MOCK_REVIEWS_INIT = [
     patient: '周女士',
     patientAge: 63,
     patientGender: '女',
-    fromInst: '绵竹市汉旺镇卫生院',
+    fromInst: 'xx市汉旺镇卫生院',
     diagnosis: '脑出血',
     diagCode: 'I61.9',
     createdAt: '2026-03-19 09:15',
@@ -48,13 +48,13 @@ const MOCK_REVIEWS_INIT = [
     patient: '吴大叔',
     patientAge: 70,
     patientGender: '男',
-    fromInst: '绵竹市清平乡卫生院',
+    fromInst: 'xx市清平乡卫生院',
     diagnosis: '慢性阻塞性肺疾病急性加重',
     diagCode: 'J44.1',
     createdAt: '2026-03-18 14:20',
     status: 'approved',
     reviewer: '刘医生',
-    opinion: '病情符合上转指征，同意接收',
+    opinion: '病情符合转入指征，同意接收',
   },
   {
     id: 'IR004',
@@ -62,7 +62,7 @@ const MOCK_REVIEWS_INIT = [
     patient: '郑老伯',
     patientAge: 78,
     patientGender: '男',
-    fromInst: '绵竹市九龙镇卫生院',
+    fromInst: 'xx市九龙镇卫生院',
     diagnosis: '2型糖尿病酮症',
     diagCode: 'E11.1',
     createdAt: '2026-03-18 10:45',
@@ -76,13 +76,13 @@ const MOCK_REVIEWS_INIT = [
     patient: '冯大姐',
     patientAge: 48,
     patientGender: '女',
-    fromInst: '绵竹市拱星镇卫生院',
+    fromInst: 'xx市拱星镇卫生院',
     diagnosis: '普通感冒',
     diagCode: 'J00',
     createdAt: '2026-03-17 16:30',
     status: 'rejected',
     reviewer: '刘医生',
-    opinion: '不符合上转指征，建议基层继续诊治',
+    opinion: '不符合转入指征，建议基层继续诊治',
   },
   {
     id: 'IR006',
@@ -90,7 +90,7 @@ const MOCK_REVIEWS_INIT = [
     patient: '卢小姐',
     patientAge: 32,
     patientGender: '女',
-    fromInst: '绵竹市汉旺镇卫生院',
+    fromInst: 'xx市汉旺镇卫生院',
     diagnosis: '妊娠期高血压',
     diagCode: 'O10.0',
     createdAt: '2026-03-17 11:20',
@@ -235,7 +235,7 @@ function ReviewModal({ item, action, onClose, onConfirm }) {
           {/* Assumption 说明 */}
           <div className="text-xs text-gray-400 bg-gray-50 rounded px-3 py-2 border border-gray-100">
             {isApprove
-              ? 'Assumption: 内审通过后，转诊单将进入正式待审核队列，基层医生将收到系统通知。'
+              ? 'Assumption: 内审通过后，转诊单将进入正式待受理队列，基层医生将收到系统通知。'
               : 'Assumption: 内审拒绝后，基层医生将收到拒绝通知，转诊单停留在内审拒绝状态。'
             }
           </div>
@@ -280,7 +280,7 @@ function DetailModal({ item, onClose }) {
               ['内审状态', ''],
               ['患者姓名', item.patient],
               ['性别/年龄', `${item.patientGender} / ${item.patientAge}岁`],
-              ['上转机构', item.fromInst],
+              ['转出机构', item.fromInst],
               ['申请时间', item.createdAt],
             ].map(([label, val]) => (
               <div key={label}>
@@ -429,7 +429,7 @@ export default function InternalReview() {
       {/* 页头 */}
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">内部分级审核</h2>
-        <div className="text-xs text-gray-400 mt-0.5">上转申请院内审核 · 审核通过后推进至转诊接收</div>
+        <div className="text-xs text-gray-400 mt-0.5">转入申请院内审核 · 审核通过后推进至转诊接收</div>
       </div>
 
       {/* Assumption 提示条 */}
@@ -437,7 +437,7 @@ export default function InternalReview() {
         <span className="text-yellow-500 text-sm mt-0.5 shrink-0">⚠</span>
         <p className="text-xs text-yellow-700 leading-relaxed">
           <strong>Assumption：</strong>
-          当前内审流程为原型演示阶段，内审状态未写入主状态机，实际实施需产品确认是否作为独立状态节点。
+          当前内审流程仍为独立原型逻辑，内审状态未写入主状态机，实际实施需产品确认是否作为独立状态节点。
         </p>
       </div>
 
@@ -555,7 +555,7 @@ export default function InternalReview() {
           <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', '转诊单号', '患者', '上转机构', '申请诊断', '申请时间', '内审状态', '审核人', '操作'].map(h => (
+                {['序号', '转诊单号', '患者', '转出机构', '申请诊断', '申请时间', '内审状态', '审核人', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>

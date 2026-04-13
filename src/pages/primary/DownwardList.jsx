@@ -1,7 +1,7 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { DOWNWARD_STATUS } from '../../data/mockData'
+import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 
 function RowNo({ n }) {
@@ -14,25 +14,96 @@ function RowNo({ n }) {
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
-// M-8 修复：删除不存在的「已接收」状态（state-machine 无该状态，接收即进入转诊中）
-const STATUS_FILTERS = ['全部', '待接收', '转诊中', '已完成', '已拒绝', '已关闭']
+const STATUS_FILTERS = ['全部', '待接收', '待内审', '转诊中', '已完成', '已拒绝', '已撤销', '已关闭']
+
+function getAllocationLabel(ref) {
+  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
+  if (mode === 'designated') return '定向指派'
+  if (mode === 'coordinator_reassign') return '负责人改派中'
+  return '负责人待分配'
+}
+
+function getOwnerLabel(ref) {
+  if (ref.downwardAssignedDoctorName) return ref.downwardAssignedDoctorName
+  if (ref.designatedDoctorName) return ref.designatedDoctorName
+  if ((ref.allocationMode || 'coordinator') === 'coordinator_reassign') return '基层负责人改派中'
+  if ((ref.allocationMode || 'coordinator') === 'coordinator') return '基层负责人待分配'
+  return '—'
+}
+
+function getStageHint(ref, isCoordinator, currentUser) {
+  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
+  if (!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && ref.designatedDoctorId === currentUser.id) {
+    return '待您接收，可直接接收或拒绝'
+  }
+  if (isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && mode === 'coordinator') {
+    return '待负责人首次分配'
+  }
+  if (isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && mode === 'coordinator_reassign') {
+    return '原指定医生已拒绝，待负责人改派'
+  }
+  return ''
+}
 
 export default function DownwardList() {
   const { referrals, currentUser } = useApp()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('全部')
   const [search, setSearch] = useState('')
+  const isCoordinator = currentUser.role === ROLES.PRIMARY_HEAD
 
-  const myDownward = referrals.filter(r => r.type === 'downward' && r.toInstitution === currentUser.institution)
-  const filtered = myDownward
+  const scopedDownward = referrals.filter(r => {
+    if (r.type !== 'downward' || r.toInstitution !== currentUser.institution) return false
+    const mode = r.allocationMode || (r.designatedDoctorId ? 'designated' : 'coordinator')
+    if (isCoordinator) {
+      if (r.status === DOWNWARD_STATUS.PENDING_INTERNAL_REVIEW || r.status === DOWNWARD_STATUS.PENDING) {
+        return mode === 'coordinator' || mode === 'coordinator_reassign' || r.designatedDoctorId === currentUser.id
+      }
+      return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id || mode === 'coordinator_reassign'
+    }
+    if (r.status === DOWNWARD_STATUS.PENDING) {
+      return r.designatedDoctorId === currentUser.id
+    }
+    return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id
+  })
+  const filtered = scopedDownward
     .filter(r => filter === '全部' || r.status === filter)
     .filter(r => !search || r.patient.name.includes(search) || r.diagnosis.name.includes(search))
+  const pendingForMeCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && r.designatedDoctorId === currentUser.id).length
+  const pendingAssignCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && (r.allocationMode || 'coordinator') === 'coordinator').length
+  const pendingReassignCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && (r.allocationMode || '') === 'coordinator_reassign').length
 
   return (
     <div className="p-5">
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-700">下转待接收</h2>
-        <div className="text-xs text-gray-400 mt-0.5">县级医院下转至本机构的申请</div>
+        <h2 className="text-base font-semibold text-gray-700">{isCoordinator ? '转入待分配 / 改派' : '我的转入处理'}</h2>
+        <div className="text-xs text-gray-400 mt-0.5">
+          {isCoordinator ? '仅展示需您分配、改派或本人接收的转入申请' : '仅展示定向指派给您的转入申请与本人经办记录'}
+        </div>
+      </div>
+
+      <div className="grid grid-cols-1 md:grid-cols-2 gap-3 mb-4">
+        {!isCoordinator && (
+          <div className="rounded-xl px-4 py-3" style={{ background: '#F0FBFC', border: '1px solid #B2EEF5' }}>
+            <div className="text-xs text-gray-500">待您处理的定向转入</div>
+            <div className="text-2xl font-semibold mt-1" style={{ color: '#0892A0' }}>{pendingForMeCount}</div>
+            <div className="text-xs text-gray-500 mt-1">进入详情后可执行接收或拒绝</div>
+          </div>
+        )}
+        {isCoordinator && (
+          <>
+            <div className="rounded-xl px-4 py-3" style={{ background: '#F0FBFC', border: '1px solid #B2EEF5' }}>
+              <div className="text-xs text-gray-500">待负责人分配</div>
+              <div className="text-2xl font-semibold mt-1" style={{ color: '#0892A0' }}>{pendingAssignCount}</div>
+              <div className="text-xs text-gray-500 mt-1">请尽快分配给具体基层医生</div>
+            </div>
+            <div className="rounded-xl px-4 py-3" style={{ background: '#FFF9ED', border: '1px solid #F6D48A' }}>
+              <div className="text-xs text-gray-500">待负责人改派</div>
+              <div className="text-2xl font-semibold mt-1 text-amber-700">{pendingReassignCount}</div>
+              <div className="text-xs text-gray-500 mt-1">原指定医生已拒绝，请重新分配</div>
+            </div>
+          </>
+        )}
       </div>
 
       {/* 筛选栏 */}
@@ -71,14 +142,14 @@ export default function DownwardList() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者姓名', '性别/年龄', '诊断', '来源机构', '经治医生', '备注', '状态', '发起时间', '操作'].map(h => (
+              {['序号', '患者姓名', '性别/年龄', '诊断', '来源机构', '接收方式', '当前归属', '状态', '发起时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {filtered.length === 0 ? (
-              <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>暂无下转记录</td></tr>
+              <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>暂无转入记录</td></tr>
             ) : filtered.map((ref, i) => (
               <tr
                 key={ref.id}
@@ -93,18 +164,33 @@ export default function DownwardList() {
                 <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender}/{ref.patient.age}岁</td>
                 <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
                 <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
+                <td className={TD + ' text-xs text-gray-600'}>{getAllocationLabel(ref)}</td>
                 <td className={TD}>
-                  {ref.rehabPlan
-                    ? <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#E0F6F9', color: '#0892a0' }}>含康复方案</span>
-                    : <span className="text-gray-300">—</span>}
+                  <div className="text-sm text-gray-700">{getOwnerLabel(ref)}</div>
+                  {getStageHint(ref, isCoordinator, currentUser) && (
+                    <div className="text-[11px] text-cyan-700 mt-0.5">{getStageHint(ref, isCoordinator, currentUser)}</div>
+                  )}
+                  {ref.rejectedDoctorIds?.length > 0 && (
+                    <div className="text-[11px] text-amber-600 mt-0.5">已拒绝 {ref.rejectedDoctorIds.length} 次</div>
+                  )}
                 </td>
                 <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                 <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleDateString('zh-CN')}</td>
                 <td className={TD} onClick={e => e.stopPropagation()}>
                   <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
-                  {ref.status === DOWNWARD_STATUS.PENDING && (
-                    <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#10b981' }}>接收</button>
+                  {!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && ref.designatedDoctorId === currentUser.id && (
+                    <>
+                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#10b981' }}>接收</button>
+                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#DC2626' }}>拒绝</button>
+                    </>
+                  )}
+                  {isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && ['coordinator', 'coordinator_reassign'].includes(ref.allocationMode || '') && (
+                    <>
+                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#10b981' }}>
+                        {(ref.allocationMode || '') === 'coordinator_reassign' ? '改派' : '分配'}
+                      </button>
+                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0892A0' }}>本人接收</button>
+                    </>
                   )}
                 </td>
               </tr>

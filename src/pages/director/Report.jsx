@@ -4,15 +4,15 @@
 // ── 从 admin/ExamReport 复用的数据结构 ──
 // 完整明细（与 ExamReport.MOCK_EXAM 数据口径相同）
 const MOCK_EXAM_ALL = [
-  { name: '绵竹市人民医院', type: '县级医院', upSend: 0, downRecv: 45, completed: 42, rate: '93.3%', avgResp: 2.1, timeout: 1, rejected: 2 },
-  { name: '绵竹市拱星镇卫生院', type: '乡镇卫生院', upSend: 28, downRecv: 18, completed: 41, rate: '89.1%', avgResp: 3.5, timeout: 3, rejected: 4 },
-  { name: '绵竹市汉旺镇卫生院', type: '乡镇卫生院', upSend: 19, downRecv: 12, completed: 28, rate: '90.3%', avgResp: 2.8, timeout: 2, rejected: 3 },
-  { name: '绵竹市清平乡卫生院', type: '乡镇卫生院', upSend: 12, downRecv: 8, completed: 18, rate: '90.0%', avgResp: 3.2, timeout: 1, rejected: 2 },
-  { name: '绵竹市九龙镇卫生院', type: '乡镇卫生院', upSend: 8, downRecv: 5, completed: 12, rate: '92.3%', avgResp: 2.9, timeout: 1, rejected: 1 },
+  { name: 'xx市人民医院', type: '县级医院', upSend: 0, downRecv: 45, completed: 42, rate: '93.3%', avgResp: 2.1, timeout: 1, rejected: 2 },
+  { name: 'xx市拱星镇卫生院', type: '乡镇卫生院', upSend: 28, downRecv: 18, completed: 41, rate: '89.1%', avgResp: 3.5, timeout: 3, rejected: 4 },
+  { name: 'xx市汉旺镇卫生院', type: '乡镇卫生院', upSend: 19, downRecv: 12, completed: 28, rate: '90.3%', avgResp: 2.8, timeout: 2, rejected: 3 },
+  { name: 'xx市清平乡卫生院', type: '乡镇卫生院', upSend: 12, downRecv: 8, completed: 18, rate: '90.0%', avgResp: 3.2, timeout: 1, rejected: 2 },
+  { name: 'xx市九龙镇卫生院', type: '乡镇卫生院', upSend: 8, downRecv: 5, completed: 12, rate: '92.3%', avgResp: 2.9, timeout: 1, rejected: 1 },
 ]
 
-// 本院行：只保留绵竹市人民医院
-const OWN_ROW = MOCK_EXAM_ALL.filter(r => r.name.includes('绵竹市人民医院'))
+// 本院行：只保留xx市人民医院
+const OWN_ROW = MOCK_EXAM_ALL.filter(r => r.name.includes('xx市人民医院'))
 
 // 汇总行（全机构，供参考对比）
 const SUMMARY_ALL = {
@@ -44,7 +44,7 @@ const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
 export default function DirectorReport() {
-  const handleExportPDF = () => alert('导出 PDF（原型模拟，TODO: 对接后端 PDF 生成接口）')
+  const handleExportPDF = () => alert('已开始导出 PDF，请稍后查看下载结果。')
   const handlePrint = () => window.print()
 
   return (
@@ -52,9 +52,9 @@ export default function DirectorReport() {
       {/* 页头 */}
       <div className="mb-4">
         {/* 上下文标识 */}
-        <div className="text-xs text-gray-400 mb-1">绵竹市人民医院</div>
+        <div className="text-xs text-gray-400 mb-1">xx市人民医院</div>
         <h2 className="text-base font-semibold text-gray-800">考核报表</h2>
-        <div className="text-xs text-gray-400 mt-0.5">绵竹市人民医院 · 最新月度报表</div>
+        <div className="text-xs text-gray-400 mt-0.5">xx市人民医院 · 最新月度报表</div>
       </div>
 
       {/* 报表信息行 */}
@@ -86,7 +86,7 @@ export default function DirectorReport() {
         >
           本院数据
         </span>
-        <span className="text-xs text-gray-400">绵竹市人民医院</span>
+        <span className="text-xs text-gray-400">xx市人民医院</span>
       </div>
 
       {/* 指标汇总卡片 2行4列 */}
@@ -176,7 +176,7 @@ export default function DirectorReport() {
         <div className="text-xs text-gray-400">
           报表数据截止：2026-03-19 00:00 &middot;{' '}
           {/* Assumption: 院长仅查看本院数据，全机构数据由管理员在考核报表页查看 */}
-          <span className="text-orange-500">Assumption: 院长仅查看本院数据</span>
+          <span className="text-orange-500">当前仅展示本院数据</span>
         </div>
         <div className="flex items-center gap-2">
           <button

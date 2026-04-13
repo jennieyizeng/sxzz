@@ -1,0 +1,122 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - heading "我的随访任务" [level=2] [ref=e63]
+          - generic [ref=e64]: 王医生 · xx市拱星镇卫生院 — 仅显示本人负责的随访任务
+        - generic [ref=e65]:
+          - generic [ref=e66] [cursor=pointer]:
+            - generic [ref=e67]: "1"
+            - generic [ref=e68]: 全部
+          - generic [ref=e69] [cursor=pointer]:
+            - generic [ref=e70]: "0"
+            - generic [ref=e71]: 已逾期
+          - generic [ref=e72] [cursor=pointer]:
+            - generic [ref=e73]: "0"
+            - generic [ref=e74]: 即将到期（≤3天）
+          - generic [ref=e75] [cursor=pointer]:
+            - generic [ref=e76]: "0"
+            - generic [ref=e77]: 待随访
+        - table [ref=e79]:
+          - rowgroup [ref=e80]:
+            - row "序号 患者 诊断 来源机构 监测指标 下转日期 上次随访 计划随访日期 状态 操作" [ref=e81]:
+              - columnheader "序号" [ref=e82]
+              - columnheader "患者" [ref=e83]
+              - columnheader "诊断" [ref=e84]
+              - columnheader "来源机构" [ref=e85]
+              - columnheader "监测指标" [ref=e86]
+              - columnheader "下转日期" [ref=e87]
+              - columnheader "上次随访" [ref=e88]
+              - columnheader "计划随访日期" [ref=e89]
+              - columnheader "状态" [ref=e90]
+              - columnheader "操作" [ref=e91]
+          - rowgroup [ref=e92]:
+            - row "1 孙秀兰 72岁 · 女 脑梗死 xx市人民医院 血压 言语功能 肢体活动度 +1 2026/04/08 2026/04/06 已随访 1 次 2026/04/18 随访中 查看随访 查看转诊单" [ref=e93]:
+              - cell "1" [ref=e94]:
+                - generic [ref=e95]: "1"
+              - cell "孙秀兰 72岁 · 女" [ref=e96]:
+                - generic [ref=e97]: 孙秀兰
+                - generic [ref=e98]: 72岁 · 女
+              - cell "脑梗死" [ref=e99]
+              - cell "xx市人民医院" [ref=e100]
+              - cell "血压 言语功能 肢体活动度 +1" [ref=e101]:
+                - generic [ref=e102]:
+                  - generic [ref=e103]: 血压
+                  - generic [ref=e104]: 言语功能
+                  - generic [ref=e105]: 肢体活动度
+                  - generic [ref=e106]: "+1"
+              - cell "2026/04/08" [ref=e107]:
+                - generic [ref=e108]: 2026/04/08
+              - cell "2026/04/06 已随访 1 次" [ref=e109]:
+                - generic [ref=e110]: 2026/04/06
+                - generic [ref=e111]: 已随访 1 次
+              - cell "2026/04/18" [ref=e112]:
+                - generic [ref=e113]: 2026/04/18
+              - cell "随访中" [ref=e114]
+              - cell "查看随访 查看转诊单" [ref=e115]:
+                - generic [ref=e116]:
+                  - button "查看随访" [ref=e117] [cursor=pointer]
+                  - button "查看转诊单" [ref=e118] [cursor=pointer]
+        - generic [ref=e119]: ℹ️ 随访任务由系统在转入完成后自动创建并归属至您名下。如需申请转派，请联系负责人。

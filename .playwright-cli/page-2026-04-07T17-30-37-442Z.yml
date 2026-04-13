@@ -1,0 +1,123 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王晓敏
+          - generic [ref=e15]: xx市人民医院
+      - generic [ref=e17]: 县级科主任
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /county/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "科室待受理上转" [ref=e243] [cursor=pointer]:
+            - /url: /county/review-list
+          - link "科室上转记录" [ref=e244] [cursor=pointer]:
+            - /url: /county/referral-records
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "发起下转" [active] [ref=e245] [cursor=pointer]:
+            - /url: /county/create-downward
+          - link "下转记录" [ref=e246] [cursor=pointer]:
+            - /url: /county/downward-records
+      - link "🔔 消息中心" [ref=e247] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e41]: 🔔
+        - generic [ref=e42]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link [ref=e248] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e419]:
+        - generic [ref=e420]:
+          - generic [ref=e421]:
+            - button "工作台" [ref=e422] [cursor=pointer]
+            - generic [ref=e423]: ›
+            - generic [ref=e424]: 发起下转
+          - heading "发起下转申请" [level=1] [ref=e425]
+        - generic [ref=e426]:
+          - generic [ref=e428]:
+            - generic [ref=e429]: "1"
+            - generic [ref=e430]: 患者与基本信息
+          - generic [ref=e433]:
+            - generic [ref=e434]: "2"
+            - generic [ref=e435]: 下转交接资料
+          - generic [ref=e438]:
+            - generic [ref=e439]: "3"
+            - generic [ref=e440]: 知情同意
+          - generic [ref=e443]:
+            - generic [ref=e444]: "4"
+            - generic [ref=e445]: 确认提交
+        - generic [ref=e446]:
+          - generic [ref=e447]:
+            - generic [ref=e448]:
+              - heading "患者与基本信息" [level=2] [ref=e449]
+              - generic [ref=e450]: 先填写患者基础信息，再一键拉取系统资料；重点确认系统已带入内容，并补充目标基层机构与接收安排。
+            - generic [ref=e452]:
+              - generic [ref=e453]:
+                - generic [ref=e454]: 数据来源说明
+                - generic [ref=e455]: 填写患者姓名后即可一键拉取系统资料；未拉取成功时，可继续手动填写并在后续补充上传资料。
+              - button "一键拉取患者资料" [ref=e456] [cursor=pointer]
+            - generic [ref=e457]:
+              - generic [ref=e458]:
+                - generic [ref=e459]: 姓名*
+                - textbox "请输入患者姓名" [ref=e460]
+              - generic [ref=e461]:
+                - generic [ref=e462]: 联系电话
+                - textbox "请输入联系电话" [ref=e463]
+              - generic [ref=e464]:
+                - generic [ref=e465]: 性别
+                - combobox [ref=e466]:
+                  - option "请选择" [selected]
+                  - option "男"
+                  - option "女"
+              - generic [ref=e467]:
+                - generic [ref=e468]: 身份证号
+                - textbox "请输入身份证号，便于提高匹配准确度" [ref=e469]
+              - generic [ref=e470]:
+                - generic [ref=e471]: 年龄根据身份证自动计算展示
+                - generic [ref=e472]: 填写身份证号后自动显示
+              - generic [ref=e473]:
+                - generic [ref=e474]: 当前诊断*
+                - textbox "请输入当前诊断" [ref=e475]
+              - generic [ref=e476]:
+                - generic [ref=e477]: ICD-10系统辅助带入，默认只读
+                - textbox "拉取资料后自动显示" [ref=e478]
+              - generic [ref=e479]:
+                - generic [ref=e480]: 目标基层机构*
+                - combobox [ref=e481]:
+                  - option "请选择目标基层机构" [selected]
+                  - option "xx市拱星镇卫生院"
+                  - option "xx市汉旺镇卫生院"
+          - generic [ref=e482]:
+            - button "取消并返回工作台" [ref=e483] [cursor=pointer]
+            - button "下一步 →" [disabled] [ref=e484]

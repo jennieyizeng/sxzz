@@ -1,92 +1,10 @@
 import { useState, useRef } from 'react'
-
-// ── Mock 数据 ──────────────────────────────────────────────
-const INIT_SYS_TEMPLATES = [
-  {
-    id: 'N001',
-    event: '上转申请提交',
-    title: '您有新的上转申请待审核',
-    content: '您好，基层医生 {doctor_name} 于 {created_time} 提交了一份上转申请（转诊单号：{ref_no}），患者：{patient_name}，请及时登录系统处理。',
-    receivers: ['县级医生'],
-    enabled: true,
-  },
-  {
-    id: 'N002',
-    event: '审核通过',
-    title: '您的上转申请已通过审核',
-    content: '您好，您提交的上转申请（转诊单号：{ref_no}）已审核通过，患者 {patient_name} 可按约前往县级医院就诊，请知悉。',
-    receivers: ['基层医生'],
-    enabled: true,
-  },
-  {
-    id: 'N003',
-    event: '审核拒绝',
-    title: '您的上转申请被退回',
-    content: '您好，您提交的上转申请（转诊单号：{ref_no}）已被退回，退回原因请登录系统查看详情，如有疑问请联系审核医生。',
-    receivers: ['基层医生'],
-    enabled: true,
-  },
-  {
-    id: 'N004',
-    event: '转诊超时提醒',
-    title: '转诊单 {ref_no} 已超时，请及时处理',
-    content: '系统提醒：转诊单 {ref_no}（患者：{patient_name}）当前环节已超时，请尽快处理，避免影响患者就诊。如已处理请忽略本通知。',
-    receivers: ['县级医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'N005',
-    event: '下转申请提交',
-    title: '您有新的下转康复方案待接收',
-    content: '您好，县级医院已为患者 {patient_name}（转诊单号：{ref_no}）制定康复方案，请登录系统确认接收，继续开展后续康复管理。',
-    receivers: ['基层医生'],
-    enabled: true,
-  },
-  {
-    id: 'N006',
-    event: '管理员代操作',
-    title: '管理员已代为处理转诊单 {ref_no}',
-    content: '系统通知：管理员已代为处理转诊单 {ref_no}（患者：{patient_name}），操作详情请登录系统查看操作日志。',
-    receivers: ['相关医生'],
-    enabled: true,
-  },
-]
-
-const INIT_SMS_TEMPLATES = [
-  {
-    id: 'S001',
-    event: '知情同意请求',
-    smsSign: '【绵竹医联体】',
-    content: '您有一份知情同意书待签署，转诊单号：{ref_no}，请及时登录"绵竹医联体"平台完成签署，如有疑问请联系您的接诊医生。',
-    receivers: ['患者'],
-    enabled: true,
-  },
-  {
-    id: 'S002',
-    event: '转诊成功通知',
-    smsSign: '【绵竹医联体】',
-    content: '您的转诊申请已成功，转诊单号：{ref_no}，请按约前往 {hospital_name} 就诊。如需查看详情，请联系您的基层医生或拨打医联体服务热线。',
-    receivers: ['患者'],
-    enabled: true,
-  },
-  {
-    id: 'S003',
-    event: '超时催办（患者）',
-    smsSign: '【绵竹医联体】',
-    content: '您的转诊单（单号：{ref_no}）尚有待处理事项，请尽快联系您的医生处理，如有疑问请拨打医联体服务热线。',
-    receivers: ['患者'],
-    enabled: false,
-  },
-]
-
-// ── 可用变量说明 ────────────────────────────────────────────
-const VARIABLES = [
-  { key: '{ref_no}',       label: '转诊单号' },
-  { key: '{patient_name}', label: '患者姓名' },
-  { key: '{doctor_name}',  label: '医生姓名' },
-  { key: '{hospital_name}',label: '医院名称' },
-  { key: '{created_time}', label: '创建时间' },
-]
+import {
+  appendSystemOperationLog,
+  SYSTEM_NOTIFY_SMS_TEMPLATES,
+  SYSTEM_NOTIFY_SYS_TEMPLATES,
+  SYSTEM_NOTIFY_VARIABLES,
+} from '../../data/systemAdminConfig'
 
 const MAX_CONTENT_LEN = 200
 
@@ -236,7 +154,7 @@ function EditModal({ template, isSms, onCancel, onSave }) {
           <div className="mb-5 bg-gray-50 border border-gray-100 rounded-lg p-3">
             <div className="text-xs text-gray-500 mb-2 font-medium">可用变量（点击插入到光标位置）</div>
             <div className="flex flex-wrap gap-1.5">
-              {VARIABLES.map(v => (
+              {SYSTEM_NOTIFY_VARIABLES.map(v => (
                 <button
                   key={v.key}
                   onClick={() => insertVariable(v.key)}
@@ -260,6 +178,13 @@ function EditModal({ template, isSms, onCancel, onSave }) {
               <div className="text-xs text-gray-400 mt-0.5">禁用后该事件不会发送此通知</div>
             </div>
             <Toggle value={enabled} onChange={setEnabled} />
+          </div>
+
+          <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+            <div className="text-xs font-medium text-amber-800 mb-1">生效影响提示</div>
+            <div className="text-xs leading-5 text-amber-700">
+              保存后该模板会立即用于“{template.event}”事件；已发送通知不回溯修改，后续新通知按当前模板内容生成。
+            </div>
           </div>
 
           {/* 按钮区 */}
@@ -414,8 +339,8 @@ function SmsTemplateTable({ templates, onToggle, onEdit }) {
 // ── 主页面 ──────────────────────────────────────────────────
 export default function NotifyTemplate() {
   const [activeTab, setActiveTab] = useState('sys') // 'sys' | 'sms'
-  const [sysTemplates, setSysTemplates] = useState(INIT_SYS_TEMPLATES)
-  const [smsTemplates, setSmsTemplates] = useState(INIT_SMS_TEMPLATES)
+  const [sysTemplates, setSysTemplates] = useState(() => SYSTEM_NOTIFY_SYS_TEMPLATES.map(t => ({ ...t })))
+  const [smsTemplates, setSmsTemplates] = useState(() => SYSTEM_NOTIFY_SMS_TEMPLATES.map(t => ({ ...t })))
   const [editingTpl, setEditingTpl] = useState(null)
   const [toast, setToast] = useState('')
 
@@ -428,20 +353,51 @@ export default function NotifyTemplate() {
 
   const handleToggle = (id, value) => {
     const inSys = sysTemplates.some(t => t.id === id)
+    const original = inSys ? sysTemplates.find(t => t.id === id) : smsTemplates.find(t => t.id === id)
     if (inSys) {
       setSysTemplates(prev => prev.map(t => t.id === id ? { ...t, enabled: value } : t))
     } else {
       setSmsTemplates(prev => prev.map(t => t.id === id ? { ...t, enabled: value } : t))
+    }
+    if (original) {
+      appendSystemOperationLog({
+        domain: '通知模板',
+        type: '系统配置变更',
+        target: original.event,
+        detail: {
+          配置项: '通知模板',
+          模板名称: inSys ? original.title : `${original.smsSign}${original.event}`,
+          变更字段: '模板状态',
+          原值: original.enabled ? '启用' : '禁用',
+          新值: value ? '启用' : '禁用',
+        },
+      })
     }
     showToast(value ? '模板已启用' : '模板已禁用')
   }
 
   const handleSave = (updated) => {
     const inSys = sysTemplates.some(t => t.id === updated.id)
+    const original = inSys ? sysTemplates.find(t => t.id === updated.id) : smsTemplates.find(t => t.id === updated.id)
     if (inSys) {
       setSysTemplates(prev => prev.map(t => t.id === updated.id ? updated : t))
     } else {
       setSmsTemplates(prev => prev.map(t => t.id === updated.id ? updated : t))
+    }
+    if (original) {
+      appendSystemOperationLog({
+        domain: '通知模板',
+        type: '系统配置变更',
+        target: updated.event,
+        detail: {
+          配置项: '通知模板',
+          模板名称: inSys ? updated.title : `${updated.smsSign}${updated.event}`,
+          变更字段: '模板内容',
+          原值: original.content,
+          新值: updated.content,
+          状态变化: `${original.enabled ? '启用' : '禁用'} → ${updated.enabled ? '启用' : '禁用'}`,
+        },
+      })
     }
     setEditingTpl(null)
     showToast('通知模板已更新')

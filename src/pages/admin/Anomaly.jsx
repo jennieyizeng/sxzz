@@ -1,14 +1,21 @@
-import { useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
-import { UPWARD_STATUS, DOWNWARD_STATUS } from '../../data/mockData'
+import { UPWARD_STATUS, DOWNWARD_STATUS, MOCK_USERS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 
-function hoursAgo(iso) {
-  const h = Math.floor((Date.now() - new Date(iso)) / 3600000)
+function hoursAgo(iso, nowTs) {
+  const h = Math.floor((nowTs - new Date(iso)) / 3600000)
   if (h < 1) return '不足1小时'
   if (h < 24) return `${h}小时前`
   return `${Math.floor(h/24)}天前`
+}
+function getTimeoutBaseTime(ref) {
+  if (ref.type === 'upward' && ref.status === UPWARD_STATUS.PENDING) return ref.createdAt
+  if (ref.type === 'downward' && ref.status === DOWNWARD_STATUS.PENDING) return ref.createdAt
+  if (ref.type === 'upward' && ref.status === UPWARD_STATUS.IN_TRANSIT) return ref.acceptedAt || ref.transferredAt || ref.createdAt
+  if (ref.type === 'downward' && ref.status === DOWNWARD_STATUS.IN_TRANSIT) return ref.acceptedAt || ref.createdAt
+  return ref.createdAt
 }
 function RowNo({ n, color = '#ef4444' }) {
   return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: color }}>{n}</span>
@@ -16,20 +23,16 @@ function RowNo({ n, color = '#ef4444' }) {
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
-// P0-6：指派医生候选列表（从 mockData MOCK_USERS 中获取县级医生，生产环境从接口获取）
-const COUNTY_DOCTORS = [
-  { id: 'county_doctor_1', name: '李志远', dept: '内科' },
-  { id: 'county_doctor_2', name: '王晓敏', dept: '心内科（科室负责人）' },
-]
-
 export default function AdminAnomaly() {
   const navigate = useNavigate()
-  const { referrals, closeReferral, assignDoctorByAdmin, closeDownwardByTimeout, escalateEmergencyAlert, renotifyEmergency } = useApp()
+  const { referrals, closeReferral, assignDoctorByAdmin, escalateEmergencyAlert, renotifyEmergency } = useApp()
   const [tab, setTab] = useState('timeout')
+  const [nowTs, setNowTs] = useState(() => Date.now())
 
   // A-12：协商关闭弹窗状态
   const [negotiateDialog, setNegotiateDialog] = useState({ open: false, ref: null })
   const [negotiateReason, setNegotiateReason] = useState('')
+  const [negotiateError, setNegotiateError] = useState('')
 
   // G5：指定医生弹窗状态
   const [assignDialog, setAssignDialog] = useState({ open: false, ref: null })
@@ -38,59 +41,83 @@ export default function AdminAnomaly() {
   const openNegotiateClose = (ref) => {
     setNegotiateDialog({ open: true, ref })
     setNegotiateReason('')
+    setNegotiateError('')
   }
 
-  // 超时预警规则（state-machine.md）：
-  //   待审核/待接收 > 24h → 以 createdAt 为基准
-  //   上转转诊中 > 48h 未完成确认 → 以 acceptedAt 为基准
-  //   下转转诊中 > 7天 → G1决策，系统自动关闭（以 acceptedAt 为基准）
-  const timeoutRefs = referrals.filter(r => {
-    if (r.type === 'upward' && r.status === UPWARD_STATUS.PENDING) {
-      return Date.now() - new Date(r.createdAt) > 24 * 3600000
-    }
-    if (r.type === 'downward' && r.status === DOWNWARD_STATUS.PENDING) {
-      return Date.now() - new Date(r.createdAt) > 24 * 3600000
-    }
-    if (r.type === 'upward' && r.status === UPWARD_STATUS.IN_TRANSIT && r.acceptedAt) {
-      return Date.now() - new Date(r.acceptedAt) > 48 * 3600000
-    }
-    // P0-03：下转「转诊中」超时7天（G1决策）
-    if (r.type === 'downward' && r.status === DOWNWARD_STATUS.IN_TRANSIT) {
-      const base = r.acceptedAt || r.createdAt
-      return Date.now() - new Date(base) > 7 * 24 * 3600000
-    }
-    return false
-  })
+  useEffect(() => {
+    const timer = window.setInterval(() => setNowTs(Date.now()), 60 * 1000)
+    return () => window.clearInterval(timer)
+  }, [])
 
   // P1-2：紧急未处理（急诊4h无人受理，已标记 urgentFlag 或 isUrgentUnhandled）
-  const urgentRefs = referrals.filter(r =>
+  const urgentRefs = useMemo(() => referrals.filter(r =>
     (r.urgentFlag === 'urgent_unhandled' || r.isUrgentUnhandled) && r.status === UPWARD_STATUS.PENDING
-  )
+  ), [referrals])
+
+  const escalatedUrgentRefs = urgentRefs.filter(ref => ref.isUrgentUnhandled)
+
+  // 超时预警规则（state-machine.md）：
+  //   待受理/待接收 > 24h → 以 createdAt 为基准
+  //   上转转诊中 > 48h 未完成确认 → 以 acceptedAt 为基准
+  //   下转转诊中 > 7天 → G1决策，系统自动关闭（以 acceptedAt 为基准）
+  const timeoutRefs = useMemo(() => {
+    const urgentIds = new Set(urgentRefs.map(ref => ref.id))
+
+    return referrals.filter(r => {
+      if (urgentIds.has(r.id)) return false
+      if (r.type === 'upward' && r.status === UPWARD_STATUS.PENDING) {
+        return nowTs - new Date(r.createdAt) > 24 * 3600000
+      }
+      if (r.type === 'downward' && r.status === DOWNWARD_STATUS.PENDING) {
+        return nowTs - new Date(r.createdAt) > 24 * 3600000
+      }
+      if (r.type === 'upward' && r.status === UPWARD_STATUS.IN_TRANSIT) {
+        const base = r.acceptedAt || r.transferredAt || r.createdAt
+        return nowTs - new Date(base) > 48 * 3600000
+      }
+      if (r.type === 'downward' && r.status === DOWNWARD_STATUS.IN_TRANSIT) {
+        const base = r.acceptedAt || r.createdAt
+        return nowTs - new Date(base) > 7 * 24 * 3600000
+      }
+      return false
+    })
+  }, [nowTs, referrals, urgentRefs])
 
   // 被拒绝
   const rejectedRefs = referrals.filter(r =>
     r.status === UPWARD_STATUS.REJECTED || r.status === DOWNWARD_STATUS.REJECTED
   )
 
+  const countyDoctors = useMemo(() => {
+    return Object.values(MOCK_USERS)
+      .filter(user => user.role === ROLES.COUNTY || user.role === ROLES.COUNTY2)
+      .map(user => ({
+        id: user.id,
+        name: user.name,
+        dept: user.isDepartmentHead ? `${user.dept}（科主任）` : user.dept,
+      }))
+  }, [])
+
   const tabs = [
-    { id: 'timeout', label: '超时预警', count: timeoutRefs.length + urgentRefs.length, color: '#ef4444' },
-    { id: 'rejected', label: '拒绝记录', count: rejectedRefs.length, color: '#f59e0b' },
+    { id: 'timeout', label: '超时督办', count: timeoutRefs.length + urgentRefs.length, color: '#ef4444' },
+    { id: 'rejected', label: '拒绝回看', count: rejectedRefs.length, color: '#f59e0b' },
   ]
   const current = tab === 'timeout' ? timeoutRefs : rejectedRefs
+  const isDownwardMonitorOnly = (ref) => ref.type === 'downward'
 
   return (
     <div className="p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">异常处理</h2>
-        <div className="text-xs text-gray-400 mt-0.5">超时未处理、被拒绝申请的异常监控与介入入口</div>
+        <div className="text-xs text-gray-400 mt-0.5">聚焦超时督办、急诊升级与拒绝回看。下转仅监控催办，不在此页执行操作。</div>
       </div>
 
       {/* 概览 */}
       <div className="grid grid-cols-3 gap-3 mb-4">
         {[
-          { icon: '⏰', label: '超时待处理', count: timeoutRefs.length, color: '#ef4444', bg: '#fef2f2' },
-          { icon: '❌', label: '被拒绝申请', count: rejectedRefs.length, color: '#f59e0b', bg: '#fef3c7' },
-          { icon: '✅', label: '今日已处理', count: 3, color: '#10b981', bg: '#ecfdf5' },
+          { icon: '🔴', label: '紧急升级', count: escalatedUrgentRefs.length, color: '#ef4444', bg: '#fef2f2' },
+          { icon: '⏰', label: '超时督办', count: timeoutRefs.length, color: '#f59e0b', bg: '#fff7ed' },
+          { icon: '❌', label: '拒绝回看', count: rejectedRefs.length, color: '#f59e0b', bg: '#fef3c7' },
         ].map(item => (
           <div key={item.label} className="flex items-center gap-3 bg-white rounded-xl px-4 py-3.5" style={{ border: `1px solid ${item.bg}` }}>
             <div className="w-10 h-10 rounded-xl flex items-center justify-center text-2xl" style={{ background: item.bg }}>{item.icon}</div>
@@ -172,7 +199,7 @@ export default function AdminAnomaly() {
         {current.length === 0 ? (
           <div className="py-16 text-center">
             <div className="text-4xl mb-3">✅</div>
-            <div className="text-sm text-gray-500">暂无{tab === 'timeout' ? '超时' : '拒绝'}记录</div>
+            <div className="text-sm text-gray-500">暂无{tab === 'timeout' ? '超时督办' : '拒绝回看'}记录</div>
           </div>
         ) : (
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
@@ -195,13 +222,13 @@ export default function AdminAnomaly() {
                       {ref.type === 'upward' ? '⬆ 上转' : '⬇ 下转'}
                     </span>
                   </td>
-                  <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}<span className="text-xs text-gray-400 ml-1">{ref.patient.age}岁</span></td>
+                  <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}<span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span></td>
                   <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
                   <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
                   <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                   <td className={TD}>
                     {tab === 'timeout' ? (
-                      <span className="text-xs font-medium text-red-500">{hoursAgo(ref.createdAt)}</span>
+                      <span className="text-xs font-medium text-red-500">{hoursAgo(getTimeoutBaseTime(ref), nowTs)}</span>
                     ) : (
                       <span className="text-xs text-gray-500 max-w-[160px] truncate block">{ref.rejectReason || '—'}</span>
                     )}
@@ -211,12 +238,6 @@ export default function AdminAnomaly() {
                       <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs font-medium" style={{ color: '#0BBECF' }}>查看</button>
                       {tab === 'timeout' && (
                         <>
-                          {/* 催办 */}
-                          <button
-                            className="border border-orange-300 text-orange-600 bg-orange-50 px-2 py-1 rounded text-xs"
-                            onClick={() => alert('已发送催办通知')}
-                          >催办</button>
-
                           {/* G5：指派经办医生（上转待审核且无人受理时显示）*/}
                           {ref.type === 'upward' && ref.status === UPWARD_STATUS.PENDING && !ref.assignedDoctorId && (
                             <button
@@ -226,34 +247,17 @@ export default function AdminAnomaly() {
                             >指定医生</button>
                           )}
 
-                          {/* P0-03：下转超时7天可触发关闭 */}
-                          {ref.type === 'downward' && ref.status === DOWNWARD_STATUS.IN_TRANSIT && (
-                            <button
-                              className="bg-red-500 text-white px-2 py-1 rounded text-xs"
-                              onClick={() => {
-                                if (window.confirm(`确认关闭下转单 ${ref.id}（超时7天未到达）？`)) {
-                                  closeDownwardByTimeout(ref.id)
-                                }
-                              }}
-                            >超时关闭</button>
-                          )}
-
-                          {/* 代为确认（上转转诊中超时48h）*/}
-                          {ref.type === 'upward' && ref.status === UPWARD_STATUS.IN_TRANSIT &&
-                            ref.acceptedAt && (Date.now() - new Date(ref.acceptedAt)) > 48 * 3600000 && (
-                            <button
-                              className="bg-orange-500 text-white px-2 py-1 rounded text-xs"
-                              onClick={() => alert('管理员代为确认操作（原型演示）')}
-                            >代为确认接诊</button>
-                          )}
-
                           {/* A-12：协商关闭 */}
-                          {(ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.IN_TRANSIT ||
-                            ref.status === DOWNWARD_STATUS.PENDING || ref.status === DOWNWARD_STATUS.IN_TRANSIT) && (
+                          {ref.type === 'upward' && (ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.IN_TRANSIT) && (
                             <button
                               onClick={() => openNegotiateClose(ref)}
                               className="border border-gray-400 text-gray-600 bg-white hover:bg-gray-50 px-2 py-1 rounded text-xs"
                             >协商关闭</button>
+                          )}
+                          {isDownwardMonitorOnly(ref) && (
+                            <span className="text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-500 bg-gray-50">
+                              下转仅监控催办
+                            </span>
                           )}
                         </>
                       )}
@@ -286,7 +290,7 @@ export default function AdminAnomaly() {
                 onChange={e => setAssignDoctor(e.target.value)}
               >
                 <option value="">请选择经办医生</option>
-                {COUNTY_DOCTORS.map(d => <option key={d.id} value={d.id}>{d.name}（{d.dept}）</option>)}
+                {countyDoctors.map(d => <option key={d.id} value={d.id}>{d.name}（{d.dept}）</option>)}
               </select>
               <div className="flex gap-3 justify-end">
                 <button
@@ -297,7 +301,7 @@ export default function AdminAnomaly() {
                   disabled={!assignDoctor}
                   onClick={() => {
                     // P0-6：传入 doctorId + doctorName
-                    const doctor = COUNTY_DOCTORS.find(d => d.id === assignDoctor)
+                    const doctor = countyDoctors.find(d => d.id === assignDoctor)
                     if (doctor) assignDoctorByAdmin(assignDialog.ref.id, doctor.id, doctor.name)
                     setAssignDialog({ open: false, ref: null })
                     setAssignDoctor('')
@@ -333,22 +337,35 @@ export default function AdminAnomaly() {
                 rows={3}
                 placeholder="请填写协商关闭原因（必填，将通知双方医生）"
                 value={negotiateReason}
-                onChange={e => setNegotiateReason(e.target.value)}
+                onChange={e => {
+                  setNegotiateReason(e.target.value)
+                  if (negotiateError) setNegotiateError('')
+                }}
               />
+              {negotiateError && (
+                <div className="mt-2 text-xs text-red-500">{negotiateError}</div>
+              )}
             </div>
             <div className="flex justify-end gap-3">
               <button
-                onClick={() => setNegotiateDialog({ open: false, ref: null })}
+                onClick={() => {
+                  setNegotiateDialog({ open: false, ref: null })
+                  setNegotiateError('')
+                }}
                 className="border border-gray-300 text-gray-700 px-4 py-2 rounded text-sm"
               >
                 取消
               </button>
               <button
                 onClick={() => {
-                  if (!negotiateReason.trim()) { alert('请填写关闭原因'); return }
+                  if (!negotiateReason.trim()) {
+                    setNegotiateError('请填写关闭原因')
+                    return
+                  }
                   closeReferral(negotiateDialog.ref.id, negotiateReason)
                   setNegotiateDialog({ open: false, ref: null })
                   setNegotiateReason('')
+                  setNegotiateError('')
                 }}
                 className="bg-gray-700 text-white px-4 py-2 rounded text-sm hover:bg-gray-800"
               >

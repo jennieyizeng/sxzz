@@ -9,19 +9,25 @@ function upwardSteps(internalAuditEnabled) {
     ...(internalAuditEnabled ? [
       { id: 'internal', label: '院内审核', lane: 'primary', statuses: ['待内审'] },
     ] : []),
-    { id: 'notify',   label: '系统通知',   lane: 'system',  statuses: ['待审核'] },
-    { id: 'review',   label: '审核申请',   lane: 'county',  statuses: ['已接收', '已拒绝'] },
-    { id: 'generate', label: '生成转诊单', lane: 'system',  statuses: ['已接收'] },
+    { id: 'notify',   label: '待受理',     lane: 'system',  statuses: ['待审核'] },
     { id: 'transit',  label: '患者前往',   lane: 'patient', statuses: ['转诊中'] },
-    { id: 'confirm',  label: '接诊确认',   lane: 'county',  statuses: ['已完成'] },
+    { id: 'confirm',  label: '接诊确认',   lane: 'system',  statuses: ['已完成'] },
     { id: 'complete', label: '上报数据',   lane: 'system',  statuses: ['已完成'] },
+  ]
+}
+
+function emergencyUpwardSteps() {
+  return [
+    { id: 'draft', label: '填写申请', lane: 'primary', statuses: ['草稿'] },
+    { id: 'supplement', label: '待补录', lane: 'system', statuses: ['转诊中'] },
+    { id: 'prepared', label: '已补录', lane: 'patient', statuses: ['转诊中'] },
+    { id: 'complete', label: '已完成', lane: 'system', statuses: ['已完成'] },
   ]
 }
 
 const DOWNWARD_STEPS = [
   { id: 'initiate', label: '发起下转',        lane: 'county',  statuses: ['待接收'] },
-  { id: 'notify',   label: '系统通知',        lane: 'system',  statuses: ['待接收'] },
-  { id: 'accept',   label: '确认接收',        lane: 'primary', statuses: ['已接收', '已拒绝'] },
+  { id: 'notify',   label: '系统通知',        lane: 'system',  statuses: [] },
   { id: 'transit',  label: '患者前往',        lane: 'patient', statuses: ['转诊中'] },
   { id: 'confirm',  label: '接收确认',        lane: 'primary', statuses: ['已完成'] },
   { id: 'followup', label: '创建随访',        lane: 'system',  statuses: ['已完成'] },
@@ -34,7 +40,26 @@ const LANES = {
   system:  { label: '系统',     icon: '⚙️', accent: '#8b5cf6', bg: '#faf8ff', border: '#8b5cf6', labelBg: '#ede9fe', labelColor: '#5b21b6' },
 }
 
-function getStepState(step, currentStatus, steps) {
+function getStepState(step, currentStatus, steps, options = {}) {
+  if (options.isEmergencyUpward) {
+    const currentStepId = (() => {
+      if (currentStatus === '草稿') return 'draft'
+      if (currentStatus === '已完成') return 'complete'
+      return options.hasEmergencyAdmissionArrangement ? 'prepared' : 'supplement'
+    })()
+    const currentIndex = steps.findIndex(s => s.id === currentStepId)
+    const stepIndex = steps.indexOf(step)
+
+    if (['已撤销', '已拒绝', '已关闭'].includes(currentStatus)) {
+      if (stepIndex < currentIndex) return 'done'
+      if (stepIndex === currentIndex) return 'terminal'
+      return 'future'
+    }
+    if (stepIndex < currentIndex) return 'done'
+    if (stepIndex === currentIndex) return 'active'
+    return 'future'
+  }
+
   const currentIndex = steps.findLastIndex(s => s.statuses.includes(currentStatus))
   const stepIndex = steps.indexOf(step)
 
@@ -93,12 +118,24 @@ function StepNode({ step, state, index, lane }) {
   )
 }
 
-export default function SwimlaneDiagram({ type = 'upward', status, internalAuditEnabled = false }) {
-  const steps = type === 'upward' ? upwardSteps(internalAuditEnabled) : DOWNWARD_STEPS
+export default function SwimlaneDiagram({
+  type = 'upward',
+  status,
+  internalAuditEnabled = false,
+  isEmergency = false,
+  hasEmergencyAdmissionArrangement = false,
+}) {
+  const isEmergencyUpward = type === 'upward' && isEmergency
+  const steps = type === 'upward'
+    ? (isEmergencyUpward ? emergencyUpwardSteps() : upwardSteps(internalAuditEnabled))
+    : DOWNWARD_STEPS
   const laneKeys = Object.keys(LANES).filter(k => steps.some(s => s.lane === k))
+  const displayStatus = isEmergencyUpward && status === '转诊中'
+    ? (hasEmergencyAdmissionArrangement ? '已补录' : '待补录')
+    : status
 
   // 计算进度
-  const doneCount = steps.filter(s => getStepState(s, status, steps) === 'done').length
+  const doneCount = steps.filter(s => getStepState(s, status, steps, { isEmergencyUpward, hasEmergencyAdmissionArrangement }) === 'done').length
   const totalCount = steps.length
   const isTerminal = ['已撤销', '已拒绝', '已关闭'].includes(status)
   const isDone = status === '已完成'
@@ -123,7 +160,7 @@ export default function SwimlaneDiagram({ type = 'upward', status, internalAudit
             <div
               className="h-full rounded-full transition-all duration-500"
               style={{
-                width: `${(doneCount / (totalCount - 1)) * 100}%`,
+                width: `${((totalCount - 1) > 0 ? doneCount / (totalCount - 1) : 0) * 100}%`,
                 background: isTerminal ? '#ef4444' : isDone ? '#10b981' : '#0BBECF'
               }}
             />
@@ -170,13 +207,15 @@ export default function SwimlaneDiagram({ type = 'upward', status, internalAudit
                 <div className="flex items-start">
                   {steps.map((step, i) => {
                     const isThisLane = step.lane === laneKey
-                    const state = getStepState(step, status, steps)
+                    const state = getStepState(step, status, steps, { isEmergencyUpward, hasEmergencyAdmissionArrangement })
                     const nextStep = steps[i + 1]
                     const isLast = i === steps.length - 1
 
                     // 连接线：只在同一泳道相邻步骤之间显示
                     const showConnector = !isLast && isThisLane && nextStep?.lane === laneKey
-                    const nextState = nextStep ? getStepState(nextStep, status, steps) : 'future'
+                    const nextState = nextStep
+                      ? getStepState(nextStep, status, steps, { isEmergencyUpward, hasEmergencyAdmissionArrangement })
+                      : 'future'
                     const connectorColor = (state === 'done' && (nextState === 'done' || nextState === 'active'))
                       ? (state === 'done' && nextState === 'active' ? `linear-gradient(to right, #10b981, ${lane.accent})` : '#10b981')
                       : '#e5e7eb'
@@ -234,7 +273,7 @@ export default function SwimlaneDiagram({ type = 'upward', status, internalAudit
               { background: '#E0F6F9', color: '#0892a0', border: '1px solid #a4edf5' }
             }
           >
-            {status}
+            {displayStatus}
           </span>
         </div>
         {/* 图例 */}

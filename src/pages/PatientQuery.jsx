@@ -10,7 +10,7 @@ import { UPWARD_STATUS, DOWNWARD_STATUS } from '../data/mockData'
 const MOCK_CODE = '123456'
 
 const STATUS_LABELS = {
-  [UPWARD_STATUS.PENDING]:    { label: '待审核',   color: 'bg-yellow-100 text-yellow-700' },
+  [UPWARD_STATUS.PENDING]:    { label: '待受理',   color: 'bg-yellow-100 text-yellow-700' },
   [UPWARD_STATUS.IN_TRANSIT]: { label: '转诊中',   color: 'bg-blue-100 text-blue-700' },
   [UPWARD_STATUS.COMPLETED]:  { label: '已完成',   color: 'bg-green-100 text-green-700' },
   [UPWARD_STATUS.REJECTED]:   { label: '已拒绝',   color: 'bg-red-100 text-red-700' },
@@ -170,7 +170,7 @@ export default function PatientQuery() {
                 </div>
                 {sentCode && !codeError && (
                   <p className="mt-1.5 text-xs text-gray-400">
-                    验证码已发送至 {maskPhone(phone)}（<span className="text-amber-600">演示模式：验证码固定为 123456</span>）
+                    验证码已发送至 {maskPhone(phone)}（<span className="text-amber-600">验证码固定为 123456</span>）
                   </p>
                 )}
                 {codeError && <p className="mt-1.5 text-xs text-red-500">{codeError}</p>}
@@ -218,7 +218,7 @@ export default function PatientQuery() {
                     {/* 卡片头 */}
                     <div className="flex items-center justify-between px-5 py-3 border-b border-gray-100 bg-gray-50">
                       <div className="text-sm font-medium text-gray-700">
-                        转诊单 <span className="font-mono text-gray-500 ml-1">{ref.referralNo || ref.id}</span>
+                        转诊单 <span className="font-mono text-gray-500 ml-1">{ref.referralCode || ref.referralNo || ref.id}</span>
                       </div>
                       <span className={`text-xs px-2.5 py-1 rounded-full font-medium ${statusInfo.color}`}>
                         {statusInfo.label}

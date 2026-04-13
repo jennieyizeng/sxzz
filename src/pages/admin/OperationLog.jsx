@@ -1,69 +1,9 @@
-import React, { useState, useMemo } from 'react'
-
-const MOCK_LOGS = [
-  {
-    id: 'LOG001',
-    time: '2026-03-19 10:32',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '代为确认接诊',
-    target: 'REF2026003',
-    result: '成功',
-    detail: { 转诊单: 'REF2026003', 患者: '李四', 操作说明: '超时48h，管理员代为确认接诊' },
-  },
-  {
-    id: 'LOG002',
-    time: '2026-03-18 16:45',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '手动数据补报',
-    target: 'REF2026002',
-    result: '成功',
-    detail: { 转诊单: 'REF2026002', 补报系统: '健康通', 重试次数: 2 },
-  },
-  {
-    id: 'LOG003',
-    time: '2026-03-18 09:20',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '协商关闭',
-    target: 'REF2026005',
-    result: '成功',
-    detail: { 转诊单: 'REF2026005', 关闭原因: '患者已就近就医，双方协商关闭', 通知医生: '王医生、刘医生' },
-  },
-  {
-    id: 'LOG004',
-    time: '2026-03-17 14:10',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '角色权限变更',
-    target: '用户：陈医生',
-    result: '成功',
-    detail: { 用户: '陈医生（工号:D0043）', 原角色: '基层医生', 新角色: '县级医生', 变更原因: '岗位调动' },
-  },
-  {
-    id: 'LOG005',
-    time: '2026-03-16 11:05',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '机构信息变更',
-    target: '绵竹市汉旺镇卫生院',
-    result: '成功',
-    detail: { 机构: '绵竹市汉旺镇卫生院', 变更字段: '联系电话', 原值: '0838-xxxxxxx', 新值: '0838-yyyyyyy' },
-  },
-  {
-    id: 'LOG006',
-    time: '2026-03-15 08:30',
-    operator: '赵管理员',
-    role: '转诊管理员',
-    type: '系统配置变更',
-    target: '转诊单模板',
-    result: '失败',
-    detail: { 配置项: '转诊原因字段最大字符数', 原值: '200', 目标值: '500', 失败原因: '数据库写入超时，已回滚' },
-  },
-]
-
-const LOG_TYPES = ['全部', '代为确认接诊', '手动数据补报', '协商关闭', '角色权限变更', '机构信息变更', '系统配置变更']
+import React, { useEffect, useMemo, useState } from 'react'
+import {
+  getSystemOperationLogs,
+  SYSTEM_OPERATION_LOG_DOMAINS,
+  SYSTEM_OPERATION_LOG_TYPES,
+} from '../../data/systemAdminConfig'
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
@@ -89,9 +29,6 @@ function ResultBadge({ result }) {
 
 function TypeBadge({ type }) {
   const colorMap = {
-    '代为确认接诊': 'bg-blue-100 text-blue-700',
-    '手动数据补报': 'bg-cyan-100 text-cyan-700',
-    '协商关闭': 'bg-orange-100 text-orange-700',
     '角色权限变更': 'bg-purple-100 text-purple-700',
     '机构信息变更': 'bg-yellow-100 text-yellow-700',
     '系统配置变更': 'bg-gray-100 text-gray-600',
@@ -100,15 +37,76 @@ function TypeBadge({ type }) {
   return <span className={`text-xs px-2 py-0.5 rounded ${cls}`}>{type}</span>
 }
 
+function buildCompareRows(detail) {
+  const compareRows = []
+  const metadataEntries = []
+  const handledKeys = new Set()
+
+  Object.entries(detail).forEach(([key, value]) => {
+    if (handledKeys.has(key)) return
+
+    if (key.startsWith('原') && detail[`新${key.slice(1)}`] !== undefined) {
+      compareRows.push({
+        field: key.slice(1),
+        before: value,
+        after: detail[`新${key.slice(1)}`],
+      })
+      handledKeys.add(key)
+      handledKeys.add(`新${key.slice(1)}`)
+      return
+    }
+
+    if (typeof value === 'string' && value.includes(' → ')) {
+      const [before, after] = value.split(' → ')
+      compareRows.push({ field: key, before, after })
+      handledKeys.add(key)
+      return
+    }
+
+    metadataEntries.push([key, value])
+    handledKeys.add(key)
+  })
+
+  return { compareRows, metadataEntries }
+}
+
 function DetailBlock({ detail }) {
+  const { compareRows, metadataEntries } = buildCompareRows(detail)
+
   return (
-    <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-xs text-gray-700 space-y-1">
-      {Object.entries(detail).map(([k, v]) => (
-        <div key={k} className="flex gap-2">
-          <span className="text-gray-400 min-w-[80px] shrink-0">{k}:</span>
-          <span className="text-gray-700 break-all">{String(v)}</span>
+    <div className="space-y-3">
+      {compareRows.length > 0 && (
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3">
+          <div className="mb-2 text-xs font-medium text-cyan-700">变更前后对比</div>
+          <div className="space-y-2">
+            {compareRows.map(row => (
+              <div key={row.field} className="grid grid-cols-[88px_1fr_24px_1fr] items-start gap-2 text-xs">
+                <div className="pt-1 text-gray-500">{row.field}</div>
+                <div className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-gray-600 break-all">
+                  <div className="mb-1 text-[11px] text-gray-400">变更前</div>
+                  {String(row.before || '—')}
+                </div>
+                <div className="pt-6 text-center text-cyan-500">→</div>
+                <div className="rounded-md border border-cyan-200 bg-white px-2 py-1.5 text-gray-700 break-all">
+                  <div className="mb-1 text-[11px] text-cyan-600">变更后</div>
+                  {String(row.after || '—')}
+                </div>
+              </div>
+            ))}
+          </div>
         </div>
-      ))}
+      )}
+
+      {metadataEntries.length > 0 && (
+        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-xs text-gray-700 space-y-1">
+          {metadataEntries.map(([k, v]) => (
+            <div key={k} className="flex gap-2">
+              <span className="text-gray-400 min-w-[88px] shrink-0">{k}:</span>
+              <span className="text-gray-700 break-all">{String(v)}</span>
+            </div>
+          ))}
+        </div>
+      )}
     </div>
   )
 }
@@ -120,10 +118,12 @@ export default function OperationLog() {
   sevenDaysAgo.setDate(today.getDate() - 7)
   const fmtDate = d => d.toISOString().slice(0, 10)
 
+  const [logs, setLogs] = useState(() => getSystemOperationLogs())
   const [filters, setFilters] = useState({
     startDate: fmtDate(sevenDaysAgo),
     endDate: fmtDate(today),
     operator: '',
+    domain: '全部',
     type: '全部',
     keyword: '',
   })
@@ -131,17 +131,24 @@ export default function OperationLog() {
   const [expandedId, setExpandedId] = useState(null)
   const [page, setPage] = useState(1)
 
+  useEffect(() => {
+    const syncLogs = () => setLogs(getSystemOperationLogs())
+    window.addEventListener('system-operation-log-updated', syncLogs)
+    return () => window.removeEventListener('system-operation-log-updated', syncLogs)
+  }, [])
+
   const filtered = useMemo(() => {
-    return MOCK_LOGS.filter(log => {
+    return logs.filter(log => {
       const logDate = log.time.slice(0, 10)
       if (applied.startDate && logDate < applied.startDate) return false
       if (applied.endDate && logDate > applied.endDate) return false
       if (applied.operator && !log.operator.includes(applied.operator)) return false
+      if (applied.domain !== '全部' && log.domain !== applied.domain) return false
       if (applied.type !== '全部' && log.type !== applied.type) return false
       if (applied.keyword && !log.target.includes(applied.keyword) && !log.id.includes(applied.keyword)) return false
       return true
     })
-  }, [applied])
+  }, [applied, logs])
 
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
@@ -152,6 +159,7 @@ export default function OperationLog() {
       startDate: fmtDate(sevenDaysAgo),
       endDate: fmtDate(today),
       operator: '',
+      domain: '全部',
       type: '全部',
       keyword: '',
     }
@@ -161,10 +169,23 @@ export default function OperationLog() {
     setExpandedId(null)
   }
 
-  const handleExport = () => alert('导出操作日志 CSV（原型模拟，实际对接后端导出接口）')
+  const [toast, setToast] = useState('')
+  const showToast = (message) => {
+    setToast(message)
+    setTimeout(() => setToast(''), 1500)
+  }
+  const handleExport = () => showToast('导出任务已创建，可在日志中心下载 CSV 文件。')
 
   return (
     <div className="p-5">
+      {toast && (
+        <div className="fixed top-4 right-4 z-[60] flex items-center gap-2 px-5 py-2.5 bg-green-600 text-white text-sm rounded-lg shadow-lg">
+          <svg className="w-4 h-4 flex-shrink-0" fill="none" viewBox="0 0 24 24" stroke="currentColor">
+            <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M5 13l4 4L19 7" />
+          </svg>
+          {toast}
+        </div>
+      )}
       {/* 页头 */}
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">操作日志</h2>
@@ -208,13 +229,25 @@ export default function OperationLog() {
 
           {/* 操作类型 */}
           <div>
+            <label className="block text-xs text-gray-500 mb-1">配置域</label>
+            <select
+              value={filters.domain}
+              onChange={e => setFilters(f => ({ ...f, domain: e.target.value }))}
+              className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm h-8 focus:outline-none bg-white"
+            >
+              {SYSTEM_OPERATION_LOG_DOMAINS.map(d => <option key={d} value={d}>{d}</option>)}
+            </select>
+          </div>
+
+          {/* 操作类型 */}
+          <div>
             <label className="block text-xs text-gray-500 mb-1">操作类型</label>
             <select
               value={filters.type}
               onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm h-8 focus:outline-none bg-white"
             >
-              {LOG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+              {SYSTEM_OPERATION_LOG_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
           </div>
 
@@ -262,7 +295,7 @@ export default function OperationLog() {
           <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', '操作时间', '操作人', '操作角色', '操作类型', '关联对象', '操作结果', '操作'].map(h => (
+                {['序号', '操作时间', '操作人', '操作角色', '配置域', '操作类型', '关联对象', '操作结果', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -270,7 +303,7 @@ export default function OperationLog() {
             <tbody>
               {pageData.length === 0 ? (
                 <tr>
-                  <td colSpan={8} className="py-14 text-center">
+                  <td colSpan={9} className="py-14 text-center">
                     <div className="text-gray-300 text-4xl mb-2">📋</div>
                     <div className="text-gray-400 text-sm">暂无操作日志</div>
                     <div className="text-gray-300 text-xs mt-1">请调整筛选条件后重新查询</div>
@@ -290,6 +323,7 @@ export default function OperationLog() {
                     <td className={TD + ' text-xs text-gray-500 whitespace-nowrap'}>{log.time}</td>
                     <td className={TD + ' font-medium text-gray-800'}>{log.operator}</td>
                     <td className={TD + ' text-xs text-gray-500'}>{log.role}</td>
+                    <td className={TD + ' text-xs text-gray-500'}>{log.domain}</td>
                     <td className={TD}><TypeBadge type={log.type} /></td>
                     <td className={TD + ' text-xs text-gray-600 font-mono'}>{log.target}</td>
                     <td className={TD}><ResultBadge result={log.result} /></td>
@@ -306,7 +340,7 @@ export default function OperationLog() {
 
                   {expandedId === log.id && (
                     <tr style={{ borderBottom: '1px solid #EEF7F9' }}>
-                      <td colSpan={8} style={{ background: i % 2 === 0 ? '#fff' : '#FAFEFE', padding: '0 12px 12px 48px' }}>
+                      <td colSpan={9} style={{ background: i % 2 === 0 ? '#fff' : '#FAFEFE', padding: '0 12px 12px 48px' }}>
                         <div className="text-xs text-gray-400 mb-2 font-medium">操作详情</div>
                         <DetailBlock detail={log.detail} />
                       </td>

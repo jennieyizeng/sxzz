@@ -1,0 +1,258 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王晓敏
+          - generic [ref=e15]: xx市人民医院
+      - generic [ref=e17]: 县级科主任
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /county/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "科室待受理上转" [ref=e29] [cursor=pointer]:
+            - /url: /county/review-list
+          - link "科室上转记录" [ref=e30] [cursor=pointer]:
+            - /url: /county/referral-records
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "发起下转" [ref=e38] [cursor=pointer]:
+            - /url: /county/create-downward
+          - link "下转记录" [ref=e39] [cursor=pointer]:
+            - /url: /county/downward-records
+      - link "🔔 消息中心" [ref=e40] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e41]: 🔔
+        - generic [ref=e42]: 消息中心
+  - generic [ref=e43]:
+    - banner [ref=e44]:
+      - generic [ref=e45]: 双向转诊平台
+      - generic [ref=e46]:
+        - button "🎭 切换角色 ▾" [ref=e48] [cursor=pointer]:
+          - generic [ref=e49]: 🎭
+          - generic [ref=e50]: 切换角色
+          - generic [ref=e51]: ▾
+        - link [ref=e52] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e53]
+        - link "王" [ref=e55] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e56]:
+      - generic [ref=e165]:
+        - generic [ref=e166]:
+          - button "← 返回" [ref=e167] [cursor=pointer]
+          - generic [ref=e168]: ›
+          - generic [ref=e169]: 转诊单详情
+          - generic [ref=e170]: ›
+          - generic [ref=e171]: REF2026016
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - generic [ref=e175]:
+              - generic [ref=e176]: ⬆️
+              - heading "上转申请 · 谢大勇" [level=1] [ref=e177]
+              - generic [ref=e178]: 转诊中
+            - generic [ref=e180]:
+              - generic [ref=e181]: 患者：谢大勇 · 男 · 74岁
+              - generic [ref=e182]: "|"
+              - generic [ref=e183]: 诊断：I25.2 陈旧性心肌梗死
+              - generic [ref=e184]: "|"
+              - generic [ref=e185]: 转诊单号：ZZ20260331020
+            - generic [ref=e186]:
+              - generic [ref=e187]: xx市清平乡卫生院 (吴医生)
+              - generic [ref=e188]: →
+              - generic [ref=e189]: xx市人民医院 · 心血管科
+              - generic [ref=e190]: "|"
+              - generic [ref=e191]: 创建于 2026/04/06 13:52
+          - generic [ref=e192]:
+            - generic [ref=e193]: 县级科主任此页仅查看本科室转诊详情，不在详情页直接执行受理或拒绝。
+            - button "📄 导出PDF" [ref=e194] [cursor=pointer]
+        - generic [ref=e196]:
+          - generic [ref=e197]:
+            - generic [ref=e198]:
+              - generic [ref=e200]: 上转流程进度
+              - generic [ref=e201]: 共 7 个环节
+            - generic [ref=e205]: 4/6
+          - generic [ref=e206]:
+            - generic [ref=e207]:
+              - generic [ref=e208]:
+                - generic [ref=e209]: 🏥
+                - generic [ref=e210]: 基层医生
+              - generic [ref=e213]:
+                - generic [ref=e215]:
+                  - generic [ref=e216]: "1"
+                  - img [ref=e218]
+                  - generic [ref=e220]: 填写申请
+                - generic [ref=e224]:
+                  - generic [ref=e225]: "2"
+                  - img [ref=e227]
+                  - generic [ref=e229]: 提交申请
+                - generic [ref=e233]:
+                  - generic [ref=e234]: "3"
+                  - img [ref=e236]
+                  - generic [ref=e238]: 院内审核
+            - generic [ref=e263]:
+              - generic [ref=e264]:
+                - generic [ref=e265]: 👤
+                - generic [ref=e266]: 患者
+              - generic [ref=e295]:
+                - generic [ref=e296]: "5"
+                - generic [ref=e299]: 患者前往
+            - generic [ref=e312]:
+              - generic [ref=e313]:
+                - generic [ref=e314]: ⚙️
+                - generic [ref=e315]: 系统
+              - generic [ref=e318]:
+                - generic [ref=e338]:
+                  - generic [ref=e339]: "4"
+                  - img [ref=e341]
+                  - generic [ref=e343]: 待受理
+                - generic [ref=e353]:
+                  - generic [ref=e354]: "6"
+                  - generic [ref=e357]: 接诊确认
+                - generic [ref=e361]:
+                  - generic [ref=e362]: "7"
+                  - generic [ref=e365]: 上报数据
+          - generic [ref=e366]:
+            - generic [ref=e367]:
+              - generic [ref=e368]: 当前状态
+              - generic [ref=e369]: 转诊中
+            - generic [ref=e370]:
+              - generic [ref=e373]: 已完成
+              - generic [ref=e376]: 进行中
+              - generic [ref=e379]: 待完成
+        - generic [ref=e380]:
+          - generic [ref=e381]: 转诊预约码
+          - generic [ref=e382]:
+            - generic [ref=e383]: ZZ20260401-0051
+            - generic [ref=e384]:
+              - generic [ref=e385]: 有效期至：4/9 09:52
+              - generic [ref=e386]: 凭此码到 心血管科 挂号窗口出示，优先排队就诊
+        - generic [ref=e388]:
+          - generic [ref=e389]:
+            - generic [ref=e391]: 🏥 到院接诊安排
+            - generic [ref=e392]: 由 赵管理员 安排 · 2026/04/07 09:52
+          - generic [ref=e393]:
+            - generic [ref=e394]:
+              - text: 就诊时间
+              - generic [ref=e395]: 2026/04/12 17:52
+            - generic [ref=e396]:
+              - text: 接诊科室
+              - generic [ref=e397]: 心内科
+            - generic [ref=e398]:
+              - text: 楼层/区域
+              - generic [ref=e399]: 5楼
+            - generic [ref=e400]:
+              - text: 科室电话
+              - generic [ref=e401]: 0816-3391234
+            - generic [ref=e402]:
+              - text: 参考医生
+              - generic [ref=e403]: 李志远（仅供参考）
+          - generic [ref=e404]:
+            - generic [ref=e406]: 🛏 住院安排
+            - generic [ref=e407]:
+              - generic [ref=e408]:
+                - text: 病区
+                - generic [ref=e409]: 内科病区B
+              - generic [ref=e410]:
+                - text: 床位号
+                - generic [ref=e411]: 312床
+              - generic [ref=e412]:
+                - text: 护士站
+                - generic [ref=e413]: 0816-3392345
+          - generic [ref=e414]:
+            - generic [ref=e415]: 取号码
+            - generic [ref=e416]: ZZ20260401-0051
+            - generic [ref=e417]: 持本取号码至护士站办理入院
+        - generic [ref=e418]:
+          - generic [ref=e419]: 就诊须知
+          - generic [ref=e420]:
+            - generic [ref=e421]:
+              - generic [ref=e422]: ①
+              - generic [ref=e423]: 携带材料：身份证 + 医保卡 + 本转诊单（截图即可）+ 既往检查资料
+            - generic [ref=e424]:
+              - generic [ref=e425]: ②
+              - generic [ref=e426]: 到院后前往住院部办理入院手续，告知持有转诊单，出示预约码 ZZ20260401-0051
+            - generic [ref=e427]:
+              - generic [ref=e428]: ③
+              - generic [ref=e429]: 到院后仍需正常挂号缴费，预约码用于优先排队，不免除挂号及诊疗费用
+            - generic [ref=e430]:
+              - generic [ref=e431]: ④
+              - generic [ref=e432]: 持本转诊单就诊，按分级诊疗比例报销，高于自行就诊比例，请携带医保卡
+            - generic [ref=e433]:
+              - generic [ref=e434]: ⑤
+              - generic [ref=e435]: 预约码有效期至：4/9 09:52
+        - generic [ref=e436]:
+          - generic [ref=e437]:
+            - button "申请详情" [ref=e438] [cursor=pointer]
+            - button "转诊资料" [ref=e439] [cursor=pointer]
+            - button "操作日志 (5)" [ref=e440] [cursor=pointer]
+            - button "患者历史转诊" [ref=e441] [cursor=pointer]
+          - generic [ref=e443]:
+            - generic [ref=e444]:
+              - heading "患者基本信息" [level=3] [ref=e445]
+              - generic [ref=e446]:
+                - generic [ref=e447]:
+                  - generic [ref=e448]: 姓名
+                  - generic [ref=e449]: 谢大勇
+                - generic [ref=e450]:
+                  - generic [ref=e451]: 性别
+                  - generic [ref=e452]: 男
+                - generic [ref=e453]:
+                  - generic [ref=e454]: 年龄
+                  - generic [ref=e455]: 74岁
+                - generic [ref=e456]:
+                  - generic [ref=e457]: 身份证号
+                  - generic [ref=e458]: 510623***1212
+                - generic [ref=e459]:
+                  - generic [ref=e460]: 联系电话
+                  - generic [ref=e461]: 138****0005
+                - generic [ref=e462]:
+                  - generic [ref=e463]: 地址
+                  - generic [ref=e464]: xx市清平乡XX村3组
+            - generic [ref=e465]:
+              - heading "上转信息" [level=3] [ref=e466]
+              - generic [ref=e468]:
+                - generic [ref=e469]:
+                  - generic [ref=e470]: 诊断
+                  - generic [ref=e471]: I25.2 陈旧性心肌梗死
+                - generic [ref=e472]:
+                  - generic [ref=e473]: 转诊原因
+                  - generic [ref=e474]: 陈旧性心梗，心功能减退，需住院行心脏超声及负荷试验评估，调整治疗方案
+                - generic [ref=e475]:
+                  - generic [ref=e476]: 资料查看
+                  - generic [ref=e477]: 详见“转诊资料”页签
+            - generic [ref=e478]:
+              - heading "转诊机构信息" [level=3] [ref=e479]
+              - generic [ref=e481]:
+                - generic [ref=e482]:
+                  - generic [ref=e483]: 转出机构
+                  - generic [ref=e484]: xx市清平乡卫生院
+                  - generic [ref=e485]: 经治医生：吴医生
+                - generic [ref=e486]:
+                  - generic [ref=e487]: 接收机构
+                  - generic [ref=e488]: xx市人民医院
+                  - generic [ref=e489]: 科室：心血管科 · 接诊医生：李志远
+            - generic [ref=e490]:
+              - heading "知情同意" [level=3] [ref=e491]
+              - generic [ref=e492]:
+                - generic [ref=e493]: ✅
+                - generic [ref=e494]: 签署完成 · 时间：2026/04/06 13:22 · 电子存档已生成

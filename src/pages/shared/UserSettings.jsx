@@ -13,7 +13,7 @@ const CHANNEL_OPTIONS = [
 ]
 
 const EVENT_PREFS = [
-  { key: 'newReferral',   label: '新转诊申请',     desc: '有新的上转/下转申请待处理' },
+  { key: 'newReferral',   label: '新转诊申请',     desc: '有新的转入/转出申请待处理' },
   { key: 'statusChange',  label: '转诊状态变更',   desc: '我发起或参与的转诊状态发生变化' },
   { key: 'timeout',       label: '超时预警',       desc: '转诊超时未处理提醒' },
   { key: 'followup',      label: '随访任务提醒',   desc: '随访任务到期前提醒' },

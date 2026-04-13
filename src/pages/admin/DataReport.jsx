@@ -79,7 +79,7 @@ export default function DataReport() {
 
   const handleRetry = (id) => {
     setData(prev => prev.map(r => r.id === id ? { ...r, status: 'retrying', retryCount: r.retryCount + 1, lastRetry: new Date().toLocaleString('sv-SE').slice(0, 16) } : r))
-    alert(`已触发重试：${id}（原型模拟，写入操作日志）`)
+    alert(`已触发重试：${id}`)
   }
 
   const handleManualReport = (id) => {
@@ -91,7 +91,7 @@ export default function DataReport() {
     if (!modal) return
     setData(prev => prev.map(r => r.id === modal.id ? { ...r, status: 'success', lastRetry: new Date().toLocaleString('sv-SE').slice(0, 16) } : r))
     setSelected(prev => prev.filter(id => id !== modal.id))
-    alert(`手动补报成功：${modal.id}（已写入操作日志，原型模拟）`)
+    alert(`手动补报成功：${modal.id}`)
     setModal(null)
   }
 
@@ -103,7 +103,7 @@ export default function DataReport() {
     if (ids.length === 0) return
     setData(prev => prev.map(r => ids.includes(r.id) ? { ...r, status: 'success' } : r))
     setSelected([])
-    alert(`批量手动补报完成：${ids.join(', ')}（原型模拟）`)
+    alert(`批量手动补报完成：${ids.join(', ')}`)
   }
 
   const toggleSelect = (id) => {

@@ -7,15 +7,15 @@ const NAV_CONFIG = {
   [ROLES.PRIMARY]: [
     { path: '/primary/dashboard', label: '工作台', icon: '📊' },
     {
-      label: '上转管理', icon: '⬆️', children: [
-        { path: '/primary/create-referral', label: '发起上转' },
-        { path: '/primary/referral-list', label: '上转记录' },
+      label: '转出管理', icon: '⬆️', children: [
+        { path: '/primary/create-referral', label: '发起转出' },
+        { path: '/primary/referral-list', label: '转出记录' },
       ]
     },
     {
-      label: '下转管理', icon: '⬇️', children: [
-        { path: '/primary/downward-list', label: '下转待接收' },
-        { path: '/primary/downward-records', label: '下转记录' },
+      label: '转入管理', icon: '⬇️', children: [
+        { path: '/primary/downward-list', label: '转入处理' },
+        { path: '/primary/downward-records', label: '转入记录' },
       ]
     },
     // M-2：role-permission-matrix v1.3 明确基层医生有「随访任务（本人负责的）」菜单
@@ -25,15 +25,15 @@ const NAV_CONFIG = {
   [ROLES.COUNTY]: [
     { path: '/county/dashboard', label: '工作台', icon: '📊' },
     {
-      label: '上转管理', icon: '⬆️', children: [
-        { path: '/county/review-list', label: '上转审核' },
-        { path: '/county/referral-records', label: '上转记录' },
+      label: '转入管理', icon: '⬆️', children: [
+        { path: '/county/review-list', label: '待受理转入' },
+        { path: '/county/referral-records', label: '转入记录' },
       ]
     },
     {
-      label: '下转管理', icon: '⬇️', children: [
-        { path: '/county/create-downward', label: '发起下转' },
-        { path: '/county/downward-records', label: '下转记录' },
+      label: '转出管理', icon: '⬇️', children: [
+        { path: '/county/create-downward', label: '发起转出' },
+        { path: '/county/downward-records', label: '转出记录' },
       ]
     },
     { path: '/messages', label: '消息中心', icon: '🔔' },
@@ -42,15 +42,15 @@ const NAV_CONFIG = {
   [ROLES.COUNTY2]: [
     { path: '/county/dashboard', label: '工作台', icon: '📊' },
     {
-      label: '上转管理', icon: '⬆️', children: [
-        { path: '/county/review-list', label: '上转审核' },
-        { path: '/county/referral-records', label: '上转记录' },
+      label: '转入管理', icon: '⬆️', children: [
+        { path: '/county/review-list', label: '科室待受理转入' },
+        { path: '/county/referral-records', label: '科室转入记录' },
       ]
     },
     {
-      label: '下转管理', icon: '⬇️', children: [
-        { path: '/county/create-downward', label: '发起下转' },
-        { path: '/county/downward-records', label: '下转记录' },
+      label: '转出管理', icon: '⬇️', children: [
+        { path: '/county/create-downward', label: '发起转出' },
+        { path: '/county/downward-records', label: '转出记录' },
       ]
     },
     { path: '/messages', label: '消息中心', icon: '🔔' },
@@ -59,7 +59,6 @@ const NAV_CONFIG = {
     { path: '/admin/dashboard', label: '工作台', icon: '📊' },
     { path: '/admin/ledger', label: '转诊台账', icon: '📋' },
     { path: '/admin/anomaly', label: '异常处理', icon: '⚠️' },
-    { path: '/admin/followup', label: '随访任务', icon: '📅' },
     {
       label: '统计报表', icon: '📈', children: [
         { path: '/admin/stats', label: '统计看板' },
@@ -68,37 +67,39 @@ const NAV_CONFIG = {
         { path: '/admin/data-report', label: '数据上报' },
       ]
     },
+    { path: '/messages', label: '消息中心', icon: '🔔' },
+  ],
+  [ROLES.SYSTEM_ADMIN]: [
+    { path: '/admin/institution-manage', label: '工作台', icon: '📊' },
     {
       label: '系统管理', icon: '⚙️', children: [
         { path: '/admin/institution-manage', label: '机构管理' },
-        { path: '/admin/audit-rule-config', label: '审核规则配置' },
         { path: '/admin/role-manage', label: '角色权限' },
-        { path: '/admin/form-template', label: '模板配置' },
+        { path: '/admin/form-template', label: '转诊单模板' },
         { path: '/admin/disease-dir', label: '病种目录' },
         { path: '/admin/timeout-config', label: '超时规则' },
         { path: '/admin/notify-template', label: '通知模板' },
-        { path: '/system/operation-log', label: '操作日志' },
+        { path: '/admin/audit-rule-config', label: '审核规则' },
+        { path: '/admin/operation-log', label: '操作日志' },
       ]
     },
-    { path: '/messages', label: '消息中心', icon: '🔔' },
   ],
-  // CHG-32：基层科主任（院内审核）与基层医生共享大部分导航，新增院内审核入口
+  // CHG-32：基层负责人（院内审核）与基层医生共享大部分导航，新增院内审核入口
   [ROLES.PRIMARY_HEAD]: [
     { path: '/primary/dashboard', label: '工作台', icon: '📊' },
-    { path: '/primary/internal-review', label: '院内审核（F-02）', icon: '📋' },
+    { path: '/primary/internal-review', label: '院内审核', icon: '📋' },
     {
-      label: '上转管理', icon: '⬆️', children: [
-        { path: '/primary/referral-list', label: '上转记录' },
+      label: '转出管理', icon: '⬆️', children: [
+        { path: '/primary/referral-list', label: '转出记录' },
       ]
     },
     {
-      label: '下转管理', icon: '⬇️', children: [
-        { path: '/primary/downward-list', label: '下转待接收' },
-        { path: '/primary/downward-records', label: '下转记录' },
+      label: '转入管理', icon: '⬇️', children: [
+        { path: '/primary/downward-list', label: '转入处理' },
+        { path: '/primary/downward-records', label: '转入记录' },
       ]
     },
-    // M-2：科主任也需查看本机构随访任务
-    { path: '/primary/followup', label: '随访任务', icon: '📅' },
+    { path: '/primary/followup', label: '随访任务管理', icon: '📅' },
     { path: '/messages', label: '消息中心', icon: '🔔' },
   ],
   [ROLES.DIRECTOR]: [
@@ -114,6 +115,7 @@ const ROLE_BG = {
   [ROLES.COUNTY]:       'bg-primary-500',
   [ROLES.COUNTY2]:      'bg-cyan-600',     // P0-6：王晓敏
   [ROLES.ADMIN]:        'bg-purple-500',
+  [ROLES.SYSTEM_ADMIN]: 'bg-slate-600',
   [ROLES.DIRECTOR]:     'bg-orange-500',
 }
 
@@ -207,7 +209,7 @@ export default function Layout({ children }) {
           </div>
           <div className="min-w-0">
             <div className="text-sm font-semibold text-gray-800 leading-tight truncate">双向转诊平台</div>
-            <div className="text-xs text-gray-400 truncate">绵竹市医共体</div>
+            <div className="text-xs text-gray-400 truncate">xx市医共体</div>
           </div>
         </div>
 
@@ -237,9 +239,6 @@ export default function Layout({ children }) {
           {navItems.map((item, i) => <NavItem key={i} item={item} />)}
         </nav>
 
-        <div className="px-4 py-3 border-t border-gray-100 text-xs text-gray-400">
-          Phase 06 原型 v1.0
-        </div>
       </aside>
 
       {/* 主区域 */}
@@ -253,7 +252,7 @@ export default function Layout({ children }) {
           <div className="text-sm font-medium text-gray-700">双向转诊平台</div>
 
           <div className="flex items-center gap-2">
-            {/* 角色切换器（演示用） */}
+            {/* 角色切换器 */}
             <div className="relative">
               <button
                 onClick={() => setShowRoleSwitcher(o => !o)}
@@ -262,14 +261,13 @@ export default function Layout({ children }) {
               >
                 <span>🎭</span>
                 <span>切换角色</span>
-                <span className="text-xs opacity-50 hidden sm:inline">（演示用）</span>
                 <span className="text-xs">▾</span>
               </button>
 
               {showRoleSwitcher && (
                 <div className="absolute right-0 top-full mt-1 w-60 bg-white border border-gray-200 rounded-lg shadow-xl z-50 overflow-hidden">
                   <div className="px-3 py-2 text-xs font-medium text-gray-400 bg-gray-50 border-b border-gray-100">
-                    切换视角（演示模式）
+                    切换视角
                   </div>
                   {Object.values(MOCK_USERS).map(user => (
                     <button

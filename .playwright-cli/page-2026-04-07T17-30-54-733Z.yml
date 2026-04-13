@@ -1,0 +1,122 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王晓敏
+          - generic [ref=e15]: xx市人民医院
+      - generic [ref=e17]: 县级科主任
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /county/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "科室待受理上转" [ref=e243] [cursor=pointer]:
+            - /url: /county/review-list
+          - link "科室上转记录" [ref=e244] [cursor=pointer]:
+            - /url: /county/referral-records
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "发起下转" [ref=e245] [cursor=pointer]:
+            - /url: /county/create-downward
+          - link "下转记录" [active] [ref=e246] [cursor=pointer]:
+            - /url: /county/downward-records
+      - link "🔔 消息中心" [ref=e247] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e41]: 🔔
+        - generic [ref=e42]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link [ref=e248] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e485]:
+        - generic [ref=e486]:
+          - generic [ref=e487]:
+            - heading "下转记录" [level=2] [ref=e488]
+            - generic [ref=e489]: 仅显示本科室相关下转记录
+          - button "+ 发起下转" [ref=e490] [cursor=pointer]
+        - generic [ref=e492]:
+          - generic [ref=e493]:
+            - generic [ref=e494]: 患者姓名：
+            - textbox "请输入患者姓名或诊断" [ref=e495]
+          - generic [ref=e496]:
+            - generic [ref=e497]: 状态：
+            - generic [ref=e498]:
+              - generic [ref=e499] [cursor=pointer]:
+                - radio "全部" [checked] [ref=e500]
+                - generic [ref=e501]: 全部
+              - generic [ref=e502] [cursor=pointer]:
+                - radio "待接收" [ref=e503]
+                - generic [ref=e504]: 待接收
+              - generic [ref=e505] [cursor=pointer]:
+                - radio "待内审" [ref=e506]
+                - generic [ref=e507]: 待内审
+              - generic [ref=e508] [cursor=pointer]:
+                - radio "转诊中" [ref=e509]
+                - generic [ref=e510]: 转诊中
+              - generic [ref=e511] [cursor=pointer]:
+                - radio "已完成" [ref=e512]
+                - generic [ref=e513]: 已完成
+              - generic [ref=e514] [cursor=pointer]:
+                - radio "已拒绝" [ref=e515]
+                - generic [ref=e516]: 已拒绝
+              - generic [ref=e517] [cursor=pointer]:
+                - radio "已撤销" [ref=e518]
+                - generic [ref=e519]: 已撤销
+              - generic [ref=e520] [cursor=pointer]:
+                - radio "已关闭" [ref=e521]
+                - generic [ref=e522]: 已关闭
+          - generic [ref=e523]:
+            - button "🔍 查询" [ref=e524] [cursor=pointer]
+            - button "↺ 重置" [ref=e525] [cursor=pointer]
+        - generic [ref=e526]:
+          - table [ref=e527]:
+            - rowgroup [ref=e528]:
+              - row "序号 患者 性别/年龄 诊断（ICD-10） 接收机构 科室 接收方式 当前归属 当前进展 状态 发起时间 操作" [ref=e529]:
+                - columnheader "序号" [ref=e530]
+                - columnheader "患者" [ref=e531]
+                - columnheader "性别/年龄" [ref=e532]
+                - columnheader "诊断（ICD-10）" [ref=e533]
+                - columnheader "接收机构" [ref=e534]
+                - columnheader "科室" [ref=e535]
+                - columnheader "接收方式" [ref=e536]
+                - columnheader "当前归属" [ref=e537]
+                - columnheader "当前进展" [ref=e538]
+                - columnheader "状态" [ref=e539]
+                - columnheader "发起时间" [ref=e540]
+                - columnheader "操作" [ref=e541]
+            - rowgroup [ref=e542]:
+              - row "暂无本科室下转记录" [ref=e543]:
+                - cell "暂无本科室下转记录" [ref=e544]
+          - generic [ref=e546]:
+            - text: 共
+            - strong [ref=e547]: "0"
+            - text: 条记录

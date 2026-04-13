@@ -1,37 +1,12 @@
 import { useState, useMemo } from 'react'
+import {
+  appendSystemOperationLog,
+  SYSTEM_FORM_DOWN_FIELDS,
+  SYSTEM_FORM_PHRASES,
+  SYSTEM_FORM_UP_FIELDS,
+} from '../../data/systemAdminConfig'
 
-// ── Mock 数据 ──────────────────────────────────────────────
-const UPWARD_FIELDS = [
-  { id: 'f1', name: '患者姓名',          section: '患者信息', type: '文本',     visible: true,  required: true,  hint: '' },
-  { id: 'f2', name: '身份证号',          section: '患者信息', type: '文本',     visible: true,  required: false, hint: '用于身份核验，建议填写' },
-  { id: 'f3', name: '联系电话',          section: '患者信息', type: '文本',     visible: true,  required: true,  hint: '' },
-  { id: 'f4', name: '初步诊断（ICD-10）', section: '诊断信息', type: 'ICD搜索', visible: true,  required: true,  hint: '' },
-  { id: 'f5', name: '主诉与现病史',      section: '诊断信息', type: '多行文本', visible: true,  required: true,  hint: '建议不少于50字' },
-  { id: 'f6', name: '转诊原因',          section: '转诊说明', type: '多行文本', visible: true,  required: true,  hint: '' },
-  { id: 'f7', name: '病历附件',          section: '转诊说明', type: '文件上传', visible: true,  required: false, hint: '支持 PDF、图片格式，单文件不超过 10MB' },
-  { id: 'f8', name: '急诊标记',          section: '转诊说明', type: '勾选框',   visible: true,  required: false, hint: '仅限真实急诊情况勾选' },
-]
-
-// Assumption: 下转模板字段，结构与上转类似，实际内容待产品确认
-const DOWNWARD_FIELDS = [
-  { id: 'd1', name: '患者姓名',     section: '患者信息', type: '文本',     visible: true,  required: true,  hint: '' },
-  { id: 'd2', name: '身份证号',     section: '患者信息', type: '文本',     visible: true,  required: false, hint: '用于身份核验，建议填写' },
-  { id: 'd3', name: '联系电话',     section: '患者信息', type: '文本',     visible: true,  required: true,  hint: '' },
-  { id: 'd4', name: '出院诊断',     section: '诊断信息', type: 'ICD搜索', visible: true,  required: true,  hint: '' },
-  { id: 'd5', name: '住院小结',     section: '诊断信息', type: '多行文本', visible: true,  required: true,  hint: '包含治疗经过、用药情况' },
-  { id: 'd6', name: '康复方案',     section: '康复指导', type: '多行文本', visible: true,  required: true,  hint: '' },
-  { id: 'd7', name: '注意事项',     section: '康复指导', type: '多行文本', visible: false, required: false, hint: '建议填写用药禁忌、复查时间' },
-  { id: 'd8', name: '下转病历附件', section: '康复指导', type: '文件上传', visible: true,  required: false, hint: '支持 PDF、图片格式，单文件不超过 10MB' },
-]
-
-const MOCK_PHRASES = [
-  { id: 'p1', scene: '转诊原因',     content: '基层检查设备有限，需上级医院进一步检查明确诊断。' },
-  { id: 'p2', scene: '转诊原因',     content: '患者病情危重，需上级医院急诊处理。' },
-  { id: 'p3', scene: '主诉与现病史', content: '患者反复出现上述症状，门诊保守治疗效果不佳，特申请上转进一步诊治。' },
-  { id: 'p4', scene: '康复方案',     content: '患者急性期治疗已完成，病情稳定，转基层继续康复管理，定期复查。' },
-]
-
-const SCENES = ['转诊原因', '主诉与现病史', '康复方案', '注意事项']
+const SCENES = ['转入申请', '转出申请', '随访建议', '退回说明']
 
 let _phraseId = 5
 
@@ -40,17 +15,17 @@ const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
 const SCENE_TAG = {
-  '转诊原因':     'bg-blue-100 text-blue-700',
-  '主诉与现病史': 'bg-purple-100 text-purple-700',
-  '康复方案':     'bg-green-100 text-green-700',
-  '注意事项':     'bg-orange-100 text-orange-700',
+  '转入申请': 'bg-blue-100 text-blue-700',
+  '转出申请': 'bg-purple-100 text-purple-700',
+  '随访建议': 'bg-green-100 text-green-700',
+  '退回说明': 'bg-orange-100 text-orange-700',
 }
 
 const SECTION_BG = {
-  '患者信息': 'bg-blue-50/40',
-  '诊断信息': 'bg-amber-50/40',
-  '转诊说明': 'bg-green-50/40',
-  '康复指导': 'bg-purple-50/40',
+  '患者基础信息': 'bg-blue-50/40',
+  '临床信息': 'bg-amber-50/40',
+  '接诊安排': 'bg-cyan-50/40',
+  '补充信息': 'bg-green-50/40',
 }
 
 // ── 辅助组件 ───────────────────────────────────────────────
@@ -227,7 +202,7 @@ function FieldConfigTable({ fields, onChange }) {
           </tr>
         </thead>
         <tbody>
-          {fields.map((f, i) => {
+          {fields.map((f) => {
             const sectionFields = sections[f.section] || []
             const isFirstInSection = sectionFields[0]?.id === f.id
             const sectionBg = SECTION_BG[f.section] || ''
@@ -286,10 +261,12 @@ function FieldConfigTable({ fields, onChange }) {
 export default function FormTemplate() {
   const [activeTab, setActiveTab] = useState('up') // 'up' | 'down'
 
-  const [upFields,   setUpFields]   = useState(UPWARD_FIELDS)
-  const [downFields, setDownFields] = useState(DOWNWARD_FIELDS)
+  const [upFields,   setUpFields]   = useState(() => SYSTEM_FORM_UP_FIELDS.map(field => ({ ...field })))
+  const [downFields, setDownFields] = useState(() => SYSTEM_FORM_DOWN_FIELDS.map(field => ({ ...field })))
+  const [savedUpFields, setSavedUpFields] = useState(() => SYSTEM_FORM_UP_FIELDS.map(field => ({ ...field })))
+  const [savedDownFields, setSavedDownFields] = useState(() => SYSTEM_FORM_DOWN_FIELDS.map(field => ({ ...field })))
 
-  const [phrases,       setPhrases]       = useState(MOCK_PHRASES)
+  const [phrases,       setPhrases]       = useState(() => SYSTEM_FORM_PHRASES.map(phrase => ({ ...phrase })))
   const [phraseModal,   setPhraseModal]   = useState(null) // null | 'create' | { phrase }
   const [deleteTarget,  setDeleteTarget]  = useState(null) // phrase obj
 
@@ -303,7 +280,26 @@ export default function FormTemplate() {
   const setCurrentFields = activeTab === 'up' ? setUpFields : setDownFields
 
   const handleSaveFields = () => {
-    // TODO: 调用后端 API 保存字段配置
+    const savedFields = activeTab === 'up' ? savedUpFields : savedDownFields
+    const visibleBefore = savedFields.filter(field => field.visible).length
+    const visibleAfter = currentFields.filter(field => field.visible).length
+    const requiredBefore = savedFields.filter(field => field.required).length
+    const requiredAfter = currentFields.filter(field => field.required).length
+
+    appendSystemOperationLog({
+      domain: '表单模板',
+      type: '系统配置变更',
+      target: activeTab === 'up' ? '转入模板' : '转出模板',
+      detail: {
+        配置项: '字段配置',
+        模板类型: activeTab === 'up' ? '转入模板' : '转出模板',
+        可见字段数: `${visibleBefore} → ${visibleAfter}`,
+        必填字段数: `${requiredBefore} → ${requiredAfter}`,
+      },
+    })
+
+    if (activeTab === 'up') setSavedUpFields(currentFields.map(field => ({ ...field })))
+    else setSavedDownFields(currentFields.map(field => ({ ...field })))
     showToast('字段配置已保存')
   }
 
@@ -311,9 +307,33 @@ export default function FormTemplate() {
     if (phraseModal === 'create') {
       const newP = { id: `p${_phraseId++}`, ...data }
       setPhrases(prev => [...prev, newP])
+      appendSystemOperationLog({
+        domain: '表单模板',
+        type: '系统配置变更',
+        target: `${data.scene}快捷短语`,
+        detail: {
+          配置项: '快捷短语',
+          操作: '新增短语',
+          适用场景: data.scene,
+          内容: data.content,
+        },
+      })
       showToast('快捷短语已新增')
     } else {
+      const original = phraseModal.phrase
       setPhrases(prev => prev.map(p => p.id === phraseModal.phrase.id ? { ...p, ...data } : p))
+      appendSystemOperationLog({
+        domain: '表单模板',
+        type: '系统配置变更',
+        target: `${data.scene}快捷短语`,
+        detail: {
+          配置项: '快捷短语',
+          操作: '编辑短语',
+          适用场景: `${original.scene} → ${data.scene}`,
+          原内容: original.content,
+          新内容: data.content,
+        },
+      })
       showToast('快捷短语已更新')
     }
     setPhraseModal(null)
@@ -321,6 +341,17 @@ export default function FormTemplate() {
 
   const handleDeletePhrase = () => {
     setPhrases(prev => prev.filter(p => p.id !== deleteTarget.id))
+    appendSystemOperationLog({
+      domain: '表单模板',
+      type: '系统配置变更',
+      target: `${deleteTarget.scene}快捷短语`,
+      detail: {
+        配置项: '快捷短语',
+        操作: '删除短语',
+        适用场景: deleteTarget.scene,
+        删除内容: deleteTarget.content,
+      },
+    })
     showToast('快捷短语已删除')
     setDeleteTarget(null)
   }
@@ -333,14 +364,18 @@ export default function FormTemplate() {
       {/* 页面标题 */}
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">转诊单模板配置</h2>
-        <div className="text-xs text-gray-400 mt-0.5">转诊表单字段配置 · 快捷短语管理</div>
+        <div className="text-xs text-gray-400 mt-0.5">普通转入/转出表单字段配置 · 快捷短语管理</div>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs text-cyan-700">
+        当前配置覆盖普通转入/转出表单；急诊与绿色通道页面按专用流程固定，不在此页自由配置。
       </div>
 
       {/* Tab 切换 */}
       <div className="flex gap-1 mb-4 bg-white rounded-lg p-1 w-fit" style={{ border: '1px solid #DDF0F3' }}>
         {[
-          { key: 'up',   label: '上转模板' },
-          { key: 'down', label: '下转模板' },
+          { key: 'up',   label: '转入模板' },
+          { key: 'down', label: '转出模板' },
         ].map(tab => (
           <button
             key={tab.key}

@@ -43,19 +43,19 @@ function buildFollowups(referrals) {
 // 演示用基层医生列表（MOCK_USERS 中基层医生数量不足3人，hardcode 补充）
 // Assumption: role 对应 'primary'（基层医生）
 const DEMO_DOCTORS = [
-  { id: 'u001', name: '王医生', institution: '绵竹市拱星镇卫生院' },
-  { id: 'u101', name: '李慧医生', institution: '绵竹市拱星镇卫生院' },
-  { id: 'u102', name: '张明医生', institution: '绵竹市汉旺镇卫生院' },
-  { id: 'u103', name: '陈芳医生', institution: '绵竹市汉旺镇卫生院' },
+  { id: 'u001', name: '王医生', institution: 'xx市拱星镇卫生院' },
+  { id: 'u101', name: '李慧医生', institution: 'xx市拱星镇卫生院' },
+  { id: 'u102', name: '张明医生', institution: 'xx市汉旺镇卫生院' },
+  { id: 'u103', name: '陈芳医生', institution: 'xx市汉旺镇卫生院' },
 ]
 
 // 静态模拟随访数据（补充）
 // M-1 修复：state-machine v1.3 取消 unassigned 状态，随访任务创建时直接归属下转经办医生（assigned）
 // assignedDoctor 字段记录负责医生，管理员可执行「转移」操作
 const MOCK_FOLLOWUPS_EXTRA = [
-  { id: 'FU_MOCK1', referralId: 'REF2026003', patient: { name: '王五', age: 45, gender: '男' }, diagnosis: { code: 'E11.9', name: '2型糖尿病' }, toInstitution: '绵竹市拱星镇卫生院', toDoctor: '王医生', followupDate: '2026-04-20', indicators: ['血糖', '体重'], status: 'assigned', daysLeft: 21, isOverdue: false, isUrgent: false, assignedDoctor: '王医生' },
-  { id: 'FU_MOCK2', referralId: 'REF2026003', patient: { name: '赵大爷', age: 72, gender: '男' }, diagnosis: { code: 'I10', name: '原发性高血压' }, toInstitution: '绵竹市汉旺镇卫生院', toDoctor: '李慧医生', followupDate: '2026-03-14', indicators: ['血压', '心率'], status: '逾期', daysLeft: -16, isOverdue: true, isUrgent: false, assignedDoctor: '李慧医生' },
-  { id: 'FU_MOCK3', referralId: 'REF2026005', patient: { name: '钱女士', age: 58, gender: '女' }, diagnosis: { code: 'I63.9', name: '脑梗死' }, toInstitution: '绵竹市拱星镇卫生院', toDoctor: '王医生', followupDate: '2026-04-02', indicators: ['血压', '肢体活动度', '语言功能'], status: 'assigned', daysLeft: 3, isOverdue: false, isUrgent: true, assignedDoctor: '王医生' },
+  { id: 'FU_MOCK1', referralId: 'REF2026003', patient: { name: '王五', age: 45, gender: '男' }, diagnosis: { code: 'E11.9', name: '2型糖尿病' }, toInstitution: 'xx市拱星镇卫生院', toDoctor: '王医生', followupDate: '2026-04-20', indicators: ['血糖', '体重'], status: 'assigned', daysLeft: 21, isOverdue: false, isUrgent: false, assignedDoctor: '王医生' },
+  { id: 'FU_MOCK2', referralId: 'REF2026003', patient: { name: '赵大爷', age: 72, gender: '男' }, diagnosis: { code: 'I10', name: '原发性高血压' }, toInstitution: 'xx市汉旺镇卫生院', toDoctor: '李慧医生', followupDate: '2026-03-14', indicators: ['血压', '心率'], status: '逾期', daysLeft: -16, isOverdue: true, isUrgent: false, assignedDoctor: '李慧医生' },
+  { id: 'FU_MOCK3', referralId: 'REF2026005', patient: { name: '钱女士', age: 58, gender: '女' }, diagnosis: { code: 'I63.9', name: '脑梗死' }, toInstitution: 'xx市拱星镇卫生院', toDoctor: '王医生', followupDate: '2026-04-02', indicators: ['血压', '肢体活动度', '语言功能'], status: 'assigned', daysLeft: 3, isOverdue: false, isUrgent: true, assignedDoctor: '王医生' },
 ]
 
 export default function AdminFollowupList() {

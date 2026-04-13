@@ -1,24 +1,24 @@
 import { useState, useMemo } from 'react'
 
 const MOCK_DEPT = [
-  { rank: 1, dept: '心血管科', inst: '绵竹市人民医院', upHandle: 28, downSend: 22, rate: '94.0%', avgResp: 1.8, rejected: 1 },
-  { rank: 2, dept: '神经内科', inst: '绵竹市人民医院', upHandle: 19, downSend: 15, rate: '91.2%', avgResp: 2.3, rejected: 2 },
-  { rank: 3, dept: '全科', inst: '绵竹市拱星镇卫生院', upHandle: 0, downSend: 28, rate: '89.3%', avgResp: 3.5, rejected: 3 },
+  { rank: 1, dept: '心血管科', inst: 'xx市人民医院', upHandle: 28, downSend: 22, rate: '94.0%', avgResp: 1.8, rejected: 1 },
+  { rank: 2, dept: '神经内科', inst: 'xx市人民医院', upHandle: 19, downSend: 15, rate: '91.2%', avgResp: 2.3, rejected: 2 },
+  { rank: 3, dept: '全科', inst: 'xx市拱星镇卫生院', upHandle: 0, downSend: 28, rate: '89.3%', avgResp: 3.5, rejected: 3 },
 ]
 
 const MOCK_DOCTOR = [
-  { rank: 1, name: '刘医生', dept: '心血管科', inst: '绵竹市人民医院', upHandle: 28, downSend: 22, rate: '94.0%', avgResp: 1.8 },
-  { rank: 2, name: '王医生', dept: '全科', inst: '绵竹市拱星镇卫生院', upHandle: 28, downSend: 0, rate: '89.3%', avgResp: 3.5 },
-  { rank: 3, name: '李慧医生', dept: '全科', inst: '绵竹市汉旺镇卫生院', upHandle: 19, downSend: 0, rate: '90.5%', avgResp: 2.9 },
+  { rank: 1, name: '刘医生', dept: '心血管科', inst: 'xx市人民医院', upHandle: 28, downSend: 22, rate: '94.0%', avgResp: 1.8 },
+  { rank: 2, name: '王医生', dept: '全科', inst: 'xx市拱星镇卫生院', upHandle: 28, downSend: 0, rate: '89.3%', avgResp: 3.5 },
+  { rank: 3, name: '李慧医生', dept: '全科', inst: 'xx市汉旺镇卫生院', upHandle: 19, downSend: 0, rate: '90.5%', avgResp: 2.9 },
 ]
 
 const INSTITUTIONS = [
   '全部机构',
-  '绵竹市人民医院',
-  '绵竹市拱星镇卫生院',
-  '绵竹市汉旺镇卫生院',
-  '绵竹市清平乡卫生院',
-  '绵竹市九龙镇卫生院',
+  'xx市人民医院',
+  'xx市拱星镇卫生院',
+  'xx市汉旺镇卫生院',
+  'xx市清平乡卫生院',
+  'xx市九龙镇卫生院',
 ]
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
@@ -69,7 +69,7 @@ export default function DoctorPerf() {
     return MOCK_DOCTOR.filter(d => d.inst === applied.institution)
   }, [applied.institution])
 
-  const handleExport = () => alert(`导出 ${dimension === 'dept' ? '科室' : '医生'} 绩效统计 Excel（原型模拟）`)
+  const handleExport = () => alert(`已开始导出${dimension === 'dept' ? '科室' : '医生'}绩效统计 Excel，请稍后查看下载结果。`)
 
   return (
     <div className="p-5">
@@ -279,7 +279,7 @@ export default function DoctorPerf() {
         <div className="flex items-center justify-between px-4 py-3" style={{ borderTop: '1px solid #EEF7F9', background: '#F8FDFE' }}>
           <span className="text-xs text-gray-400">
             共 <strong className="text-gray-700">{dimension === 'dept' ? deptData.length : doctorData.length}</strong> 条记录 ·
-            排名按完成率降序 {/* TODO: 确认排序规则：完成率优先 还是 总处理量优先 */}
+            排名按完成率降序
           </span>
           <button
             onClick={handleExport}
@@ -292,8 +292,7 @@ export default function DoctorPerf() {
 
       {/* 说明提示 */}
       <div className="mt-3 px-4 py-2.5 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-700">
-        <strong>Assumption：</strong>绩效排名数据仅用于管理员查阅，不对医生本人公开。排名算法待产品侧确认。
-        {/* TODO: 确认绩效计算口径（是否含拒绝单、已撤销单） */}
+        绩效排名结果仅供管理员查阅，不对医生本人公开。
       </div>
     </div>
   )

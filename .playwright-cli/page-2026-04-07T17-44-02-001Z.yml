@@ -1,0 +1,102 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起上转" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "上转记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "下转处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "下转记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - generic [ref=e50]:
+          - button "🎭 切换角色 ▾" [active] [ref=e51] [cursor=pointer]:
+            - generic [ref=e52]: 🎭
+            - generic [ref=e53]: 切换角色
+            - generic [ref=e54]: ▾
+          - generic [ref=e66]:
+            - generic [ref=e67]: 切换视角
+            - button "王 王医生 基层医生 ✓" [ref=e68] [cursor=pointer]:
+              - generic [ref=e69]: 王
+              - generic [ref=e70]:
+                - generic [ref=e71]: 王医生
+                - generic [ref=e72]: 基层医生
+              - generic [ref=e73]: ✓
+            - button "李 李志远 县级医生" [ref=e74] [cursor=pointer]:
+              - generic [ref=e75]: 李
+              - generic [ref=e76]:
+                - generic [ref=e77]: 李志远
+                - generic [ref=e78]: 县级医生
+            - button "王 王晓敏 县级科主任" [ref=e79] [cursor=pointer]:
+              - generic [ref=e80]: 王
+              - generic [ref=e81]:
+                - generic [ref=e82]: 王晓敏
+                - generic [ref=e83]: 县级科主任
+            - button "赵 赵负责人 基层负责人" [ref=e84] [cursor=pointer]:
+              - generic [ref=e85]: 赵
+              - generic [ref=e86]:
+                - generic [ref=e87]: 赵负责人
+                - generic [ref=e88]: 基层负责人
+            - button "赵 赵管理员 转诊管理员" [ref=e89] [cursor=pointer]:
+              - generic [ref=e90]: 赵
+              - generic [ref=e91]:
+                - generic [ref=e92]: 赵管理员
+                - generic [ref=e93]: 转诊管理员
+            - button "陈 陈院长 医共体院长" [ref=e94] [cursor=pointer]:
+              - generic [ref=e95]: 陈
+              - generic [ref=e96]:
+                - generic [ref=e97]: 陈院长
+                - generic [ref=e98]: 医共体院长
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e62]:
+        - generic [ref=e63]: 🔧
+        - heading "无权限访问" [level=2] [ref=e64]
+        - paragraph [ref=e65]: 当前角色暂无此页面访问权限，请切换到有权限的角色后重试。

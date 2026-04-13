@@ -1,11 +1,11 @@
 import { useState } from 'react'
 
 const MOCK_EXAM = [
-  { name: '绵竹市人民医院', type: '县级医院', upSend: 0, downRecv: 45, completed: 42, rate: '93.3%', avgResp: 2.1, timeout: 1, rejected: 2 },
-  { name: '绵竹市拱星镇卫生院', type: '乡镇卫生院', upSend: 28, downRecv: 18, completed: 41, rate: '89.1%', avgResp: 3.5, timeout: 3, rejected: 4 },
-  { name: '绵竹市汉旺镇卫生院', type: '乡镇卫生院', upSend: 19, downRecv: 12, completed: 28, rate: '90.3%', avgResp: 2.8, timeout: 2, rejected: 3 },
-  { name: '绵竹市清平乡卫生院', type: '乡镇卫生院', upSend: 12, downRecv: 8, completed: 18, rate: '90.0%', avgResp: 3.2, timeout: 1, rejected: 2 },
-  { name: '绵竹市九龙镇卫生院', type: '乡镇卫生院', upSend: 8, downRecv: 5, completed: 12, rate: '92.3%', avgResp: 2.9, timeout: 1, rejected: 1 },
+  { name: 'xx市人民医院', type: '县级医院', upSend: 0, downRecv: 45, completed: 42, rate: '93.3%', avgResp: 2.1, timeout: 1, rejected: 2 },
+  { name: 'xx市拱星镇卫生院', type: '乡镇卫生院', upSend: 28, downRecv: 18, completed: 41, rate: '89.1%', avgResp: 3.5, timeout: 3, rejected: 4 },
+  { name: 'xx市汉旺镇卫生院', type: '乡镇卫生院', upSend: 19, downRecv: 12, completed: 28, rate: '90.3%', avgResp: 2.8, timeout: 2, rejected: 3 },
+  { name: 'xx市清平乡卫生院', type: '乡镇卫生院', upSend: 12, downRecv: 8, completed: 18, rate: '90.0%', avgResp: 3.2, timeout: 1, rejected: 2 },
+  { name: 'xx市九龙镇卫生院', type: '乡镇卫生院', upSend: 8, downRecv: 5, completed: 12, rate: '92.3%', avgResp: 2.9, timeout: 1, rejected: 1 },
 ]
 
 // 汇总行
@@ -59,8 +59,8 @@ export default function ExamReport() {
     }, 600)
   }
 
-  const handleExportExcel = () => alert('导出 Excel（原型模拟，对接后端报表导出接口）')
-  const handleExportPDF = () => alert('导出 PDF（原型模拟，对接后端 PDF 生成接口）')
+  const handleExportExcel = () => alert('已开始导出 Excel，请稍后查看下载结果。')
+  const handleExportPDF = () => alert('已开始导出 PDF，请稍后查看下载结果。')
   const handlePrint = () => window.print()
 
   const periodLabel = period === '月度' ? month : period === '季度' ? quarter : year
@@ -262,8 +262,7 @@ export default function ExamReport() {
           {/* 底部导出操作栏 */}
           <div className="flex items-center justify-between bg-white rounded-xl px-5 py-3" style={{ border: '1px solid #DDF0F3' }}>
             <div className="text-xs text-gray-400">
-              报表数据截止时间：2026-03-19 12:00 · {/* TODO: 接入实际生成时间戳 */}
-              <span className="text-orange-500">Assumption: 数据仅供演示</span>
+              报表数据截止时间：2026-03-19 12:00
             </div>
             <div className="flex items-center gap-2">
               <button

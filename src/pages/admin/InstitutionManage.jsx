@@ -1,13 +1,10 @@
 import { useState, useMemo } from 'react'
-
-// ── Mock 数据 ──────────────────────────────────────────────
-const MOCK_INSTITUTIONS = [
-  { id: 'I001', name: '绵竹市人民医院',     code: '5106820001', type: '县级医院',   contact: '张主任', phone: '0838-6201234', canUp: true,  canDown: true,  enabled: true  },
-  { id: 'I002', name: '绵竹市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', canUp: true,  canDown: true,  enabled: true  },
-  { id: 'I003', name: '绵竹市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', canUp: true,  canDown: false, enabled: true  },
-  { id: 'I004', name: '绵竹市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', canUp: true,  canDown: true,  enabled: true  },
-  { id: 'I005', name: '绵竹市九龙镇卫生室', code: '5106820021', type: '村卫生室',   contact: '赵医生', phone: '0838-6204001', canUp: false, canDown: false, enabled: false },
-]
+import {
+  appendSystemOperationLog,
+  SYSTEM_ADMIN_OPERATOR,
+  SYSTEM_DEPT_CONFIGS,
+  SYSTEM_INSTITUTION_CONFIGS,
+} from '../../data/systemAdminConfig'
 
 let _nextId = 6
 
@@ -20,8 +17,18 @@ const TYPE_TAG = {
   '村卫生室':   'bg-green-100 text-green-700',
 }
 
+const EMERGENCY_DUTY_CONTACT_OPTIONS = [
+  { id: 'ed_duty_001', name: '周主任' },
+  { id: 'ed_duty_002', name: '李护士长' },
+  { id: 'ed_duty_003', name: '王医生' },
+]
+
+const MOBILE_PHONE_REGEX = /^1\d{10}$/
+const LANDLINE_PHONE_REGEX = /^0\d{2,3}-?\d{7,8}$/
+
 const EMPTY_FORM = {
   name: '', code: '', type: '', contact: '', phone: '', address: '',
+  emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
   canUp: true, canDown: true, enabled: true,
 }
 
@@ -45,6 +52,21 @@ function RowNo({ n }) {
     <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: '#0BBECF' }}>
       {n}
     </span>
+  )
+}
+
+function DrawerField({ label, required, children, error }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">
+        {label}
+        {required && <span className="text-red-500 ml-0.5">*</span>}
+      </label>
+      {children}
+      {error && (
+        <p className="text-xs text-red-500 mt-0.5">{error}</p>
+      )}
+    </div>
   )
 }
 
@@ -103,7 +125,12 @@ function DisableConfirmModal({ institution, onCancel, onConfirm }) {
 
 // ── 新增 / 编辑抽屉 ────────────────────────────────────────
 function InstitutionDrawer({ mode, initial, onClose, onSave }) {
-  const [form, setForm] = useState(initial || EMPTY_FORM)
+  const [form, setForm] = useState(() => ({
+    ...EMPTY_FORM,
+    ...(initial || {}),
+    emergencyDutyContactId: initial?.emergencyDutyContactId || '',
+    emergencyDutyContactName: initial?.emergencyDutyContactName || initial?.emergencyDutyContact || '',
+  }))
   const [errors, setErrors] = useState({})
 
   const set = (key, val) => {
@@ -118,26 +145,24 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     if (!form.type)           errs.type    = '请选择机构类型'
     if (!form.contact.trim()) errs.contact = '请填写联系人'
     if (!form.phone.trim())   errs.phone   = '请填写联系电话'
+    if (form.type === '县级医院' && form.emergencyDeptPhone?.trim()) {
+      const cleanedPhone = form.emergencyDeptPhone.trim()
+      if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
+        errs.emergencyDeptPhone = '请填写正确的手机号或固话格式'
+      }
+    }
     setErrors(errs)
     return Object.keys(errs).length === 0
   }
 
   const handleSave = () => {
-    if (validate()) onSave(form)
+    if (!validate()) return
+    const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === form.emergencyDutyContactId)
+    onSave({
+      ...form,
+      emergencyDutyContactName: selectedDutyContact?.name || '',
+    })
   }
-
-  const Field = ({ label, required, children, errorKey }) => (
-    <div>
-      <label className="block text-xs text-gray-500 mb-1">
-        {label}
-        {required && <span className="text-red-500 ml-0.5">*</span>}
-      </label>
-      {children}
-      {errorKey && errors[errorKey] && (
-        <p className="text-xs text-red-500 mt-0.5">{errors[errorKey]}</p>
-      )}
-    </div>
-  )
 
   const inputCls = (key) =>
     `w-full border rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 ${
@@ -170,16 +195,16 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             基本信息
           </div>
 
-          <Field label="机构名称" required errorKey="name">
+          <DrawerField label="机构名称" required error={errors.name}>
             <input
               value={form.name}
               onChange={e => set('name', e.target.value)}
               className={inputCls('name')}
               placeholder="请输入机构全称"
             />
-          </Field>
+          </DrawerField>
 
-          <Field label="机构编码" required errorKey="code">
+          <DrawerField label="机构编码" required error={errors.code}>
             <input
               value={form.code}
               onChange={e => set('code', e.target.value)}
@@ -187,9 +212,9 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               placeholder="请输入国家卫健委机构编码"
             />
             <p className="text-xs text-gray-400 mt-0.5">统一填写国家卫健委机构编码（10位数字）</p>
-          </Field>
+          </DrawerField>
 
-          <Field label="机构类型" required errorKey="type">
+          <DrawerField label="机构类型" required error={errors.type}>
             <select
               value={form.type}
               onChange={e => set('type', e.target.value)}
@@ -198,35 +223,76 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               <option value="">请选择机构类型</option>
               {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
             </select>
-          </Field>
+          </DrawerField>
 
           <div className="grid grid-cols-2 gap-4">
-            <Field label="联系人" required errorKey="contact">
+            <DrawerField label="联系人" required error={errors.contact}>
               <input
                 value={form.contact}
                 onChange={e => set('contact', e.target.value)}
                 className={inputCls('contact')}
                 placeholder="姓名"
               />
-            </Field>
-            <Field label="联系电话" required errorKey="phone">
+            </DrawerField>
+            <DrawerField label="联系电话" required error={errors.phone}>
               <input
                 value={form.phone}
                 onChange={e => set('phone', e.target.value)}
                 className={inputCls('phone')}
                 placeholder="区号-号码"
               />
-            </Field>
+            </DrawerField>
           </div>
 
-          <Field label="详细地址">
+          <DrawerField label="详细地址">
             <input
               value={form.address}
               onChange={e => set('address', e.target.value)}
               className={inputCls('address')}
               placeholder="省市区街道详细地址（选填）"
             />
-          </Field>
+          </DrawerField>
+
+          {form.type === '县级医院' && (
+            <>
+              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+                急诊转诊配置
+              </div>
+
+              <div className="grid grid-cols-2 gap-4">
+                <DrawerField label="急诊科值班联系人">
+                  <select
+                    value={form.emergencyDutyContactId || ''}
+                    onChange={e => {
+                      const nextId = e.target.value
+                      const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === nextId)
+                      setForm(prev => ({
+                        ...prev,
+                        emergencyDutyContactId: nextId,
+                        emergencyDutyContactName: selectedDutyContact?.name || '',
+                      }))
+                    }}
+                    className={inputCls('emergencyDutyContactId') + ' bg-white'}
+                  >
+                    <option value="">请选择值班联系人</option>
+                    {EMERGENCY_DUTY_CONTACT_OPTIONS.map(item => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-0.5">急诊转诊提交时将通知此联系人，使急诊科提前做好接诊准备</p>
+                </DrawerField>
+                <DrawerField label="急诊科联系电话" error={errors.emergencyDeptPhone}>
+                  <input
+                    value={form.emergencyDeptPhone || ''}
+                    onChange={e => set('emergencyDeptPhone', e.target.value)}
+                    className={inputCls('emergencyDeptPhone')}
+                    placeholder="手机号或固话，如 13800138000 / 0838-6213200"
+                  />
+                  <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
+                </DrawerField>
+              </div>
+            </>
+          )}
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
             转诊能力配置
@@ -281,25 +347,11 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   )
 }
 
-// ── 科室配置 mock 数据（F-02：科室负责人/对口联系医生/转诊专用号源名额）──
-const DEPT_CONFIG_INIT = {
-  'I001': [
-    { dept: '内科',     head: '王主任', partnerDoctor: '—',     dailyQuota: 5,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 08:00' },
-    { dept: '外科',     head: '李主任', partnerDoctor: '—',     dailyQuota: 3,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 08:00' },
-    { dept: '心血管科', head: '陈主任', partnerDoctor: '陈医生', dailyQuota: 2,  dailyReservedBeds: 3, ward: '心内科病区（6楼东）', nurseStationPhone: '0836-12345601', updatedAt: '2026-03-25 09:30' },
-    { dept: '神经内科', head: '张主任', partnerDoctor: '张主任', dailyQuota: 0,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 09:00' },
-    { dept: '呼吸科',   head: '刘主任', partnerDoctor: '刘医生', dailyQuota: 4,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 08:00' },
-    { dept: '内分泌科', head: '孙主任', partnerDoctor: '—',     dailyQuota: 3,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 08:00' },
-    { dept: '骨科',     head: '赵主任', partnerDoctor: '—',     dailyQuota: 2,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 08:30' },
-    { dept: '急诊科',   head: '周主任', partnerDoctor: '—',     dailyQuota: 0,  dailyReservedBeds: 0, ward: '',                nurseStationPhone: '',             updatedAt: '2026-03-25 09:45' },
-  ],
-}
-
 // ── 科室配置 Tab ────────────────────────────────────────────
 function DeptConfigTab({ institutions }) {
   const countyInsts = institutions.filter(i => i.type === '县级医院' && i.enabled)
   const [selectedInst, setSelectedInst] = useState(countyInsts[0]?.id || '')
-  const [deptConfigs, setDeptConfigs] = useState(DEPT_CONFIG_INIT)
+  const [deptConfigs, setDeptConfigs] = useState(SYSTEM_DEPT_CONFIGS)
   const [editRow, setEditRow] = useState(null) // { instId, deptIndex, form }
   const [toast, setToast] = useState('')
 
@@ -313,10 +365,32 @@ function DeptConfigTab({ institutions }) {
 
   const handleSave = () => {
     const { instId, deptIndex, form } = editRow
+    const original = deptConfigs[instId]?.[deptIndex]
+    const instName = institutions.find(inst => inst.id === instId)?.name || instId
     setDeptConfigs(prev => ({
       ...prev,
-      [instId]: prev[instId].map((row, i) => i === deptIndex ? { ...form, updatedAt: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) } : row),
+      [instId]: prev[instId].map((row, i) => i === deptIndex ? {
+        ...form,
+        updatedAt: new Date().toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }),
+        updatedBy: SYSTEM_ADMIN_OPERATOR,
+      } : row),
     }))
+    if (original) {
+      appendSystemOperationLog({
+        domain: '机构配置',
+        type: '系统配置变更',
+        target: `${instName} · ${form.dept}`,
+        detail: {
+          配置项: '科室配置',
+          机构: instName,
+          科室: form.dept,
+          科室负责人: `${original.head || '未设置'} → ${form.head || '未设置'}`,
+          对口联系医生: `${original.partnerDoctor || '未设置'} → ${form.partnerDoctor || '未设置'}`,
+          每日转诊保留名额: `${original.dailyQuota ?? 0} → ${form.dailyQuota ?? 0}`,
+          每日转诊保留床位: `${original.dailyReservedBeds ?? 0} → ${form.dailyReservedBeds ?? 0}`,
+        },
+      })
+    }
     setEditRow(null)
     showToast('科室配置已保存')
   }
@@ -335,6 +409,9 @@ function DeptConfigTab({ institutions }) {
         </select>
         <span className="text-xs text-gray-400">仅县级医院可配置科室号源（基层机构号源由HIS维护）</span>
       </div>
+      <div className="mb-4 rounded-lg bg-cyan-50 border border-cyan-100 px-4 py-3 text-xs text-cyan-700">
+        科室由机构主数据同步，本页仅维护转诊相关配置，不在此处新增科室。
+      </div>
 
       {configs.length === 0 ? (
         <div className="text-center py-12 text-gray-400 text-sm">暂无科室配置数据</div>
@@ -343,7 +420,7 @@ function DeptConfigTab({ institutions }) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['科室', '科室负责人', '对口联系医生', '每日转诊保留名额', '床位池（转诊专用）', '最后更新', '操作'].map(h => (
+                {['科室', '科室负责人', '对口联系医生', '每日转诊保留名额', '床位池（转诊专用）', '最后更新', '最后修改人', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -373,6 +450,7 @@ function DeptConfigTab({ institutions }) {
                     )}
                   </td>
                   <td className={TD + ' text-xs text-gray-400'}>{row.updatedAt}</td>
+                  <td className={TD + ' text-xs text-gray-500'}>{row.updatedBy || '—'}</td>
                   <td className={TD}>
                     <button
                       onClick={() => handleEdit(selectedInst, idx)}
@@ -445,6 +523,16 @@ function DeptConfigTab({ institutions }) {
                     />
                     <p className="text-xs text-gray-400 mt-1">将在接诊安排中自动预填并推送患者短信</p>
                   </div>
+                  <div className="col-span-2">
+                    <label className="block text-xs text-gray-500 mb-1">抢救资源 <span className="text-gray-400">（仅绿色通道展示）</span></label>
+                    <textarea
+                      rows={2}
+                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                      placeholder="例：胸痛中心绿色通道已开启，导管室24小时待命"
+                      value={editRow.form.rescueResources ?? ''}
+                      onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, rescueResources: e.target.value } }))}
+                    />
+                  </div>
                 </div>
               </div>
 
@@ -465,7 +553,7 @@ function DeptConfigTab({ institutions }) {
 
 // ── 主页面 ─────────────────────────────────────────────────
 export default function InstitutionManage() {
-  const [list, setList] = useState(MOCK_INSTITUTIONS)
+  const [list, setList] = useState(SYSTEM_INSTITUTION_CONFIGS)
 
   // 筛选
   const [filters, setFilters] = useState({ name: '', type: 'all', enabled: 'all' })
@@ -522,9 +610,37 @@ export default function InstitutionManage() {
     if (drawer.mode === 'create') {
       const newInst = { ...formData, id: `I${String(_nextId++).padStart(3, '0')}` }
       setList(prev => [newInst, ...prev])
+      appendSystemOperationLog({
+        domain: '机构配置',
+        type: '机构信息变更',
+        target: newInst.name,
+        detail: {
+          操作: '新增机构',
+          机构名称: newInst.name,
+          机构编码: newInst.code,
+          机构类型: newInst.type,
+          上转能力: newInst.canUp ? '开启' : '关闭',
+          下转能力: newInst.canDown ? '开启' : '关闭',
+        },
+      })
       showToast('机构新增成功')
     } else {
+      const original = drawer.data
       setList(prev => prev.map(inst => inst.id === drawer.data.id ? { ...inst, ...formData } : inst))
+      appendSystemOperationLog({
+        domain: '机构配置',
+        type: '机构信息变更',
+        target: original.name,
+        detail: {
+          操作: '编辑机构',
+          机构名称: `${original.name} → ${formData.name}`,
+          联系人: `${original.contact || '未设置'} → ${formData.contact || '未设置'}`,
+          联系电话: `${original.phone || '未设置'} → ${formData.phone || '未设置'}`,
+          上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,
+          下转能力: `${original.canDown ? '开启' : '关闭'} → ${formData.canDown ? '开启' : '关闭'}`,
+          启用状态: `${original.enabled ? '启用' : '停用'} → ${formData.enabled ? '启用' : '停用'}`,
+        },
+      })
       showToast('机构信息已保存')
     }
     setDrawer(null)
@@ -536,6 +652,18 @@ export default function InstitutionManage() {
   // 确认停用
   const handleConfirmDisable = () => {
     setList(prev => prev.map(inst => inst.id === disableTarget.id ? { ...inst, enabled: false } : inst))
+    appendSystemOperationLog({
+      domain: '机构配置',
+      type: '机构信息变更',
+      target: disableTarget.name,
+      detail: {
+        操作: '停用机构',
+        机构名称: disableTarget.name,
+        变更字段: '启用状态',
+        原值: '启用',
+        新值: '停用',
+      },
+    })
     showToast(`已停用「${disableTarget.name}」`)
     setDisableTarget(null)
   }
@@ -543,6 +671,18 @@ export default function InstitutionManage() {
   // 直接启用（无需确认）
   const handleEnable = (inst) => {
     setList(prev => prev.map(i => i.id === inst.id ? { ...i, enabled: true } : i))
+    appendSystemOperationLog({
+      domain: '机构配置',
+      type: '机构信息变更',
+      target: inst.name,
+      detail: {
+        操作: '启用机构',
+        机构名称: inst.name,
+        变更字段: '启用状态',
+        原值: '停用',
+        新值: '启用',
+      },
+    })
     showToast(`已启用「${inst.name}」`)
   }
 
@@ -557,8 +697,8 @@ export default function InstitutionManage() {
       {/* 页面标题区 */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">机构信息管理</h2>
-          <div className="text-xs text-gray-400 mt-0.5">医共体成员机构维护 · 转诊能力配置 · 科室号源管理</div>
+          <h2 className="text-base font-semibold text-gray-800">机构与转诊能力配置</h2>
+          <div className="text-xs text-gray-400 mt-0.5">机构基础信息维护 · 转诊能力与资源配置</div>
         </div>
         {mainTab === 'institutions' && <button
           onClick={handleCreate}
@@ -578,7 +718,7 @@ export default function InstitutionManage() {
       <div className="flex gap-0 mb-4" style={{ borderBottom: '2px solid #E0F6F9' }}>
         {[
           { key: 'institutions', label: '机构列表' },
-          { key: 'deptConfig',   label: '科室配置（F-02）' },
+          { key: 'deptConfig',   label: '科室配置' },
         ].map(t => (
           <button key={t.key} onClick={() => setMainTab(t.key)}
             className="px-5 py-2.5 text-sm font-medium transition-colors"
@@ -594,6 +734,10 @@ export default function InstitutionManage() {
 
       {/* 筛选栏（仅机构列表 Tab 显示）*/}
       {mainTab === 'institutions' && <>
+      <div className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
+        <div className="text-xs font-medium text-slate-600 uppercase tracking-wider mb-1">机构基础信息</div>
+        <div className="text-xs text-gray-500">维护机构档案、启停状态与基础转诊能力；转诊资源与科室承接能力请在“科室配置”中维护。</div>
+      </div>
 
       {/* 筛选栏 */}
       <div className="bg-white rounded-xl p-4 mb-4" style={{ border: '1px solid #DDF0F3' }}>

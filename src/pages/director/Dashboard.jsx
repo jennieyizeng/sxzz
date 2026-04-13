@@ -30,28 +30,37 @@ function DonutChart({ segments, size = 80 }) {
   const cx = size / 2, cy = size / 2, r = size / 2 - 10
   const circ = 2 * Math.PI * r
   const total = segments.reduce((s, seg) => s + seg.value, 0)
-  let offset = 0
+  const arcSegments = segments.reduce((acc, seg, i) => {
+    const dash = total === 0 ? 0 : (seg.value / total) * circ
+    const gap = circ - dash
+    return {
+      offset: acc.offset + dash,
+      items: [...acc.items, { ...seg, dash, gap, offset: acc.offset, key: i }],
+    }
+  }, { offset: 0, items: [] }).items
   return (
     <svg width={size} height={size}>
       <circle cx={cx} cy={cy} r={r} fill="none" stroke="#f3f4f6" strokeWidth={10} />
-      {segments.map((seg, i) => {
-        const dash = (seg.value / total) * circ
-        const gap = circ - dash
-        const el = (
-          <circle key={i} cx={cx} cy={cy} r={r} fill="none"
+      {arcSegments.map(seg => (
+        <circle key={seg.key} cx={cx} cy={cy} r={r} fill="none"
             stroke={seg.color} strokeWidth={10}
-            strokeDasharray={`${dash} ${gap}`}
-            strokeDashoffset={-offset}
+            strokeDasharray={`${seg.dash} ${seg.gap}`}
+            strokeDashoffset={-seg.offset}
             transform={`rotate(-90 ${cx} ${cy})`}
             strokeLinecap="round" />
-        )
-        offset += dash
-        return el
-      })}
+      ))}
       <text x={cx} y={cy - 4} textAnchor="middle" fontSize="14" fontWeight="700" fill="#1f2937">{total}</text>
       <text x={cx} y={cy + 12} textAnchor="middle" fontSize="9" fill="#9ca3af">总转诊</text>
     </svg>
   )
+}
+
+function getInstitutionPerformance(inst, index) {
+  const total = inst.upward + inst.downward
+  const rate = Math.min(98, 90 + ((inst.upward * 3 + inst.downward * 2 + index) % 9))
+  const avgHours = (16 + index * 3).toFixed(1)
+  const score = (rate * 0.6 + (total / 160 * 40)).toFixed(1)
+  return { rate, avgHours, score }
 }
 
 // ── KPI 卡片 ──
@@ -79,14 +88,8 @@ function KpiCard({ icon, iconBg, label, value, unit, sub, trend, onClick }) {
 
 export default function DirectorDashboard() {
   const navigate = useNavigate()
-  const { referrals, currentUser } = useApp()
+  const { currentUser } = useApp()
   const s = MOCK_STATS
-
-  // 合并实时数据
-  const liveUpward = referrals.filter(r => r.type === 'upward').length
-  const liveDownward = referrals.filter(r => r.type === 'downward').length
-  const liveCompleted = referrals.filter(r => ['已完成'].includes(r.status)).length
-  const liveTotal = referrals.length
 
   return (
     <div className="p-5" style={{ background: '#EBF8FA', minHeight: '100%' }}>
@@ -191,9 +194,7 @@ export default function DirectorDashboard() {
             </thead>
             <tbody>
               {s.byInstitution.map((inst, i) => {
-                const total = inst.upward + inst.downward
-                const rate = Math.round(90 + Math.random() * 8)
-                const score = (rate * 0.6 + (total / 160 * 40)).toFixed(1)
+                const { rate, avgHours, score } = getInstitutionPerformance(inst, i)
                 return (
                   <tr key={inst.name} style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE' }}>
                     <td className="px-4 py-3">
@@ -213,7 +214,7 @@ export default function DirectorDashboard() {
                         <span className="text-xs text-gray-600">{rate}%</span>
                       </div>
                     </td>
-                    <td className="px-4 py-3 text-sm text-gray-600">{(16 + i * 3).toFixed(1)}h</td>
+                    <td className="px-4 py-3 text-sm text-gray-600">{avgHours}h</td>
                     <td className="px-4 py-3">
                       <span className="text-sm font-bold" style={{ color: '#0892a0' }}>{score}</span>
                     </td>

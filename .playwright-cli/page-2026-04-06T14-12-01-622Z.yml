@@ -1,0 +1,113 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起上转" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "上转记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "下转待接收" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "下转记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+    - generic [ref=e46]: Phase 06 原型 v1.0
+  - generic [ref=e47]:
+    - banner [ref=e48]:
+      - generic [ref=e49]: 双向转诊平台
+      - generic [ref=e50]:
+        - button "🎭 切换角色 ▾" [ref=e52] [cursor=pointer]:
+          - generic [ref=e53]: 🎭
+          - generic [ref=e54]: 切换角色
+          - generic [ref=e55]: ▾
+        - link "2" [ref=e56] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e57]
+          - generic [ref=e59]: "2"
+        - link "王" [ref=e60] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e61]:
+      - generic [ref=e62]:
+        - generic [ref=e63]:
+          - generic [ref=e64]:
+            - button "工作台" [ref=e65] [cursor=pointer]
+            - generic [ref=e66]: ›
+            - generic [ref=e67]: 发起上转
+          - heading "发起上转申请" [level=1] [ref=e68]
+        - generic [ref=e84]:
+          - generic [ref=e86]:
+            - generic [ref=e87]: ✓
+            - generic [ref=e88]: 急诊信息
+          - generic [ref=e91]:
+            - generic [ref=e92]: "2"
+            - generic [ref=e93]: 确认提交
+        - generic [ref=e94]:
+          - generic [ref=e159]:
+            - heading "确认急诊转诊信息" [level=2] [ref=e160]
+            - generic [ref=e161]:
+              - generic [ref=e162]:
+                - generic [ref=e163]: 信息摘要
+                - button "返回修改" [ref=e164] [cursor=pointer]
+              - generic [ref=e165]:
+                - generic [ref=e166]:
+                  - generic [ref=e167]: 患者：
+                  - generic [ref=e168]: 张三
+                  - generic [ref=e169]: I级·急危
+                - generic [ref=e170]: 目标医院：xx市人民医院
+                - generic [ref=e171]: 就诊科室：急诊科
+            - generic [ref=e172]:
+              - generic [ref=e173]: 提交后系统将立即执行以下操作
+              - generic [ref=e174]:
+                - generic [ref=e175]: 📱 向患者发送短信 138****5678
+                - generic [ref=e176]: 【转诊通知】您好，您的急诊转诊申请已提交。 目标医院：xx市人民医院 就诊科室：急诊科（急诊优先接诊） 急诊科电话：0838-6213200
+                - generic [ref=e177]: 🔔 通知转诊中心（立即推送工作台）
+                - generic [ref=e178]: 🔔 通知急诊科值班（信息通知，提前准备）
+                - generic [ref=e179]: 🔔 通知急诊科负责人
+            - generic [ref=e180]:
+              - generic [ref=e181]: 知情同意后置说明
+              - generic [ref=e182]:
+                - generic [ref=e183]: 依据四川省急诊急救相关规定，急诊情况下知情同意可在到院后补签：
+                - generic [ref=e184]: · 患者意识清醒：到院后24小时内完成签署
+                - generic [ref=e185]: · 患者意识不清：家属到院后24小时内完成签署
+                - generic [ref=e186]: 转诊中心将在患者到院后提醒补签操作。
+          - generic [ref=e148]:
+            - button "← 返回修改" [ref=e187] [cursor=pointer]
+            - generic [ref=e150]:
+              - button "保存草稿" [ref=e151] [cursor=pointer]
+              - button "🚨 立即提交急诊转诊" [active] [ref=e188] [cursor=pointer]

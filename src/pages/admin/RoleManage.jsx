@@ -1,35 +1,16 @@
 import { useState, useMemo } from 'react'
-
-// ── Mock 数据 ──────────────────────────────────────────────
-const MOCK_USERS = [
-  { id: 'U001', name: '王医生',   empNo: 'D0001', institution: '绵竹市拱星镇卫生院',   role: '基层医生',   enabled: true,  updatedAt: '2026-03-01' },
-  { id: 'U002', name: '李慧医生', empNo: 'D0002', institution: '绵竹市汉旺镇卫生院',   role: '基层医生',   enabled: true,  updatedAt: '2026-03-01' },
-  { id: 'U003', name: '刘医生',   empNo: 'D0003', institution: '绵竹市人民医院',       role: '县级医生',   enabled: true,  updatedAt: '2026-02-15' },
-  { id: 'U004', name: '赵管理员', empNo: 'A0001', institution: '绵竹市医共体管理层',   role: '转诊管理员', enabled: true,  updatedAt: '2026-01-10' },
-  { id: 'U005', name: '钱院长',   empNo: 'D0010', institution: '绵竹市人民医院',       role: '院长',       enabled: true,  updatedAt: '2026-01-10' },
-  { id: 'U006', name: '孙医生',   empNo: 'D0021', institution: '绵竹市清平乡卫生院',   role: '基层医生',   enabled: false, updatedAt: '2026-02-20' },
-]
-
-const ROLES = ['基层医生', '县级医生', '转诊管理员', '院长']
-
-const INSTITUTIONS = [
-  '绵竹市人民医院',
-  '绵竹市拱星镇卫生院',
-  '绵竹市汉旺镇卫生院',
-  '绵竹市清平乡卫生院',
-  '绵竹市医共体管理层',
-]
+import {
+  appendSystemOperationLog,
+  SYSTEM_INSTITUTION_OPTIONS,
+  SYSTEM_ROLE_ACCESS_SCOPE,
+  SYSTEM_ROLE_OPTIONS,
+  SYSTEM_ROLE_TAG,
+  SYSTEM_USER_ACCOUNTS,
+} from '../../data/systemAdminConfig'
 
 // ── 常量 ───────────────────────────────────────────────────
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
-
-const ROLE_TAG = {
-  '基层医生':   'bg-blue-100 text-blue-700',
-  '县级医生':   'bg-purple-100 text-purple-700',
-  '转诊管理员': 'bg-orange-100 text-orange-700',
-  '院长':       'bg-gray-100 text-gray-700',
-}
 
 // ── 辅助小组件 ─────────────────────────────────────────────
 function SuccessToast({ message }) {
@@ -56,6 +37,7 @@ function ChangeRoleModal({ user, onCancel, onConfirm }) {
   const [newRole, setNewRole]     = useState(user.role)
   const [reason, setReason]       = useState('')
   const [reasonErr, setReasonErr] = useState('')
+  const roleChanged = newRole !== user.role
 
   const handleConfirm = () => {
     if (!reason.trim()) {
@@ -91,7 +73,7 @@ function ChangeRoleModal({ user, onCancel, onConfirm }) {
             </div>
             <div className="flex items-center gap-2">
               <span className="text-gray-500 text-xs">当前角色</span>
-              <span className={`text-xs px-2 py-0.5 rounded font-medium ${ROLE_TAG[user.role]}`}>
+              <span className={`text-xs px-2 py-0.5 rounded font-medium ${SYSTEM_ROLE_TAG[user.role]}`}>
                 {user.role}
               </span>
             </div>
@@ -105,7 +87,7 @@ function ChangeRoleModal({ user, onCancel, onConfirm }) {
               新角色 <span className="text-red-500">*</span>
             </label>
             <div className="grid grid-cols-2 gap-2">
-              {ROLES.map(r => (
+              {SYSTEM_ROLE_OPTIONS.map(r => (
                 <label
                   key={r}
                   className={`flex items-center gap-2 px-3 py-2 rounded-lg border cursor-pointer text-sm transition-colors ${
@@ -129,6 +111,21 @@ function ChangeRoleModal({ user, onCancel, onConfirm }) {
             {user.role === newRole && (
               <p className="text-xs text-amber-500 mt-1.5">所选角色与当前角色相同，保存后不产生变更记录。</p>
             )}
+          </div>
+
+          <div className="mb-4 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3">
+            <div className="text-xs font-medium text-cyan-800 mb-1">变更后可访问范围</div>
+            <div className="text-xs leading-5 text-cyan-700">{SYSTEM_ROLE_ACCESS_SCOPE[newRole]}</div>
+            <div className="text-[11px] text-cyan-600 mt-1">角色决定页面与操作范围，详细权限按系统预设执行。</div>
+          </div>
+
+          <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+            <div className="text-xs font-medium text-amber-800 mb-1">变更影响提示</div>
+            <div className="text-xs leading-5 text-amber-700">
+              {roleChanged
+                ? '保存后账号的菜单与操作范围将按新角色立即切换，变更原因与前后角色会写入操作日志。'
+                : '当前未变更角色，保存后不会改变菜单范围，但仍建议检查是否需要调整账号状态。'}
+            </div>
           </div>
 
           {/* 变更原因 */}
@@ -174,6 +171,17 @@ function ChangeRoleModal({ user, onCancel, onConfirm }) {
 
 // ── 禁用确认弹窗 ───────────────────────────────────────────
 function DisableConfirmModal({ user, onCancel, onConfirm }) {
+  const [reason, setReason] = useState('')
+  const [reasonErr, setReasonErr] = useState('')
+
+  const handleConfirm = () => {
+    if (!reason.trim()) {
+      setReasonErr('请填写禁用原因')
+      return
+    }
+    onConfirm(reason)
+  }
+
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onCancel} />
@@ -193,6 +201,24 @@ function DisableConfirmModal({ user, onCancel, onConfirm }) {
               </div>
             </div>
           </div>
+          <div className="mb-4 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3 text-xs leading-5 text-amber-700">
+            禁用后该用户将立即失去系统访问权限，但不会影响其历史转诊记录与操作日志留存。
+          </div>
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1.5">
+              禁用原因 <span className="text-red-500">*</span>
+            </label>
+            <textarea
+              value={reason}
+              onChange={e => { setReason(e.target.value); if (e.target.value.trim()) setReasonErr('') }}
+              rows={3}
+              placeholder="请填写禁用原因（将写入操作日志）"
+              className={`w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 ${
+                reasonErr ? 'border-red-400 focus:ring-red-300' : 'border-gray-200 focus:ring-[#0BBECF]'
+              }`}
+            />
+            {reasonErr && <p className="text-xs text-red-500 mt-0.5">{reasonErr}</p>}
+          </div>
           <div className="flex justify-end gap-2 pt-2">
             <button
               onClick={onCancel}
@@ -201,7 +227,7 @@ function DisableConfirmModal({ user, onCancel, onConfirm }) {
               取消
             </button>
             <button
-              onClick={onConfirm}
+              onClick={handleConfirm}
               className="px-4 py-1.5 rounded-lg text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
             >
               确认禁用
@@ -215,7 +241,7 @@ function DisableConfirmModal({ user, onCancel, onConfirm }) {
 
 // ── 主页面 ─────────────────────────────────────────────────
 export default function RoleManage() {
-  const [list, setList] = useState(MOCK_USERS)
+  const [list, setList] = useState(SYSTEM_USER_ACCOUNTS)
 
   // 筛选
   const [filters, setFilters] = useState({ name: '', institution: 'all', role: 'all' })
@@ -259,24 +285,47 @@ export default function RoleManage() {
   }
 
   // 确认变更角色
-  const handleConfirmChange = (newRole, _reason) => {
-    // TODO: 调用后端 API，写入操作日志，传入 reason
+  const handleConfirmChange = (newRole, reason) => {
+    const previousRole = changeTarget.role
     setList(prev => prev.map(u =>
       u.id === changeTarget.id
         ? { ...u, role: newRole, updatedAt: new Date().toISOString().slice(0, 10) }
         : u
     ))
+    appendSystemOperationLog({
+      domain: '角色管理',
+      type: '角色权限变更',
+      target: `用户：${changeTarget.name}`,
+      detail: {
+        用户: `${changeTarget.name}（${changeTarget.empNo}）`,
+        原角色: previousRole,
+        新角色: newRole,
+        变更原因: reason,
+      },
+    })
     showToast(`已将「${changeTarget.name}」角色变更为「${newRole}」`)
     setChangeTarget(null)
   }
 
   // 确认禁用
-  const handleConfirmDisable = () => {
+  const handleConfirmDisable = (reason) => {
     setList(prev => prev.map(u =>
       u.id === disableTarget.id
         ? { ...u, enabled: false, updatedAt: new Date().toISOString().slice(0, 10) }
         : u
     ))
+    appendSystemOperationLog({
+      domain: '角色管理',
+      type: '角色权限变更',
+      target: `用户：${disableTarget.name}`,
+      detail: {
+        用户: `${disableTarget.name}（${disableTarget.empNo}）`,
+        变更字段: '账号状态',
+        原值: '启用',
+        新值: '禁用',
+        变更原因: reason,
+      },
+    })
     showToast(`已禁用账号「${disableTarget.name}」`)
     setDisableTarget(null)
   }
@@ -288,6 +337,18 @@ export default function RoleManage() {
         ? { ...u, enabled: true, updatedAt: new Date().toISOString().slice(0, 10) }
         : u
     ))
+    appendSystemOperationLog({
+      domain: '角色管理',
+      type: '角色权限变更',
+      target: `用户：${user.name}`,
+      detail: {
+        用户: `${user.name}（${user.empNo}）`,
+        变更字段: '账号状态',
+        原值: '禁用',
+        新值: '启用',
+        变更原因: '系统管理员手动恢复账号',
+      },
+    })
     showToast(`已启用账号「${user.name}」`)
   }
 
@@ -298,8 +359,8 @@ export default function RoleManage() {
 
       {/* 页面标题 */}
       <div className="mb-4">
-        <h2 className="text-base font-semibold text-gray-800">角色权限管理</h2>
-        <div className="text-xs text-gray-400 mt-0.5">用户角色分配与变更 · 变更操作将写入操作日志</div>
+        <h2 className="text-base font-semibold text-gray-800">用户与角色管理</h2>
+        <div className="text-xs text-gray-400 mt-0.5">账号状态、角色归属与变更记录 · 敏感变更将写入操作日志</div>
       </div>
 
       {/* 筛选栏 */}
@@ -323,7 +384,7 @@ export default function RoleManage() {
               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
             >
               <option value="all">全部</option>
-              {INSTITUTIONS.map(inst => <option key={inst} value={inst}>{inst}</option>)}
+              {SYSTEM_INSTITUTION_OPTIONS.map(inst => <option key={inst} value={inst}>{inst}</option>)}
             </select>
           </div>
           <div>
@@ -334,7 +395,7 @@ export default function RoleManage() {
               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
             >
               <option value="all">全部</option>
-              {ROLES.map(r => <option key={r} value={r}>{r}</option>)}
+              {SYSTEM_ROLE_OPTIONS.map(r => <option key={r} value={r}>{r}</option>)}
             </select>
           </div>
           <div className="flex items-end gap-2">
@@ -403,7 +464,7 @@ export default function RoleManage() {
                     <span className="truncate block" title={user.institution}>{user.institution}</span>
                   </td>
                   <td className={TD}>
-                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${ROLE_TAG[user.role] || 'bg-gray-100 text-gray-600'}`}>
+                    <span className={`text-xs px-2 py-0.5 rounded font-medium ${SYSTEM_ROLE_TAG[user.role] || 'bg-gray-100 text-gray-600'}`}>
                       {user.role}
                     </span>
                   </td>

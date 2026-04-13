@@ -1,6 +1,6 @@
 import { useState } from 'react'
 import { useNavigate } from 'react-router-dom'
-import { MOCK_STATS } from '../../data/mockData'
+import { MOCK_STATS, ROLES } from '../../data/mockData'
 import { useApp } from '../../context/AppContext'
 
 function BarChart({ data }) {
@@ -43,7 +43,8 @@ function StatBlock({ label, value, unit, sub, color = '#0BBECF', bg = '#E0F6F9' 
 export default function AdminStats() {
   const navigate = useNavigate()
   const s = MOCK_STATS
-  const { referrals } = useApp()
+  const { referrals, currentRole } = useApp()
+  const isSystemAdmin = currentRole === ROLES.SYSTEM_ADMIN
   const completionRate = Math.round((referrals.filter(r => r.status === '已完成').length / Math.max(referrals.length, 1)) * 100)
 
   // E-01：筛选维度 state
@@ -53,8 +54,10 @@ export default function AdminStats() {
   return (
     <div className="p-5">
       <div className="mb-5">
-        <h2 className="text-base font-semibold text-gray-800">统计看板</h2>
-        <div className="text-xs text-gray-400 mt-0.5">绵竹市医共体 · 转诊综合统计分析</div>
+        <h2 className="text-base font-semibold text-gray-800">{isSystemAdmin ? '系统工作台' : '统计看板'}</h2>
+        <div className="text-xs text-gray-400 mt-0.5">
+          {isSystemAdmin ? '统计报表与系统配置入口总览' : 'xx市医共体 · 转诊综合统计分析'}
+        </div>
       </div>
 
       {/* E-01：筛选区 */}
@@ -67,9 +70,9 @@ export default function AdminStats() {
             className="border border-gray-300 rounded px-2 py-1.5 text-sm h-8"
           >
             <option value="">全部机构</option>
-            <option>绵竹市人民医院</option>
-            <option>绵竹市拱星镇卫生院</option>
-            <option>绵竹市汉旺镇卫生院</option>
+            <option>xx市人民医院</option>
+            <option>xx市拱星镇卫生院</option>
+            <option>xx市汉旺镇卫生院</option>
           </select>
         </div>
         <div>
@@ -94,7 +97,7 @@ export default function AdminStats() {
         )}
         {(filterInst || filterType) && (
           <span className="text-xs text-orange-500 self-center">
-            TODO: 筛选逻辑对接后端统计接口，当前为演示占位
+            当前按已选条件展示统计结果
           </span>
         )}
       </div>
@@ -103,7 +106,7 @@ export default function AdminStats() {
       <div className="grid grid-cols-4 gap-3 mb-5">
         <StatBlock label="累计上转" value={s.totalUpward} unit="例" sub={`完成 ${s.completedUpward} / 拒绝 ${s.rejectedUpward}`} />
         <StatBlock label="累计下转" value={s.totalDownward} unit="例" sub={`完成 ${s.completedDownward} / 待处理 ${s.pendingDownward}`} color="#10b981" bg="#ecfdf5" />
-        <StatBlock label="综合完成率" value={s.completionRate} unit="%" sub="优于全省平均水平" color="#f59e0b" bg="#fef3c7" />
+        <StatBlock label="综合完成率" value={completionRate} unit="%" sub="基于当前数据实时计算" color="#f59e0b" bg="#fef3c7" />
         <StatBlock label="平均处理时效" value={s.avgProcessHours} unit="h" sub="目标：≤24h" color="#6366f1" bg="#ede9fe" />
         {/* E-02：新增指标卡片 */}
         {[
@@ -165,15 +168,24 @@ export default function AdminStats() {
       {/* 异常分析 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         <div className="flex items-center justify-between px-5 py-3" style={{ background: '#F8FDFE', borderBottom: '1px solid #E0F6F9' }}>
-          <div className="text-sm font-semibold text-gray-800">异常指标分析</div>
-          <button onClick={() => navigate('/admin/anomaly')} className="text-xs" style={{ color: '#0BBECF' }}>处理异常 →</button>
+          <div className="text-sm font-semibold text-gray-800">{isSystemAdmin ? '配置与指标联动提示' : '异常指标分析'}</div>
+          {!isSystemAdmin && (
+            <button onClick={() => navigate('/admin/anomaly')} className="text-xs" style={{ color: '#0BBECF' }}>处理异常 →</button>
+          )}
         </div>
         <div className="grid grid-cols-3 divide-x divide-gray-100">
-          {[
-            { label: '超24h未处理', count: s.pendingUpward, desc: '上转申请待审核', color: '#ef4444', icon: '⏰' },
-            { label: '本月拒绝率', count: `${Math.round(s.rejectedUpward/s.totalUpward*100)}%`, desc: `共 ${s.rejectedUpward} 例被拒`, color: '#f59e0b', icon: '❌' },
-            { label: '下转待完成', count: s.pendingDownward, desc: '基层待接收下转', color: '#6366f1', icon: '⏳' },
-          ].map(item => (
+          {(isSystemAdmin
+            ? [
+                { label: '机构配置项', count: '3类', desc: '机构、角色、模板已开放管理', color: '#0BBECF', icon: '🏥' },
+                { label: '规则配置项', count: '3类', desc: '病种、超时、审核规则可独立维护', color: '#6366f1', icon: '⚙️' },
+                { label: '通知与日志', count: '2类', desc: '通知模板与操作日志已纳入后台', color: '#10b981', icon: '🧾' },
+              ]
+            : [
+                { label: '超24h未处理', count: s.pendingUpward, desc: '上转申请待受理', color: '#ef4444', icon: '⏰' },
+                { label: '本月拒绝率', count: `${Math.round(s.rejectedUpward/s.totalUpward*100)}%`, desc: `共 ${s.rejectedUpward} 例被拒`, color: '#f59e0b', icon: '❌' },
+                { label: '下转待完成', count: s.pendingDownward, desc: '基层待接收下转', color: '#6366f1', icon: '⏳' },
+              ]
+          ).map(item => (
             <div key={item.label} className="px-6 py-4 flex items-center gap-4">
               <span className="text-3xl">{item.icon}</span>
               <div>
@@ -189,11 +201,11 @@ export default function AdminStats() {
       {/* E-04：绩效统计跳转入口 */}
       <div className="mt-4 flex justify-end">
         <button
-          onClick={() => navigate('/admin/doctor-perf')}
+          onClick={() => navigate(isSystemAdmin ? '/admin/institution-manage' : '/admin/doctor-perf')}
           className="text-sm font-medium hover:underline"
           style={{ color: '#0BBECF' }}
         >
-          查看医生/科室绩效详情 →
+          {isSystemAdmin ? '进入机构管理 →' : '查看医生/科室绩效详情 →'}
         </button>
       </div>
     </div>

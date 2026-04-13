@@ -87,9 +87,9 @@ export default function DirectorAnalytics() {
       {/* 页头 */}
       <div className="mb-4">
         {/* 上下文标识 */}
-        <div className="text-xs text-gray-400 mb-1">绵竹市人民医院</div>
+        <div className="text-xs text-gray-400 mb-1">xx市人民医院</div>
         <h2 className="text-base font-semibold text-gray-800">统计分析</h2>
-        <div className="text-xs text-gray-400 mt-0.5">绵竹市人民医院 · 转诊数据概览</div>
+        <div className="text-xs text-gray-400 mt-0.5">xx市人民医院 · 转诊数据概览</div>
       </div>
 
       {/* 筛选区 — 院长仅时间范围，无机构/类型筛选 */}
@@ -175,8 +175,7 @@ export default function DirectorAnalytics() {
 
           {/* 只读说明文字 */}
           <div className="text-xs text-gray-400 text-right">
-            数据每日凌晨更新 &middot; {/* TODO: 接入实时数据接口 */}
-            <span className="text-orange-400">TODO: 接入实时数据接口</span>
+            数据每日凌晨更新
           </div>
         </>
       )}

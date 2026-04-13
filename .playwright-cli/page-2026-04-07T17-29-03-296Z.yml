@@ -1,0 +1,108 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王晓敏
+          - generic [ref=e15]: xx市人民医院
+      - generic [ref=e17]: 县级科主任
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /county/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 上转管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 上转管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "科室待受理上转" [active] [ref=e243] [cursor=pointer]:
+            - /url: /county/review-list
+          - link "科室上转记录" [ref=e244] [cursor=pointer]:
+            - /url: /county/referral-records
+      - generic [ref=e31]:
+        - button "⬇️ 下转管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 下转管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "发起下转" [ref=e245] [cursor=pointer]:
+            - /url: /county/create-downward
+          - link "下转记录" [ref=e246] [cursor=pointer]:
+            - /url: /county/downward-records
+      - link "🔔 消息中心" [ref=e247] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e41]: 🔔
+        - generic [ref=e42]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link [ref=e248] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e325]:
+        - generic [ref=e326]:
+          - heading "科室待受理上转" [level=2] [ref=e327]
+          - generic [ref=e328]: 仅显示本科室相关普通上转单据
+        - generic [ref=e329]:
+          - generic [ref=e330]:
+            - generic [ref=e331]: 患者姓名：
+            - textbox "请输入患者姓名或诊断" [ref=e332]
+          - generic [ref=e333]:
+            - generic [ref=e334]: 申请状态：
+            - generic [ref=e335]:
+              - generic [ref=e336] [cursor=pointer]:
+                - radio "全部" [checked] [ref=e337]
+                - text: 全部
+              - generic [ref=e338] [cursor=pointer]:
+                - radio "待受理" [ref=e339]
+                - text: 待受理
+              - generic [ref=e340] [cursor=pointer]:
+                - radio "转诊中" [ref=e341]
+                - text: 转诊中
+              - generic [ref=e342] [cursor=pointer]:
+                - radio "已完成" [ref=e343]
+                - text: 已完成
+              - generic [ref=e344] [cursor=pointer]:
+                - radio "已拒绝" [ref=e345]
+                - text: 已拒绝
+          - generic [ref=e346]:
+            - button "🔍 查询" [ref=e347] [cursor=pointer]
+            - button "↺ 重置" [ref=e348] [cursor=pointer]
+        - table [ref=e350]:
+          - rowgroup [ref=e351]:
+            - row "序号 患者姓名 性别/年龄 诊断 转出机构 经治医生 期望科室 知情同意 状态 受理状态 申请时间 操作" [ref=e352]:
+              - columnheader "序号" [ref=e353]
+              - columnheader "患者姓名" [ref=e354]
+              - columnheader "性别/年龄" [ref=e355]
+              - columnheader "诊断" [ref=e356]
+              - columnheader "转出机构" [ref=e357]
+              - columnheader "经治医生" [ref=e358]
+              - columnheader "期望科室" [ref=e359]
+              - columnheader "知情同意" [ref=e360]
+              - columnheader "状态" [ref=e361]
+              - columnheader "受理状态" [ref=e362]
+              - columnheader "申请时间" [ref=e363]
+              - columnheader "操作" [ref=e364]
+          - rowgroup [ref=e365]:
+            - row "📭 暂无记录" [ref=e366]:
+              - cell "📭 暂无记录" [ref=e367]:
+                - generic [ref=e368]: 📭
+                - text: 暂无记录

@@ -1,20 +1,5 @@
 import { useState, useMemo } from 'react'
-
-// ── Mock 数据 ──────────────────────────────────────────────
-const MOCK_DISEASES = [
-  { id: 'D001', code: 'I10',   name: '原发性高血压',       category: '循环系统',   priority: true,  enabled: true  },
-  { id: 'D002', code: 'I63.9', name: '脑梗死',             category: '循环系统',   priority: true,  enabled: true  },
-  { id: 'D003', code: 'E11.9', name: '2型糖尿病不伴并发症', category: '内分泌系统', priority: true,  enabled: true  },
-  { id: 'D004', code: 'J18.9', name: '肺炎',               category: '呼吸系统',   priority: false, enabled: true  },
-  { id: 'D005', code: 'I50.9', name: '心力衰竭',           category: '循环系统',   priority: true,  enabled: true  },
-  { id: 'D006', code: 'G40.9', name: '癫痫',               category: '神经系统',   priority: false, enabled: true  },
-  { id: 'D007', code: 'K92.1', name: '黑粪',               category: '其他',       priority: false, enabled: true  },
-  { id: 'D008', code: 'I48.9', name: '心房颤动',           category: '循环系统',   priority: false, enabled: true  },
-  { id: 'D009', code: 'N18.9', name: '慢性肾脏病',         category: '其他',       priority: false, enabled: false },
-  { id: 'D010', code: 'M54.5', name: '腰痛',               category: '其他',       priority: false, enabled: false },
-]
-
-const CATEGORIES = ['循环系统', '神经系统', '内分泌系统', '呼吸系统', '其他']
+import { appendSystemOperationLog, SYSTEM_DISEASE_CATEGORIES, SYSTEM_DISEASE_CONFIGS } from '../../data/systemAdminConfig'
 
 let _nextDiseaseId = 11
 
@@ -30,7 +15,7 @@ const CATEGORY_TAG = {
   '其他':       'bg-gray-100 text-gray-600',
 }
 
-const EMPTY_FORM = { code: '', name: '', category: '', priority: false }
+const EMPTY_FORM = { code: '', name: '', category: '', priority: false, emergencyLinked: false, priorityAccept: false }
 
 // ── 辅助组件 ───────────────────────────────────────────────
 function Toggle({ value, onChange }) {
@@ -136,18 +121,34 @@ function DiseaseModal({ initial, onCancel, onSave }) {
                 className={inputCls('category') + ' bg-white'}
               >
                 <option value="">请选择疾病分类</option>
-                {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+                {SYSTEM_DISEASE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
               </select>
               {errors.category && <p className="text-xs text-red-500 mt-0.5">{errors.category}</p>}
             </div>
 
-            {/* 是否上转优先 */}
+            {/* 是否重点病种 */}
             <div className="flex items-center justify-between py-2 border border-gray-100 rounded-lg px-3">
               <div>
-                <div className="text-sm text-gray-700 font-medium">是否上转优先</div>
-                <div className="text-xs text-gray-400 mt-0.5">标记后在选择转诊病种时优先展示</div>
+                <div className="text-sm text-gray-700 font-medium">是否重点病种</div>
+                <div className="text-xs text-gray-400 mt-0.5">标记后在转诊病种选择中优先展示</div>
               </div>
               <Toggle value={form.priority} onChange={v => set('priority', v)} />
+            </div>
+
+            <div className="flex items-center justify-between py-2 border border-gray-100 rounded-lg px-3">
+              <div>
+                <div className="text-sm text-gray-700 font-medium">是否急诊联动病种</div>
+                <div className="text-xs text-gray-400 mt-0.5">标记后可用于急诊提示与专科联动配置</div>
+              </div>
+              <Toggle value={form.emergencyLinked} onChange={v => set('emergencyLinked', v)} />
+            </div>
+
+            <div className="flex items-center justify-between py-2 border border-gray-100 rounded-lg px-3">
+              <div>
+                <div className="text-sm text-gray-700 font-medium">是否优先受理病种</div>
+                <div className="text-xs text-gray-400 mt-0.5">标记后在转入待受理列表中可作为优先提示依据</div>
+              </div>
+              <Toggle value={form.priorityAccept} onChange={v => set('priorityAccept', v)} />
             </div>
           </div>
 
@@ -217,7 +218,7 @@ function DisableConfirmModal({ disease, onCancel, onConfirm }) {
 
 // ── 主页面 ─────────────────────────────────────────────────
 export default function DiseaseDir() {
-  const [list, setList] = useState(MOCK_DISEASES)
+  const [list, setList] = useState(SYSTEM_DISEASE_CONFIGS)
 
   // 筛选
   const [filters, setFilters] = useState({ code: '', name: '', category: 'all', enabled: 'all' })
@@ -270,9 +271,35 @@ export default function DiseaseDir() {
         enabled: true,
       }
       setList(prev => [newD, ...prev])
+      appendSystemOperationLog({
+        domain: '病种配置',
+        type: '系统配置变更',
+        target: `${newD.name}（${newD.code}）`,
+        detail: {
+          配置项: '重点病种',
+          操作: '新增病种',
+          疾病名称: newD.name,
+          ICD编码: newD.code,
+          分类: newD.category,
+        },
+      })
       showToast('病种新增成功')
     } else {
+      const original = modal.disease
       setList(prev => prev.map(d => d.id === modal.disease.id ? { ...d, ...formData } : d))
+      appendSystemOperationLog({
+        domain: '病种配置',
+        type: '系统配置变更',
+        target: `${original.name}（${original.code}）`,
+        detail: {
+          配置项: '重点病种',
+          操作: '编辑病种',
+          疾病名称: `${original.name} → ${formData.name}`,
+          ICD编码: `${original.code} → ${formData.code}`,
+          分类: `${original.category} → ${formData.category}`,
+          重点病种: `${original.priority ? '是' : '否'} → ${formData.priority ? '是' : '否'}`,
+        },
+      })
       showToast('病种信息已保存')
     }
     setModal(null)
@@ -281,6 +308,18 @@ export default function DiseaseDir() {
   // 确认停用
   const handleConfirmDisable = () => {
     setList(prev => prev.map(d => d.id === disableTarget.id ? { ...d, enabled: false } : d))
+    appendSystemOperationLog({
+      domain: '病种配置',
+      type: '系统配置变更',
+      target: `${disableTarget.name}（${disableTarget.code}）`,
+      detail: {
+        配置项: '重点病种',
+        操作: '停用病种',
+        变更字段: '启用状态',
+        原值: '启用',
+        新值: '停用',
+      },
+    })
     showToast(`已停用「${disableTarget.name}」`)
     setDisableTarget(null)
   }
@@ -288,6 +327,18 @@ export default function DiseaseDir() {
   // 直接启用
   const handleEnable = (disease) => {
     setList(prev => prev.map(d => d.id === disease.id ? { ...d, enabled: true } : d))
+    appendSystemOperationLog({
+      domain: '病种配置',
+      type: '系统配置变更',
+      target: `${disease.name}（${disease.code}）`,
+      detail: {
+        配置项: '重点病种',
+        操作: '启用病种',
+        变更字段: '启用状态',
+        原值: '停用',
+        新值: '启用',
+      },
+    })
     showToast(`已启用「${disease.name}」`)
   }
 
@@ -299,19 +350,10 @@ export default function DiseaseDir() {
       {/* 页面标题 + 顶部操作 */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">病种目录管理</h2>
-          <div className="text-xs text-gray-400 mt-0.5">ICD-10 病种目录维护 · 转诊优先病种配置</div>
+          <h2 className="text-base font-semibold text-gray-800">转诊重点病种配置</h2>
+          <div className="text-xs text-gray-400 mt-0.5">重点病种、优先病种与急诊联动病种维护</div>
         </div>
         <div className="flex items-center gap-2">
-          <button
-            onClick={() => alert('批量导入功能待接入文件解析服务\n// TODO: 接入 Excel/CSV 解析上传接口')}
-            className="px-4 py-2 rounded-lg text-sm border transition-colors"
-            style={{ color: '#0BBECF', borderColor: '#0BBECF' }}
-            onMouseEnter={e => e.currentTarget.style.background = '#E0F6F9'}
-            onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-          >
-            批量导入
-          </button>
           <button
             onClick={() => setModal('create')}
             className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
@@ -325,6 +367,10 @@ export default function DiseaseDir() {
             新增病种
           </button>
         </div>
+      </div>
+
+      <div className="mb-4 rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-3 text-xs text-cyan-700">
+        本页维护转诊相关重点病种配置，不承担完整 ICD-10 主数据维护。
       </div>
 
       {/* 筛选栏 */}
@@ -358,7 +404,7 @@ export default function DiseaseDir() {
               className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
             >
               <option value="all">全部</option>
-              {CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
+              {SYSTEM_DISEASE_CATEGORIES.map(c => <option key={c} value={c}>{c}</option>)}
             </select>
           </div>
           <div>
@@ -400,7 +446,7 @@ export default function DiseaseDir() {
           <table className="w-full text-sm" style={{ borderCollapse: 'collapse', minWidth: 800 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', 'ICD-10 编码', '疾病名称', '分类', '上转优先', '状态', '操作'].map(h => (
+                {['序号', 'ICD-10 编码', '疾病名称', '分类', '重点病种', '急诊联动', '优先受理', '状态', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -408,7 +454,7 @@ export default function DiseaseDir() {
             <tbody>
               {pageData.length === 0 ? (
                 <tr>
-                  <td colSpan={7} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-400">
                       <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
@@ -444,7 +490,19 @@ export default function DiseaseDir() {
                   </td>
                   <td className={TD}>
                     {d.priority
-                      ? <span className="text-green-600 font-medium text-sm" title="上转优先">✓</span>
+                      ? <span className="text-green-600 font-medium text-sm" title="重点病种">✓</span>
+                      : <span className="text-gray-300 text-sm">—</span>
+                    }
+                  </td>
+                  <td className={TD}>
+                    {d.emergencyLinked
+                      ? <span className="text-cyan-600 font-medium text-sm" title="急诊联动病种">✓</span>
+                      : <span className="text-gray-300 text-sm">—</span>
+                    }
+                  </td>
+                  <td className={TD}>
+                    {d.priorityAccept
+                      ? <span className="text-blue-600 font-medium text-sm" title="优先受理病种">✓</span>
                       : <span className="text-gray-300 text-sm">—</span>
                     }
                   </td>

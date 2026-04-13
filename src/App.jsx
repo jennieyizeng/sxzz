@@ -8,7 +8,9 @@ import PrimaryDashboard from './pages/primary/Dashboard'
 import CreateReferral from './pages/primary/CreateReferral'
 import PrimaryReferralList from './pages/primary/ReferralList'
 import DownwardList from './pages/primary/DownwardList'
+import PrimaryDownwardRecords from './pages/primary/DownwardRecords'
 import PrimaryFollowupList from './pages/primary/FollowupList'
+import PrimaryFollowupTaskDetail from './pages/primary/FollowupTaskDetail'
 import CountyDashboard from './pages/county/Dashboard'
 import CountyReviewList from './pages/county/ReviewList'
 import AdminDashboard from './pages/admin/Dashboard'
@@ -50,9 +52,20 @@ function RoleRedirect() {
     [ROLES.COUNTY]:       '/county/dashboard',
     [ROLES.COUNTY2]:      '/county/dashboard',
     [ROLES.ADMIN]:        '/admin/dashboard',
+    [ROLES.SYSTEM_ADMIN]: '/admin/institution-manage',
     [ROLES.DIRECTOR]:     '/director/dashboard',
   }
   return <Navigate to={roleDefaultPaths[currentRole] || '/primary/dashboard'} replace />
+}
+
+function RoleRoute({ allowedRoles, children }) {
+  const { currentRole } = useApp()
+
+  if (!allowedRoles.includes(currentRole)) {
+    return <Placeholder title="无权限访问" description="当前角色暂无此页面访问权限，请切换到有权限的角色后重试。" />
+  }
+
+  return children
 }
 
 function AppRoutes() {
@@ -70,50 +83,50 @@ function AppRoutes() {
             <Route path="/" element={<RoleRedirect />} />
 
         {/* ── 基层医生 ── */}
-        <Route path="/primary/dashboard" element={<PrimaryDashboard />} />
-        <Route path="/primary/create-referral" element={<CreateReferral />} />
-        <Route path="/primary/referral-list" element={<PrimaryReferralList />} />
-        <Route path="/primary/downward-list" element={<DownwardList />} />
-        <Route path="/primary/downward-records" element={<Placeholder title="下转记录" />} />
+        <Route path="/primary/dashboard" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><PrimaryDashboard mode="workbench" /></RoleRoute>} />
+        <Route path="/primary/create-referral" element={<RoleRoute allowedRoles={[ROLES.PRIMARY]}><CreateReferral /></RoleRoute>} />
+        <Route path="/primary/referral-list" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><PrimaryReferralList /></RoleRoute>} />
+        <Route path="/primary/downward-list" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><DownwardList /></RoleRoute>} />
+        <Route path="/primary/downward-records" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><PrimaryDownwardRecords /></RoleRoute>} />
         {/* M-2：基层医生/科主任的随访任务列表 */}
-        <Route path="/primary/followup" element={<PrimaryFollowupList />} />
-        {/* CHG-32：科主任院内审核列表（复用工作台入口，通过工作台的待内审面板处理，此路由为导航占位） */}
-        <Route path="/primary/internal-review" element={<PrimaryDashboard />} />
+        <Route path="/primary/followup" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><PrimaryFollowupList /></RoleRoute>} />
+        <Route path="/primary/followup-task/:id" element={<RoleRoute allowedRoles={[ROLES.PRIMARY, ROLES.PRIMARY_HEAD]}><PrimaryFollowupTaskDetail /></RoleRoute>} />
+        <Route path="/primary/internal-review" element={<RoleRoute allowedRoles={[ROLES.PRIMARY_HEAD]}><PrimaryDashboard mode="internalReview" /></RoleRoute>} />
 
         {/* ── 县级医生 ── */}
-        <Route path="/county/dashboard" element={<CountyDashboard />} />
-        <Route path="/county/review-list" element={<CountyReviewList />} />
-        <Route path="/county/referral-records" element={<CountyReferralRecords />} />
-        <Route path="/county/create-downward" element={<CountyCreateDownward />} />
-        <Route path="/county/downward-records" element={<CountyDownwardRecords />} />
+        <Route path="/county/dashboard" element={<RoleRoute allowedRoles={[ROLES.COUNTY, ROLES.COUNTY2]}><CountyDashboard /></RoleRoute>} />
+        <Route path="/county/review-list" element={<RoleRoute allowedRoles={[ROLES.COUNTY, ROLES.COUNTY2]}><CountyReviewList /></RoleRoute>} />
+        <Route path="/county/referral-records" element={<RoleRoute allowedRoles={[ROLES.COUNTY, ROLES.COUNTY2]}><CountyReferralRecords /></RoleRoute>} />
+        <Route path="/county/create-downward" element={<RoleRoute allowedRoles={[ROLES.COUNTY, ROLES.COUNTY2]}><CountyCreateDownward /></RoleRoute>} />
+        <Route path="/county/downward-records" element={<RoleRoute allowedRoles={[ROLES.COUNTY, ROLES.COUNTY2]}><CountyDownwardRecords /></RoleRoute>} />
         {/* A-14 内部分级审核：MVP不做，列 Should Have 可配置项（project-memory.md 2026-03-20决策）
         <Route path="/county/internal-review" element={<CountyInternalReview />} /> */}
 
         {/* ── 管理员 ── */}
-        <Route path="/admin/dashboard" element={<AdminDashboard />} />
-        <Route path="/admin/ledger" element={<AdminLedger />} />
-        <Route path="/admin/anomaly" element={<AdminAnomaly />} />
-        <Route path="/admin/followup" element={<AdminFollowupList />} />
-        <Route path="/admin/stats" element={<AdminStats />} />
-        <Route path="/admin/report" element={<AdminExamReport />} />
-        <Route path="/admin/exam-report" element={<AdminExamReport />} />
-        <Route path="/admin/doctor-perf" element={<AdminDoctorPerf />} />
-        <Route path="/admin/data-report" element={<AdminDataReport />} />
-        <Route path="/admin/operation-log" element={<AdminOperationLog />} />
-        <Route path="/system/operation-log" element={<AdminOperationLog />} />
-        <Route path="/admin/institution-manage" element={<AdminInstitutionManage />} />
-        <Route path="/admin/role-manage" element={<AdminRoleManage />} />
-        <Route path="/admin/form-template" element={<AdminFormTemplate />} />
-        <Route path="/admin/disease-dir" element={<AdminDiseaseDir />} />
-        <Route path="/admin/timeout-config" element={<AdminTimeoutConfig />} />
-        <Route path="/admin/notify-template" element={<AdminNotifyTemplate />} />
-        <Route path="/admin/audit-rule-config" element={<AdminAuditRuleConfig />} />
-        <Route path="/admin/settings" element={<Placeholder title="系统管理" description="机构信息、角色权限、模板配置等。" />} />
+        <Route path="/admin/dashboard" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDashboard /></RoleRoute>} />
+        <Route path="/admin/ledger" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminLedger /></RoleRoute>} />
+        <Route path="/admin/anomaly" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminAnomaly /></RoleRoute>} />
+        <Route path="/admin/followup" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminFollowupList /></RoleRoute>} />
+        <Route path="/admin/stats" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminStats /></RoleRoute>} />
+        <Route path="/admin/report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminExamReport /></RoleRoute>} />
+        <Route path="/admin/exam-report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminExamReport /></RoleRoute>} />
+        <Route path="/admin/doctor-perf" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDoctorPerf /></RoleRoute>} />
+        <Route path="/admin/data-report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDataReport /></RoleRoute>} />
+        <Route path="/admin/operation-log" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminOperationLog /></RoleRoute>} />
+        <Route path="/system/operation-log" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminOperationLog /></RoleRoute>} />
+        <Route path="/admin/institution-manage" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminInstitutionManage /></RoleRoute>} />
+        <Route path="/admin/role-manage" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminRoleManage /></RoleRoute>} />
+        <Route path="/admin/form-template" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminFormTemplate /></RoleRoute>} />
+        <Route path="/admin/disease-dir" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminDiseaseDir /></RoleRoute>} />
+        <Route path="/admin/timeout-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminTimeoutConfig /></RoleRoute>} />
+        <Route path="/admin/notify-template" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminNotifyTemplate /></RoleRoute>} />
+        <Route path="/admin/audit-rule-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminAuditRuleConfig /></RoleRoute>} />
+        <Route path="/admin/settings" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><Placeholder title="系统管理" description="机构信息、角色权限、模板配置等。" /></RoleRoute>} />
 
         {/* ── 院长 ── */}
-        <Route path="/director/dashboard" element={<DirectorDashboard />} />
-        <Route path="/director/analytics" element={<DirectorAnalytics />} />
-        <Route path="/director/report" element={<DirectorReport />} />
+        <Route path="/director/dashboard" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorDashboard /></RoleRoute>} />
+        <Route path="/director/analytics" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorAnalytics /></RoleRoute>} />
+        <Route path="/director/report" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorReport /></RoleRoute>} />
 
         {/* ── 共享页面 ── */}
         <Route path="/referral/:id" element={<ReferralDetail />} />

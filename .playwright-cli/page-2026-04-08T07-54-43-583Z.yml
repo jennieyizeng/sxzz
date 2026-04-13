@@ -1,0 +1,196 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - heading "随访任务详情" [level=2] [ref=e64]
+            - generic [ref=e65]: 基层医生执行单个随访任务的工作页，转诊单仅作为背景资料参考
+          - generic [ref=e66]:
+            - button "返回任务列表" [ref=e67] [cursor=pointer]
+            - button "查看原转诊单" [ref=e68] [cursor=pointer]
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e72]: 顶部基础信息
+            - generic [ref=e74]:
+              - generic [ref=e75]:
+                - generic [ref=e76]: 患者姓名
+                - generic [ref=e77]: 孙秀兰
+              - generic [ref=e78]:
+                - generic [ref=e79]: 性别
+                - generic [ref=e80]: 女
+              - generic [ref=e81]:
+                - generic [ref=e82]: 年龄
+                - generic [ref=e83]: 72岁
+              - generic [ref=e84]:
+                - generic [ref=e85]: 主要诊断
+                - generic [ref=e86]: 脑梗死
+              - generic [ref=e87]:
+                - generic [ref=e88]: 来源医院
+                - generic [ref=e89]: xx市人民医院
+              - generic [ref=e90]:
+                - generic [ref=e91]: 下转日期
+                - generic [ref=e92]: 2026/4/7
+              - generic [ref=e93]:
+                - generic [ref=e94]: 责任医生
+                - generic [ref=e95]: 王医生
+              - generic [ref=e96]:
+                - generic [ref=e97]: 任务状态
+                - generic [ref=e99]: 待随访
+              - generic [ref=e101]:
+                - generic [ref=e102]: 计划随访日期
+                - generic [ref=e103]: 2026/4/18
+              - generic [ref=e104]:
+                - generic [ref=e105]: 上次随访
+                - generic [ref=e106]: 暂无
+          - generic [ref=e107]:
+            - generic [ref=e109]: 随访目标
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - generic [ref=e113]:
+                  - generic [ref=e114]: 血压
+                  - generic [ref=e115]: 本任务需关注
+                - generic [ref=e116]: 观察晨晚血压波动，必要时记录家庭监测值
+              - generic [ref=e117]:
+                - generic [ref=e118]:
+                  - generic [ref=e119]: 语言功能
+                  - generic [ref=e120]: 本次非核心项
+                - generic [ref=e121]: 关注表达、理解和吞咽配合情况
+              - generic [ref=e122]:
+                - generic [ref=e123]:
+                  - generic [ref=e124]: 肢体活动度
+                  - generic [ref=e125]: 本任务需关注
+                - generic [ref=e126]: 记录步态、肌力和关节活动范围恢复情况
+              - generic [ref=e127]:
+                - generic [ref=e128]:
+                  - generic [ref=e129]: 服药依从性
+                  - generic [ref=e130]: 本任务需关注
+                - generic [ref=e131]: 核对是否按时服药、是否存在漏服停药
+              - generic [ref=e132]:
+                - generic [ref=e133]: 其他监测指标
+                - generic [ref=e134]: 言语功能
+          - generic [ref=e135]:
+            - generic [ref=e136]:
+              - generic [ref=e137]: 转诊背景资料
+              - button "展开" [ref=e138] [cursor=pointer]
+            - generic [ref=e139]:
+              - generic [ref=e140]: 仅作为背景参考信息，不作为当前随访主操作区。
+              - generic [ref=e141]: 已折叠背景资料，可按需展开查看下转原因、转诊机构和接诊机构信息。
+          - generic [ref=e142]:
+            - generic [ref=e144]: 本次随访记录
+            - generic [ref=e146]:
+              - generic [ref=e147]:
+                - generic [ref=e148]: 随访方式
+                - combobox [ref=e149]:
+                  - option "电话" [selected]
+                  - option "门诊"
+                  - option "微信"
+                  - option "入户"
+              - generic [ref=e150]:
+                - generic [ref=e151]: 随访时间
+                - textbox [ref=e152]: 2026-04-08T07:54
+              - generic [ref=e153]:
+                - generic [ref=e154]: 当前症状/恢复情况
+                - textbox "填写患者当前症状、恢复进展、生活功能变化等" [ref=e155]: 进行言语康复训练每日2次；监测血压；低盐低脂饮食；避免情绪激动
+              - generic [ref=e156]:
+                - generic [ref=e157]: 监测指标录入
+                - generic [ref=e158]:
+                  - generic [ref=e159]:
+                    - generic [ref=e160]: 血压
+                    - textbox "如 128/82 mmHg" [ref=e161]
+                  - generic [ref=e162]:
+                    - generic [ref=e163]: 肢体活动度
+                    - textbox "如 独立步行，左侧肌力 4 级" [ref=e164]
+                  - generic [ref=e165]:
+                    - generic [ref=e166]: 服药依从性
+                    - textbox "如 可按时服药，无漏服" [ref=e167]
+                  - generic [ref=e168]:
+                    - generic [ref=e169]: 其他监测指标
+                    - textbox "补充其他监测指标录入或异常测量值" [ref=e170]
+              - generic [ref=e171]:
+                - generic [ref=e172]: 用药情况
+                - textbox "记录当前服药执行情况、漏服停药或不良反应" [ref=e173]
+              - generic [ref=e174]:
+                - generic [ref=e175]: 康复训练情况
+                - textbox "记录家庭康复训练执行情况、配合度与效果" [ref=e176]
+              - generic [ref=e177]:
+                - generic [ref=e178]: 异常情况
+                - textbox "如患者症状反复、指标异常、无法联系等，请补充说明" [ref=e179]
+              - generic [ref=e180]:
+                - generic [ref=e181]: 医生建议
+                - textbox "填写健康教育、用药建议、复诊建议或居家康复建议" [ref=e182]
+              - generic [ref=e183]:
+                - generic [ref=e184]: 下次随访日期
+                - textbox [ref=e185]: 2026-04-18
+              - generic [ref=e186]:
+                - generic [ref=e187]: 任务执行提示
+                - generic [ref=e188]: 先保存记录，再根据结果选择完成任务、标记失访、上报异常或申请转派。
+          - generic [ref=e189]:
+            - generic [ref=e190]: 底部操作区
+            - generic [ref=e191]:
+              - button "保存记录" [ref=e192] [cursor=pointer]
+              - button "完成本次随访" [ref=e193] [cursor=pointer]
+              - button "标记失访" [ref=e194] [cursor=pointer]
+              - button "上报异常" [ref=e195] [cursor=pointer]
+              - button "申请转派" [ref=e196] [cursor=pointer]

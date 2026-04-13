@@ -1,0 +1,150 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - generic [ref=e63]:
+            - heading "随访任务详情" [level=2] [ref=e64]
+            - generic [ref=e65]: 基层医生执行单个随访任务的工作页，转诊单作为参考资料子入口
+          - button "返回任务列表" [ref=e66] [cursor=pointer]
+        - generic [ref=e67]:
+          - generic [ref=e68]:
+            - generic [ref=e70]: 患者基本信息
+            - generic [ref=e72]:
+              - generic [ref=e73]:
+                - generic [ref=e74]: 患者姓名
+                - generic [ref=e75]: 孙秀兰
+              - generic [ref=e76]:
+                - generic [ref=e77]: 性别
+                - generic [ref=e78]: 女
+              - generic [ref=e79]:
+                - generic [ref=e80]: 年龄
+                - generic [ref=e81]: 72岁
+              - generic [ref=e82]:
+                - generic [ref=e83]: 主要诊断
+                - generic [ref=e84]: 脑梗死
+              - generic [ref=e85]:
+                - generic [ref=e86]: 来源医院
+                - generic [ref=e87]: xx市人民医院
+              - generic [ref=e88]:
+                - generic [ref=e89]: 下转日期
+                - generic [ref=e90]: 2026/4/8
+              - generic [ref=e91]:
+                - generic [ref=e92]: 责任医生
+                - generic [ref=e93]: 王医生
+              - generic [ref=e94]:
+                - generic [ref=e95]: 任务状态
+                - generic [ref=e97]: 随访中
+              - generic [ref=e99]:
+                - generic [ref=e100]: 计划随访日期
+                - generic [ref=e101]: 2026/4/18
+              - generic [ref=e102]:
+                - generic [ref=e103]: 上次随访
+                - generic [ref=e104]: 2026/4/6
+          - generic [ref=e105]:
+            - generic [ref=e107]: 本次随访要点
+            - generic [ref=e109]:
+              - generic [ref=e110]:
+                - generic [ref=e111]: 监测指标
+                - generic [ref=e112]:
+                  - generic [ref=e113]: 血压
+                  - generic [ref=e114]: 肢体活动度
+                  - generic [ref=e115]: 服药依从性
+                  - generic [ref=e116]: 言语功能
+              - generic [ref=e117]:
+                - generic [ref=e118]: 用药医嘱
+                - generic [ref=e119]:
+                  - generic [ref=e120]: 阿司匹林肠溶片 100mg · 口服，每日1次
+                  - generic [ref=e121]: 阿托伐他汀钙片 20mg · 口服，每晚1次
+                  - generic [ref=e122]: 氨氯地平片 5mg · 口服，每日1次
+              - generic [ref=e123]:
+                - generic [ref=e124]: 注意事项
+                - generic [ref=e125]: 进行言语康复训练每日2次；监测血压；低盐低脂饮食；避免情绪激动
+          - generic [ref=e126]:
+            - generic [ref=e128]: 随访操作区（核心）
+            - generic [ref=e129]:
+              - generic [ref=e131]: 优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。
+              - generic [ref=e132]:
+                - button "记录本次随访" [ref=e133] [cursor=pointer]
+                - button "标记未联系上" [ref=e134] [cursor=pointer]
+                - button "申请转派" [ref=e135] [cursor=pointer]
+          - generic [ref=e136]:
+            - generic [ref=e137]:
+              - generic [ref=e138]: 历史随访记录
+              - button "收起" [ref=e139] [cursor=pointer]
+            - generic [ref=e144]:
+              - generic [ref=e145]:
+                - generic [ref=e146]:
+                  - generic [ref=e147]: 随访已记录
+                  - generic [ref=e148]: 2026/4/6 · 电话 · 王医生
+                - generic [ref=e149]: 稳定
+              - generic [ref=e150]: 监测结果：血压 132/84 mmHg；肢体活动度较前改善
+              - generic [ref=e151]: 随访小结：患者言语交流基本顺畅，可配合居家康复训练。
+              - generic [ref=e152]: 处理建议：继续按时服药，保持每日康复训练，1 周后再次电话随访。
+              - generic [ref=e153]: 下次随访日期：2026/4/18
+          - generic [ref=e154]:
+            - generic [ref=e155]:
+              - generic [ref=e156]: 关联转诊单快捷查看
+              - button "展开" [ref=e157] [cursor=pointer]
+            - generic [ref=e159]: 该区域用于快速查看下转原因与原转诊单入口，不作为主操作区。

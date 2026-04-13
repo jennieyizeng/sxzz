@@ -1,0 +1,200 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "← 返回" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]: ›
+          - generic [ref=e65]: 转诊单详情
+          - generic [ref=e66]: ›
+          - generic [ref=e67]: REF2026019
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - generic [ref=e72]: ⬇️
+              - heading "转入申请 · 孙秀兰" [level=1] [ref=e73]
+              - generic [ref=e74]: 已完成
+            - generic [ref=e76]:
+              - generic [ref=e77]: 患者：孙秀兰 · 女 · 72岁
+              - generic [ref=e78]: "|"
+              - generic [ref=e79]: 诊断：I63.9 脑梗死
+            - generic [ref=e80]:
+              - generic [ref=e81]: xx市人民医院 (吴主任)
+              - generic [ref=e82]: →
+              - generic [ref=e83]: xx市拱星镇卫生院 · 全科
+              - generic [ref=e84]: "|"
+              - generic [ref=e85]: 创建于 2026/04/07 22:12
+          - button "📄 导出PDF" [ref=e87] [cursor=pointer]
+        - generic [ref=e89]:
+          - generic [ref=e90]:
+            - generic [ref=e91]:
+              - generic [ref=e93]: 下转流程进度
+              - generic [ref=e94]: 共 5 个环节
+            - generic [ref=e98]: 4/4
+          - generic [ref=e99]:
+            - generic [ref=e100]:
+              - generic [ref=e101]:
+                - generic [ref=e102]: 🏥
+                - generic [ref=e103]: 基层医生
+              - generic [ref=e126]:
+                - generic [ref=e127]: "4"
+                - img [ref=e129]
+                - generic [ref=e131]: 接收确认
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - generic [ref=e140]: 🏨
+                - generic [ref=e141]: 县级医生
+              - generic [ref=e146]:
+                - generic [ref=e147]: "1"
+                - img [ref=e149]
+                - generic [ref=e151]: 发起下转
+            - generic [ref=e176]:
+              - generic [ref=e177]:
+                - generic [ref=e178]: 👤
+                - generic [ref=e179]: 患者
+              - generic [ref=e196]:
+                - generic [ref=e197]: "3"
+                - img [ref=e199]
+                - generic [ref=e201]: 患者前往
+            - generic [ref=e214]:
+              - generic [ref=e215]:
+                - generic [ref=e216]: ⚙️
+                - generic [ref=e217]: 系统
+              - generic [ref=e220]:
+                - generic [ref=e228]:
+                  - generic [ref=e229]: "2"
+                  - img [ref=e231]
+                  - generic [ref=e233]: 系统通知
+                - generic [ref=e249]:
+                  - generic [ref=e250]: "5"
+                  - generic [ref=e253]: 创建随访
+          - generic [ref=e254]:
+            - generic [ref=e255]:
+              - generic [ref=e256]: 当前状态
+              - generic [ref=e257]: 已完成
+            - generic [ref=e258]:
+              - generic [ref=e261]: 已完成
+              - generic [ref=e264]: 进行中
+              - generic [ref=e267]: 待完成
+        - generic [ref=e268]:
+          - generic [ref=e269]:
+            - button "申请详情" [ref=e270] [cursor=pointer]
+            - button "转诊资料" [ref=e271] [cursor=pointer]
+            - button "操作日志 (7)" [ref=e272] [cursor=pointer]
+            - button "患者历史转诊" [ref=e273] [cursor=pointer]
+          - generic [ref=e275]:
+            - generic [ref=e276]:
+              - heading "患者基本信息" [level=3] [ref=e277]
+              - generic [ref=e278]:
+                - generic [ref=e279]:
+                  - generic [ref=e280]: 姓名
+                  - generic [ref=e281]: 孙秀兰
+                - generic [ref=e282]:
+                  - generic [ref=e283]: 性别
+                  - generic [ref=e284]: 女
+                - generic [ref=e285]:
+                  - generic [ref=e286]: 年龄
+                  - generic [ref=e287]: 72岁
+                - generic [ref=e288]:
+                  - generic [ref=e289]: 身份证号
+                  - generic [ref=e290]: 510623***1515
+                - generic [ref=e291]:
+                  - generic [ref=e292]: 联系电话
+                  - generic [ref=e293]: 138****0008
+                - generic [ref=e294]:
+                  - generic [ref=e295]: 地址
+                  - generic [ref=e296]: xx市拱星镇XX村9组
+            - generic [ref=e297]:
+              - heading "转入信息" [level=3] [ref=e298]
+              - generic [ref=e300]:
+                - generic [ref=e301]:
+                  - generic [ref=e302]: 诊断
+                  - generic [ref=e303]: I63.9 脑梗死
+                - generic [ref=e304]:
+                  - generic [ref=e305]: 转入原因
+                  - generic [ref=e306]: 急性期治疗完成，言语功能部分恢复，转至基层进行言语康复训练和二级预防
+                - generic [ref=e307]:
+                  - generic [ref=e308]: 资料查看
+                  - generic [ref=e309]: 详见“转诊资料”页签
+            - generic [ref=e310]:
+              - heading "转诊机构信息" [level=3] [ref=e311]
+              - generic [ref=e313]:
+                - generic [ref=e314]:
+                  - generic [ref=e315]: 转出机构
+                  - generic [ref=e316]: xx市人民医院
+                  - generic [ref=e317]: 经治医生：吴主任
+                - generic [ref=e318]:
+                  - generic [ref=e319]: 接收机构
+                  - generic [ref=e320]: xx市拱星镇卫生院
+                  - generic [ref=e321]: 科室：全科 · 接诊医生：王医生
+                - generic [ref=e322]:
+                  - generic [ref=e323]: 转入分配方式
+                  - generic [ref=e324]: 负责人改派窗口
+                  - generic [ref=e325]: 最近一次改派时间：2026/04/08 00:00
+                  - generic [ref=e326]: 指定医生已拒绝，当前由基层负责人继续处理改派。
+            - generic [ref=e327]:
+              - heading "知情同意" [level=3] [ref=e328]
+              - generic [ref=e329]:
+                - generic [ref=e330]: ✅
+                - generic [ref=e331]: 签署完成 · 时间：2026/04/07 21:42 · 电子存档已生成

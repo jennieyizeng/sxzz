@@ -14,6 +14,20 @@ function RowNo({ n }) {
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
+function getDownwardAllocationLabel(ref) {
+  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
+  if (mode === 'designated') return `定向指派${ref.designatedDoctorName ? ` · ${ref.designatedDoctorName}` : ''}`
+  if (mode === 'coordinator_reassign') return '负责人改派中'
+  if (mode === 'coordinator') return '负责人待分配'
+  return '—'
+}
+
+function getProcessingLabel(ref) {
+  if (ref.type === 'downward') return getDownwardAllocationLabel(ref)
+  if (ref.is_emergency) return ref.referral_type === 'green_channel' ? '急诊绿通协同' : '急诊协同处理'
+  return '常规上转流转'
+}
+
 export default function AdminLedger() {
   const navigate = useNavigate()
   const { referrals } = useApp()
@@ -23,13 +37,13 @@ export default function AdminLedger() {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 10
 
-  const allStatuses = ['all', '待审核', '待接收', '已接收', '转诊中', '已完成', '已拒绝', '已撤销']
+  const allStatuses = ['all', '待受理', '待接收', '转诊中', '已完成', '已拒绝', '已撤销']
   const institutions = ['all', ...new Set(referrals.flatMap(r => [r.fromInstitution, r.toInstitution]).filter(Boolean))]
 
   const filtered = useMemo(() => {
     return referrals.filter(r => {
       if (applied.type !== 'all' && r.type !== applied.type) return false
-      if (applied.status !== 'all' && r.status !== applied.status) return false
+      if (applied.status !== 'all' && !(applied.status === '待受理' ? r.status === '待审核' : r.status === applied.status)) return false
       if (applied.institution !== 'all' && r.fromInstitution !== applied.institution && r.toInstitution !== applied.institution) return false
       if (applied.keyword) {
         const kw = applied.keyword.toLowerCase()
@@ -52,28 +66,28 @@ export default function AdminLedger() {
   }
 
   const stats = {
-    total: filtered.length,
-    upward: filtered.filter(r => r.type === 'upward').length,
-    downward: filtered.filter(r => r.type === 'downward').length,
+    pendingAccept: filtered.filter(r => r.status === '待审核').length,
+    pendingReceive: filtered.filter(r => r.status === '待接收').length,
+    inTransit: filtered.filter(r => r.status === '转诊中').length,
+    emergencyOrGreen: filtered.filter(r => r.is_emergency || r.referral_type === 'green_channel').length,
     completed: filtered.filter(r => r.status === '已完成').length,
-    pending: filtered.filter(r => ['待审核', '待接收'].includes(r.status)).length,
   }
 
   return (
     <div className="p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">转诊台账</h2>
-        <div className="text-xs text-gray-400 mt-0.5">全机构转诊记录 · 多维度筛查</div>
+        <div className="text-xs text-gray-400 mt-0.5">覆盖上转、下转、急诊与绿通的过程台账</div>
       </div>
 
       {/* 概览卡 */}
       <div className="grid grid-cols-5 gap-3 mb-4">
         {[
-          { label: '筛选结果', value: stats.total, color: '#0BBECF' },
-          { label: '上转', value: stats.upward, color: '#0BBECF' },
-          { label: '下转', value: stats.downward, color: '#10b981' },
+          { label: '待受理', value: stats.pendingAccept, color: '#f59e0b' },
+          { label: '待接收', value: stats.pendingReceive, color: '#f59e0b' },
+          { label: '转诊中', value: stats.inTransit, color: '#0BBECF' },
+          { label: '急诊/绿通', value: stats.emergencyOrGreen, color: '#ef4444' },
           { label: '已完成', value: stats.completed, color: '#10b981' },
-          { label: '待处理', value: stats.pending, color: '#f59e0b' },
         ].map(item => (
           <div key={item.label} className="bg-white rounded-lg px-4 py-3 text-center" style={{ border: '1px solid #DDF0F3' }}>
             <div className="text-xl font-bold" style={{ color: item.color }}>{item.value}</div>
@@ -133,10 +147,10 @@ export default function AdminLedger() {
           </button>
           <div className="flex-1" />
           <button className="px-4 py-1.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-            📥 导出 Excel
+            📥 导出台账 Excel
           </button>
           <button className="px-4 py-1.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors">
-            📄 导出 PDF
+            📄 导出台账 PDF
           </button>
         </div>
       </div>
@@ -147,14 +161,14 @@ export default function AdminLedger() {
           <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 900 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号','类型','患者','性别/年龄','诊断','转出机构','转入机构','状态','创建时间','操作'].map(h => (
+                {['序号','类型','患者','性别/年龄','诊断','转出机构','转入机构','处理方式','状态','创建时间','操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pageData.length === 0 ? (
-                <tr><td colSpan={10} className="py-12 text-center text-gray-400">暂无数据</td></tr>
+                <tr><td colSpan={11} className="py-12 text-center text-gray-400">暂无数据</td></tr>
               ) : pageData.map((ref, i) => (
                 <tr key={ref.id}
                   style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE', cursor: 'pointer' }}
@@ -169,15 +183,28 @@ export default function AdminLedger() {
                         : { background: '#ecfdf5', color: '#047857' }}>
                       {ref.type === 'upward' ? '⬆ 上转' : '⬇ 下转'}
                     </span>
+                    {ref.is_emergency && (
+                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                        {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                      </span>
+                    )}
+                    {ref.referral_type === 'green_channel' && (
+                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#10b981' }}>
+                        绿通
+                      </span>
+                    )}
                   </td>
                   <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}</td>
-                  <td className={TD + ' text-gray-500 text-xs'}>{ref.patient.gender}/{ref.patient.age}岁</td>
+                  <td className={TD + ' text-gray-500 text-xs'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
                   <td className={TD + ' text-xs text-gray-600'}>
                     <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>
                     {ref.diagnosis.name}
                   </td>
                   <td className={TD + ' text-xs text-gray-400 max-w-[100px] truncate'}>{ref.fromInstitution}</td>
                   <td className={TD + ' text-xs text-gray-400 max-w-[100px] truncate'}>{ref.toInstitution || '—'}</td>
+                  <td className={TD + ' text-xs text-gray-600'}>
+                    {getProcessingLabel(ref)}
+                  </td>
                   <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                   <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.createdAt)}</td>
                   <td className={TD} onClick={e => e.stopPropagation()}>

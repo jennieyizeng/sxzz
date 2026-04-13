@@ -1,83 +1,11 @@
 import { useState } from 'react'
+import {
+  appendSystemOperationLog,
+  SYSTEM_TIMEOUT_DOWN_RULES,
+  SYSTEM_TIMEOUT_UP_RULES,
+} from '../../data/systemAdminConfig'
 
-// ── Mock 数据 ──────────────────────────────────────────────
-const INIT_UP_RULES = [
-  {
-    id: 'u1',
-    stage: '县级医生审核',
-    stageNote: '待审核 → 转诊中',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['县级医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'u2',
-    stage: '基层医生确认接诊',
-    stageNote: '转诊中 → 已完成',
-    thresholdValue: 48,
-    thresholdUnit: '小时',
-    autoAction: '管理员代为确认',
-    notifyTargets: ['基层医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'u3',
-    stage: '县级医院响应下转接收',
-    stageNote: '待接收 → 已接收',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['基层医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'u4',
-    stage: '患者取消冷静期',
-    stageNote: '',
-    thresholdValue: 2,
-    thresholdUnit: '小时',
-    autoAction: '自动解除冻结',
-    notifyTargets: ['患者（短信）'],
-    enabled: false,
-  },
-]
-
-const INIT_DOWN_RULES = [
-  {
-    id: 'd1',
-    stage: '基层医生确认接收',
-    stageNote: '下转待接收 → 接收中',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '管理员代为确认',
-    notifyTargets: ['基层医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'd2',
-    stage: '基层医生填报康复完成',
-    stageNote: '接收中 → 已完成',
-    thresholdValue: 72,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['基层医生'],
-    enabled: true,
-  },
-  {
-    id: 'd3',
-    stage: '知情同意逾期',
-    stageNote: '',
-    thresholdValue: 1,
-    thresholdUnit: '小时',
-    autoAction: '撤回知情同意请求',
-    notifyTargets: ['患者（短信）'],
-    enabled: false,
-  },
-]
-
-const AUTO_ACTIONS = ['发送催办通知', '管理员代为确认', '自动解除冻结', '撤回知情同意请求']
+const AUTO_ACTIONS = ['发送催办通知', '自动解除冻结', '撤回知情同意请求']
 const NOTIFY_OPTIONS = ['县级医生', '基层医生', '管理员', '患者（短信）']
 const THRESHOLD_UNITS = ['小时', '天']
 
@@ -257,6 +185,13 @@ function EditModal({ rule, onCancel, onSave }) {
             <Toggle value={enabled} onChange={setEnabled} />
           </div>
 
+          <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+            <div className="text-xs font-medium text-amber-800 mb-1">生效影响提示</div>
+            <div className="text-xs leading-5 text-amber-700">
+              保存后规则立即生效，仅影响后续进入“{rule.stage}”环节的单据；已产生的超时记录不会自动回写。
+            </div>
+          </div>
+
           {/* 按钮区 */}
           <div className="flex justify-end gap-2">
             <button
@@ -321,10 +256,10 @@ function RuleTable({ rules, onToggle, onEdit }) {
               {/* 自动操作 */}
               <td className={TD}>
                 <span className={`inline-block text-xs px-2 py-0.5 rounded font-medium ${
-                  rule.autoAction === '管理员代为确认'
-                    ? 'bg-purple-100 text-purple-700'
-                    : rule.autoAction === '发送催办通知'
+                  rule.autoAction === '发送催办通知'
                     ? 'bg-blue-100 text-blue-700'
+                    : rule.autoAction === '提醒转诊中心确认或协商关闭'
+                    ? 'bg-purple-100 text-purple-700'
                     : rule.autoAction === '自动解除冻结'
                     ? 'bg-green-100 text-green-700'
                     : 'bg-orange-100 text-orange-700'
@@ -371,8 +306,8 @@ function RuleTable({ rules, onToggle, onEdit }) {
 
 // ── 主页面 ──────────────────────────────────────────────────
 export default function TimeoutConfig() {
-  const [upRules, setUpRules] = useState(INIT_UP_RULES)
-  const [downRules, setDownRules] = useState(INIT_DOWN_RULES)
+  const [upRules, setUpRules] = useState(() => SYSTEM_TIMEOUT_UP_RULES.map(rule => ({ ...rule, notifyTargets: [...rule.notifyTargets] })))
+  const [downRules, setDownRules] = useState(() => SYSTEM_TIMEOUT_DOWN_RULES.map(rule => ({ ...rule, notifyTargets: [...rule.notifyTargets] })))
   const [editingRule, setEditingRule] = useState(null) // null | rule obj
   const [toast, setToast] = useState('')
 
@@ -383,17 +318,50 @@ export default function TimeoutConfig() {
 
   // 直接 Toggle 切换
   const handleToggle = (ruleSet, setRuleSet) => (id, value) => {
+    const originalRule = ruleSet.find(r => r.id === id)
     setRuleSet(prev => prev.map(r => r.id === id ? { ...r, enabled: value } : r))
+    if (originalRule) {
+      appendSystemOperationLog({
+        domain: '超时规则',
+        type: '系统配置变更',
+        target: originalRule.stage,
+        detail: {
+          配置项: '超时规则',
+          业务环节: originalRule.stage,
+          变更字段: '规则状态',
+          原值: originalRule.enabled ? '启用' : '禁用',
+          新值: value ? '启用' : '禁用',
+        },
+      })
+    }
     showToast(value ? '规则已启用' : '规则已禁用')
   }
 
   // 保存编辑
   const handleSave = (updated) => {
+    const original = [...upRules, ...downRules].find(r => r.id === updated.id)
     const inUp = upRules.some(r => r.id === updated.id)
     if (inUp) {
       setUpRules(prev => prev.map(r => r.id === updated.id ? updated : r))
     } else {
       setDownRules(prev => prev.map(r => r.id === updated.id ? updated : r))
+    }
+    if (original) {
+      appendSystemOperationLog({
+        domain: '超时规则',
+        type: '系统配置变更',
+        target: updated.stage,
+        detail: {
+          配置项: '超时规则',
+          业务环节: updated.stage,
+          原阈值: `${original.thresholdValue}${original.thresholdUnit}`,
+          新阈值: `${updated.thresholdValue}${updated.thresholdUnit}`,
+          原自动动作: original.autoAction,
+          新自动动作: updated.autoAction,
+          原通知对象: original.notifyTargets.join('、'),
+          新通知对象: updated.notifyTargets.join('、'),
+        },
+      })
     }
     setEditingRule(null)
     showToast('超时规则已更新')
@@ -407,17 +375,17 @@ export default function TimeoutConfig() {
       {/* 页面标题 */}
       <div className="mb-5">
         <h2 className="text-base font-semibold text-gray-800">超时规则配置</h2>
-        <div className="text-xs text-gray-400 mt-0.5">配置各业务环节的超时阈值与自动处理策略</div>
+        <div className="text-xs text-gray-400 mt-0.5">配置转入、转出各业务环节的超时阈值与自动处理策略</div>
       </div>
 
-      {/* ── 上转流程 ── */}
+      {/* ── 转入流程 ── */}
       <div className="bg-white rounded-xl mb-4" style={{ border: '1px solid #DDF0F3' }}>
         <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid #EEF7F9' }}>
           <span
             className="inline-flex items-center justify-center w-5 h-5 rounded text-white text-xs font-bold"
             style={{ background: '#0BBECF' }}
           >上</span>
-          <span className="text-sm font-semibold text-gray-800">上转流程超时规则</span>
+          <span className="text-sm font-semibold text-gray-800">转入流程超时规则</span>
           <span className="ml-1 text-xs text-gray-400">共 {upRules.length} 条规则，
             <span className="text-green-600 font-medium">{upRules.filter(r => r.enabled).length}</span> 条启用
           </span>
@@ -429,14 +397,14 @@ export default function TimeoutConfig() {
         />
       </div>
 
-      {/* ── 下转流程 ── */}
+      {/* ── 转出流程 ── */}
       <div className="bg-white rounded-xl mb-5" style={{ border: '1px solid #DDF0F3' }}>
         <div className="flex items-center gap-2 px-4 py-3" style={{ borderBottom: '1px solid #EEF7F9' }}>
           <span
             className="inline-flex items-center justify-center w-5 h-5 rounded text-white text-xs font-bold"
             style={{ background: '#6366f1' }}
           >下</span>
-          <span className="text-sm font-semibold text-gray-800">下转流程超时规则</span>
+          <span className="text-sm font-semibold text-gray-800">转出流程超时规则</span>
           <span className="ml-1 text-xs text-gray-400">共 {downRules.length} 条规则，
             <span className="text-green-600 font-medium">{downRules.filter(r => r.enabled).length}</span> 条启用
           </span>
@@ -453,7 +421,7 @@ export default function TimeoutConfig() {
         <svg className="w-3.5 h-3.5 flex-shrink-0 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
           <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
         </svg>
-        超时规则变更立即生效，请谨慎配置。历史超时记录请前往
+        规则变更立即生效，仅影响后续进入该环节的单据；历史超时记录请前往
         <a
           href="/admin/anomaly"
           className="font-medium underline underline-offset-2 transition-colors"
