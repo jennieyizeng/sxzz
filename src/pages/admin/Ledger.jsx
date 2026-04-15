@@ -43,7 +43,7 @@ export default function AdminLedger() {
   const filtered = useMemo(() => {
     return referrals.filter(r => {
       if (applied.type !== 'all' && r.type !== applied.type) return false
-      if (applied.status !== 'all' && !(applied.status === '待受理' ? r.status === '待审核' : r.status === applied.status)) return false
+      if (applied.status !== 'all' && !(applied.status === '待受理' ? ['待受理', '待审核'].includes(r.status) : r.status === applied.status)) return false
       if (applied.institution !== 'all' && r.fromInstitution !== applied.institution && r.toInstitution !== applied.institution) return false
       if (applied.keyword) {
         const kw = applied.keyword.toLowerCase()
@@ -66,7 +66,7 @@ export default function AdminLedger() {
   }
 
   const stats = {
-    pendingAccept: filtered.filter(r => r.status === '待审核').length,
+    pendingAccept: filtered.filter(r => ['待受理', '待审核'].includes(r.status)).length,
     pendingReceive: filtered.filter(r => r.status === '待接收').length,
     inTransit: filtered.filter(r => r.status === '转诊中').length,
     emergencyOrGreen: filtered.filter(r => r.is_emergency || r.referral_type === 'green_channel').length,
@@ -186,6 +186,11 @@ export default function AdminLedger() {
                     {ref.is_emergency && (
                       <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
                         {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                      </span>
+                    )}
+                    {ref.isRetroEntry && (
+                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                        补录
                       </span>
                     )}
                     {ref.referral_type === 'green_channel' && (

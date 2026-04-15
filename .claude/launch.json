@@ -4,7 +4,7 @@
     {
       "name": "referral-prototype",
       "runtimeExecutable": "/bin/sh",
-      "runtimeArgs": ["-c", "export PATH=/usr/local/bin:$PATH && cd \"/Users/yiakio/Desktop/work space-me/双向转诊/referral-prototype-codex-work\" && npm run dev"],
+      "runtimeArgs": ["-c", "export PATH=/usr/local/bin:$PATH && cd \"/Users/yiakio/Desktop/work space-me/双向转诊/referral-prototype-codex-work0414bu\" && npm run dev"],
       "port": 5173
     }
   ]

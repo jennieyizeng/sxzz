@@ -19,11 +19,24 @@ const URGENCY_LEVELS = [
   { level: 4, label: 'IV级·亚急', shortLabel: 'IV级·亚急', color: '#6b7280', bg: '#f9fafb' },
 ]
 
-const NORMAL_STEPS = ['患者信息', '诊断及原因', '选择机构', '知情同意', '确认提交']
+const NORMAL_STEPS = ['患者信息', '诊断及目的', '选择机构', '知情同意', '确认提交']
 const EMERGENCY_STEPS = ['急诊信息', '确认提交']
 const EMERGENCY_ENTRY_MODES = [
   { value: 'realtime', label: '实时转诊', description: '默认模式，提交后立即触发急诊联动、工作台通知和患者短信。' },
   { value: 'retro', label: '补录录入', description: '仅用于患者已先到院的事后补录，不触发实时通知，也不发送患者短信。' },
+]
+
+const EMERGENCY_TRANSPORT_CONDITION_OPTIONS = [
+  '适合转运',
+  '需评估后转运',
+]
+
+const EMERGENCY_TRANSPORT_NEED_OPTIONS = [
+  '吸氧',
+  '监护',
+  '担架',
+  '医护陪同',
+  '120转运',
 ]
 
 const ICD10_DEPT_MAPPING = {
@@ -40,6 +53,54 @@ const ICD10_DEPT_MAPPING = {
   M16: ['骨科'],
   S72: ['骨科'],
 }
+
+const OUTPATIENT_TRANSFER_PURPOSE_OPTIONS = [
+  '上级医院进一步明确诊断',
+  '需要专科进一步评估',
+  '基层缺乏检查条件',
+  '基层缺乏治疗条件',
+  '建议住院评估',
+  '患者主动要求',
+]
+
+const OUTPATIENT_CONDITION_ASSESSMENT_OPTIONS = [
+  '病情稳定',
+  '建议尽快就诊',
+  '需重点关注',
+]
+
+const ADMISSION_TYPE_PREFERENCE_OPTIONS = [
+  { value: 'outpatient', label: '门诊专科就诊' },
+  { value: 'inpatient', label: '建议住院评估' },
+  { value: 'byHospital', label: '由上级医院判断' },
+]
+
+const MOCK_INPATIENT_PATIENTS = [
+  {
+    id: 'P001',
+    name: '张建国',
+    gender: '男',
+    birthDate: '1968-03-15',
+    age: 58,
+    idCard: '510121196803150012',
+    phone: '13812345678',
+    hasHealthRecord: true,
+    healthRecordSummary: {
+      chronicDiseases: ['高血压（3级）', '2型糖尿病'],
+      lastVisit: '2026-02-10 内科门诊',
+    },
+  },
+  {
+    id: 'P002',
+    name: '李秀梅',
+    gender: '女',
+    birthDate: '1975-11-02',
+    age: 50,
+    idCard: '510121197511020034',
+    phone: '13987654321',
+    hasHealthRecord: false,
+  },
+]
 
 function getLinkedSpecialtySuggestion(diagnosisCode, institution) {
   const code = String(diagnosisCode || '').toUpperCase()
@@ -166,58 +227,45 @@ function ICD10Search({ value, onChange, required = false, placeholder = '输入�
   )
 }
 
-function ClinicRecordPicker({ isOpen, onClose, onSelect }) {
-  const [searchQuery, setSearchQuery] = useState('')
-  const mockClinicRecords = [
-    { id: 'C001', patientName: '张三', gender: '男', age: 45, phone: '13800138000', dept: '内科', doctor: '李医生', visitTime: '2026-04-14 09:30' },
-    { id: 'C002', patientName: '李四', gender: '女', age: 32, phone: '13900139000', dept: '儿科', doctor: '王医生', visitTime: '2026-04-14 10:15' },
-  ]
-  const filtered = searchQuery
-    ? mockClinicRecords.filter(r => r.patientName.includes(searchQuery))
-    : mockClinicRecords
-
-  if (!isOpen) return null
-
+function EmergencyRetroConfirmModal({ onCancel, onConfirm }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center bg-black/50">
-      <div className="bg-white rounded-xl w-full max-w-lg max-h-[80vh] overflow-hidden">
-        <div className="p-4 border-b flex items-center justify-between">
-          <h3 className="font-semibold text-gray-800">选择门诊记录</h3>
-          <button onClick={onClose} className="text-gray-400 hover:text-gray-600">✕</button>
-        </div>
-        <div className="p-4">
-          <input
-            type="text"
-            value={searchQuery}
-            onChange={e => setSearchQuery(e.target.value)}
-            placeholder="搜索患者姓名..."
-            className="w-full border rounded-lg px-3 py-2 text-sm"
-          />
-        </div>
-        <div className="px-4 pb-4 space-y-2 max-h-96 overflow-y-auto">
-          {filtered.map(record => (
+    <>
+      <div className="fixed inset-0 bg-black/40 z-40" onClick={onCancel} />
+      <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
+        <div className="w-full max-w-md rounded-xl bg-white shadow-xl">
+          <div className="p-6">
+            <div className="text-base font-semibold text-gray-800 mb-3">确认切换为补录录入</div>
+            <div className="text-sm text-gray-600 leading-6">
+              仅用于患者已先行到院后的事后登记，不触发实时通知，不作为实时接诊依据
+            </div>
+          </div>
+          <div className="px-6 py-4 flex justify-end gap-3 border-t border-gray-100 bg-gray-50 rounded-b-xl">
             <button
-              key={record.id}
               type="button"
-              onClick={() => onSelect(record)}
-              className="w-full text-left p-3 rounded-lg border hover:border-[#0BBECF] transition-colors"
+              onClick={onCancel}
+              className="px-4 py-2 text-sm text-gray-600 border border-gray-200 rounded-lg hover:bg-white transition-colors"
             >
-              <div className="font-medium text-gray-800">{record.patientName}</div>
-              <div className="text-xs text-gray-500 mt-1">
-                {record.gender} · {record.age}岁 · {record.phone} · {record.dept} · {record.doctor} · {record.visitTime}
-              </div>
+              取消
             </button>
-          ))}
+            <button
+              type="button"
+              onClick={onConfirm}
+              className="px-4 py-2 text-sm font-medium text-white rounded-lg transition-colors"
+              style={{ background: '#ef4444' }}
+            >
+              确认切换
+            </button>
+          </div>
         </div>
       </div>
-    </div>
+    </>
   )
 }
 
 export default function CreateReferral() {
   const navigate = useNavigate()
   const location = useLocation()
-  const { submitReferral, submitForInternalReview, currentUser, referrals } = useApp()
+  const { submitReferral, submitForInternalReview, currentUser } = useApp()
 
   const prefill = location.state?.prefill
   const prefillInstitutionId = prefill?.toInstitutionId ||
@@ -238,12 +286,27 @@ export default function CreateReferral() {
   const [urgencyLevel, setUrgencyLevel] = useState(null)
   const [linkedSpecialty, setLinkedSpecialty] = useState(null)
   const [consciousnessStatus, setConsciousnessStatus] = useState('')
+  const [showRetroConfirmModal, setShowRetroConfirmModal] = useState(false)
+  const [emergencyTransportCondition, setEmergencyTransportCondition] = useState('')
+  const [emergencyTransportNeeds, setEmergencyTransportNeeds] = useState([])
   const [admissionTypePref, setAdmissionTypePref] = useState('outpatient')
   const [deptSuggestion, setDeptSuggestion] = useState(null)
   const [attachments, setAttachments] = useState([])
   // CHG-40: 护理记录附件与检查附件分开展示
   const [nursingAttachments, setNursingAttachments] = useState([])
   const [showEmergencySupplementary, setShowEmergencySupplementary] = useState(false)
+  const [patientSearchQuery, setPatientSearchQuery] = useState('')
+  const [healthRecordExpanded, setHealthRecordExpanded] = useState(false)
+  const [inpatientTransferPurpose, setInpatientTransferPurpose] = useState('')
+  const [inpatientTransferPurposeOther, setInpatientTransferPurposeOther] = useState('')
+  const [conditionAssessment, setConditionAssessment] = useState('')
+  const [transportSuitability, setTransportSuitability] = useState('')
+  const [transportNotes, setTransportNotes] = useState('')
+  const [signerType, setSignerType] = useState('patient')
+  const [signerRelation, setSignerRelation] = useState('')
+  const [signerReason, setSignerReason] = useState('')
+  const [outpatientTransferPurpose, setOutpatientTransferPurpose] = useState([])
+  const [outpatientConditionAssessment, setOutpatientConditionAssessment] = useState('')
   const [patientLinkMode, setPatientLinkMode] = useState(null)
   const [linkedPatient, setLinkedPatient] = useState(null)
   const [form, setForm] = useState({
@@ -264,6 +327,13 @@ export default function CreateReferral() {
     medicationSummary: '',
     inpatientAdmissionDate: '',
     inpatientDiagnosis: '',
+    inpatientWardNo: '',
+    inpatientWard: '',
+    inpatientDoctor: '',
+    outpatientNo: '',
+    outpatientVisitTime: '',
+    outpatientDept: '',
+    outpatientDoctor: '',
     currentTreatmentPlanSummary: '',
     conditionChangeNote: '',
     toInstitutionId: prefillInstitutionId,
@@ -276,19 +346,6 @@ export default function CreateReferral() {
   const selectedDeptFull = selectedDeptInfo && selectedDeptInfo.dailyQuota > 0
     && (selectedDeptInfo.dailyQuota - selectedDeptInfo.todayReserved) <= 0
 
-  const todayStart = new Date()
-  todayStart.setHours(0, 0, 0, 0)
-  const bedOccupied = form.toDept && selectedDeptInfo?.dailyReservedBeds > 0
-    ? referrals.filter(item =>
-      item.toDept === form.toDept &&
-      item.bedStatus === 'bed_reserved' &&
-      item.admissionArrangement?.bedReservedAt &&
-      new Date(item.admissionArrangement.bedReservedAt) >= todayStart
-    ).length
-    : 0
-  const bedRemaining = (selectedDeptInfo?.dailyReservedBeds ?? 0) - bedOccupied
-  const bedFull = selectedDeptInfo?.dailyReservedBeds > 0 && bedRemaining <= 0
-
   const phoneIsValid = isValidChineseMainlandMobile(form.patientPhone)
   const selectedUrgency = URGENCY_LEVELS.find(item => item.level === urgencyLevel)
   const urgencyFeedback = buildEmergencyUrgencyFeedback(urgencyLevel)
@@ -296,20 +353,25 @@ export default function CreateReferral() {
   const isInpatientSource = form.sourceVisitType === 'inpatient'
   const visitTypeLabel = form.sourceVisitType === 'inpatient' ? '住院' : form.sourceVisitType === 'outpatient' ? '门诊' : '—'
   const isRetroEntry = selectedFlow === 'emergency' && emergencyEntryMode === 'retro'
+  const admissionTypePrefLabel = ADMISSION_TYPE_PREFERENCE_OPTIONS.find(option => option.value === admissionTypePref)?.label || '—'
+  const outpatientTransferPurposeSummary = outpatientTransferPurpose.length > 0 ? outpatientTransferPurpose.join('、') : '—'
+  const outpatientReasonSummary = [
+    outpatientTransferPurpose.length > 0 ? `转诊目的：${outpatientTransferPurpose.join('、')}` : '',
+    outpatientConditionAssessment ? `当前病情评估：${outpatientConditionAssessment}` : '',
+    form.reason ? `补充说明：${form.reason}` : '',
+  ].filter(Boolean).join('；')
 
   const normalCanNext = [
-    form.sourceVisitType && form.patientName && form.patientGender && form.patientAge && form.patientPhone,
+    form.sourceVisitType && form.patientName && form.patientGender && form.patientAge && form.patientPhone
+      && (!isInpatientSource || (form.inpatientWardNo && form.inpatientWard && form.inpatientDoctor && form.inpatientAdmissionDate && form.inpatientDiagnosis)),
     form.chiefComplaint
       && form.diagnosis
-      && form.reason
-      && (!isInpatientSource || (
-        form.medicationSummary
-        && form.inpatientAdmissionDate
-        && form.inpatientDiagnosis
-        && form.currentTreatmentPlanSummary
-      )),
+      && (isInpatientSource
+        ? (inpatientTransferPurpose && conditionAssessment && transportSuitability && form.medicationSummary
+          && (inpatientTransferPurpose !== '其他' || inpatientTransferPurposeOther))
+        : outpatientTransferPurpose.length > 0),
     form.toInstitutionId && form.toDept,
-    !!consentFile,
+    !!consentFile && (signerType !== 'family' || (signerRelation && signerReason)),
     true,
   ][normalStep]
 
@@ -320,7 +382,7 @@ export default function CreateReferral() {
       urgencyLevel,
       consciousnessStatus,
       toInstitutionId: form.toInstitutionId,
-    }) && (!isRetroEntry || !!form.patientArrivedAt),
+    }) && emergencyTransportCondition && (!isRetroEntry || !!form.patientArrivedAt),
     true,
   ][emergencyStep]
 
@@ -364,7 +426,6 @@ export default function CreateReferral() {
   }
 
   const resetSourceVisitFields = () => {
-    // CHG-40: 切换基层就诊类型时清空依赖该类型的输入内容
     setForm(prev => ({
       ...prev,
       chiefComplaint: '',
@@ -373,12 +434,21 @@ export default function CreateReferral() {
       medicationSummary: '',
       inpatientAdmissionDate: '',
       inpatientDiagnosis: '',
+      inpatientWardNo: '',
+      inpatientWard: '',
+      inpatientDoctor: '',
       currentTreatmentPlanSummary: '',
       conditionChangeNote: '',
+      outpatientNo: '',
+      outpatientVisitTime: '',
+      outpatientDept: '',
+      outpatientDoctor: '',
     }))
     setAttachments([])
     setNursingAttachments([])
     setDeptSuggestion(null)
+    setOutpatientTransferPurpose([])
+    setOutpatientConditionAssessment('')
   }
 
   const shouldConfirmSourceVisitTypeSwitch = () => {
@@ -391,6 +461,11 @@ export default function CreateReferral() {
       || form.inpatientDiagnosis
       || form.currentTreatmentPlanSummary
       || form.conditionChangeNote
+      || form.outpatientNo
+      || form.outpatientVisitTime
+      || form.outpatientDept
+      || form.outpatientDoctor
+      || outpatientTransferPurpose.length > 0
       || attachments.length > 0
       || nursingAttachments.length > 0
     )
@@ -438,6 +513,9 @@ export default function CreateReferral() {
     setConsentSignedBy('patient')
     // CHG-41: 切换到急诊流程时默认进入实时转诊模式
     setEmergencyEntryMode('realtime')
+    setShowRetroConfirmModal(false)
+    setEmergencyTransportCondition('')
+    setEmergencyTransportNeeds([])
     // CHG-40: 切换流程时重置基层当前就诊类型及相关动态字段
     resetSourceVisitFields()
     setForm(prev => ({ ...prev, sourceVisitType: '', patientArrivedAt: '' }))
@@ -468,6 +546,23 @@ export default function CreateReferral() {
     }
   }
 
+  const handleEmergencyEntryModeChange = (nextMode) => {
+    if (nextMode === emergencyEntryMode) return
+    if (nextMode === 'retro') {
+      setShowRetroConfirmModal(true)
+      return
+    }
+    setEmergencyEntryMode(nextMode)
+  }
+
+  const toggleEmergencyTransportNeed = (need) => {
+    setEmergencyTransportNeeds(prev =>
+      prev.includes(need)
+        ? prev.filter(item => item !== need)
+        : [...prev, need]
+    )
+  }
+
   const buildPatientPayload = () => ({
     id: form.patientId || `p${Date.now()}`,
     name: form.patientName,
@@ -484,7 +579,7 @@ export default function CreateReferral() {
       patient: buildPatientPayload(),
       diagnosis: form.diagnosis,
       chiefComplaint: form.chiefComplaint,
-      reason: form.reason,
+      reason: isInpatientSource ? form.reason : outpatientReasonSummary,
       // CHG-40: 上转写入基层当前就诊类型与对应补充字段
       sourceVisitType: form.sourceVisitType,
       medicationSummary: form.medicationSummary,
@@ -492,6 +587,12 @@ export default function CreateReferral() {
       inpatientDiagnosis: form.inpatientDiagnosis || '',
       currentTreatmentPlanSummary: form.currentTreatmentPlanSummary || '',
       conditionChangeNote: form.conditionChangeNote || '',
+      outpatientNo: form.outpatientNo || '',
+      outpatientVisitTime: form.outpatientVisitTime || '',
+      outpatientDept: form.outpatientDept || '',
+      outpatientDoctor: form.outpatientDoctor || '',
+      outpatientTransferPurpose,
+      outpatientConditionAssessment: outpatientConditionAssessment || '',
       fromInstitution: currentUser.institution,
       fromDoctor: currentUser.name,
       toInstitution: institution?.name,
@@ -535,8 +636,7 @@ export default function CreateReferral() {
       diagnosis: fallbackDiagnosis,
       chiefComplaint: form.chiefComplaint,
       reason: form.reason,
-      // CHG-40: 急诊场景也保留基层当前就诊类型，但为选填
-      sourceVisitType: form.sourceVisitType || null,
+      sourceVisitType: null,
       medicationSummary: form.medicationSummary || '',
       inpatientAdmissionDate: form.inpatientAdmissionDate || null,
       inpatientDiagnosis: form.inpatientDiagnosis || '',
@@ -550,6 +650,8 @@ export default function CreateReferral() {
       referral_type: finalType,
       urgencyLevel,
       consciousnessStatus: consciousnessStatus || null,
+      transportCondition: emergencyTransportCondition || null,
+      transportNeeds: emergencyTransportNeeds,
       is_emergency: true,
       // CHG-41: 急诊补录模式字段
       isRetroEntry,
@@ -564,7 +666,7 @@ export default function CreateReferral() {
       consentSignedBy,
       consentDeferred: consentMethod === 'pending_upload',
       logs: [
-        { time: new Date().toISOString(), actor: currentUser.name, action: consentMethod === 'pending_upload' ? '急诊知情同意后置，待患者到院后补传签署附件' : '急诊知情同意已线下签署并上传附件', note: `${consentMethod === 'offline_upload' && consentFile ? `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name} · ` : ''}基层就诊类型：${visitTypeLabel}` },
+        { time: new Date().toISOString(), actor: currentUser.name, action: consentMethod === 'pending_upload' ? '急诊知情同意后置，待患者到院后补传签署附件' : '急诊知情同意已线下签署并上传附件', note: consentMethod === 'offline_upload' && consentFile ? `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name}` : '' },
         ...(isRetroEntry ? [{
           time: new Date().toISOString(),
           actor: currentUser.name,
@@ -689,7 +791,7 @@ export default function CreateReferral() {
       </label>
       <div className="grid grid-cols-2 gap-3">
         {[
-          { value: 'outpatient', label: '门诊患者', desc: '重点填写主诉、诊断、转诊原因和检查资料' },
+          { value: 'outpatient', label: '门诊患者', desc: '重点填写门诊关联信息、诊断、转诊目的和检查资料' },
           { value: 'inpatient', label: '住院患者', desc: '需补充入院日期、住院诊断、治疗方案等住院信息' },
         ].map(option => (
           <button
@@ -718,147 +820,373 @@ export default function CreateReferral() {
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         {normalStep === 0 && (
           <div className="p-6">
-            <div className="mb-4 p-3 rounded-lg bg-blue-50 border border-blue-200 text-sm text-blue-800">
-              <span>💡 优先通过门诊记录或居民档案关联患者信息，减少重复录入。</span>
-            </div>
-            <div className="mb-6 p-4 rounded-xl border" style={{ background: '#FAFCFE', borderColor: '#DDF0F3' }}>
-              <div className="text-sm font-medium text-gray-700 mb-3">患者关联</div>
-              <div className="grid grid-cols-3 gap-3">
-                <button
-                  type="button"
-                  onClick={() => handlePatientLink('clinic')}
-                  className="rounded-xl border px-4 py-3 text-left transition-colors"
-                  style={{ borderColor: '#0BBECF', background: '#F0FBFC' }}
-                >
-                  <div className="text-sm font-semibold text-gray-800">📋 关联门诊记录</div>
-                  <div className="text-xs text-gray-500 mt-1">从今日门诊就诊记录中选择患者</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePatientLink('archive')}
-                  className="rounded-xl border px-4 py-3 text-left transition-colors"
-                  style={{ borderColor: '#E5E7EB', background: '#fff' }}
-                >
-                  <div className="text-sm font-semibold text-gray-800">📁 关联居民档案</div>
-                  <div className="text-xs text-gray-500 mt-1">从公共卫生档案中匹配患者</div>
-                </button>
-                <button
-                  type="button"
-                  onClick={() => handlePatientLink('manual')}
-                  className="rounded-xl border px-4 py-3 text-left transition-colors"
-                  style={{ borderColor: '#E5E7EB', background: '#fff' }}
-                >
-                  <div className="text-sm font-semibold text-gray-800">✏️ 手工新增患者</div>
-                  <div className="text-xs text-gray-500 mt-1">未检索到患者时，手动补录</div>
-                </button>
-              </div>
-            </div>
-            {patientLinkMode === 'manual' && (
-              <div className="mb-4 p-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                <span>未检索到患者时，可手工补录基础信息。</span>
-              </div>
-            )}
-            <h2 className="text-base font-semibold text-gray-800 mb-4">患者基本信息</h2>
             <div className="space-y-5">
-              {/* CHG-40: 上转表单顶部新增基层当前就诊类型，未选时其余字段不渲染 */}
               {renderSourceVisitTypeSelector({ required: true })}
 
               {form.sourceVisitType && (
-                <div className="grid grid-cols-2 gap-4">
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      姓名 {patientLinkMode !== 'manual' && <span className="text-gray-400 font-normal">(已关联)</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={form.patientName}
-                      onChange={event => setForm(prev => ({ ...prev, patientName: event.target.value }))}
-                      placeholder="患者姓名"
-                      readOnly={!!linkedPatient}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      性别 {patientLinkMode !== 'manual' && <span className="text-gray-400 font-normal">(已关联)</span>}
-                    </label>
-                    <div className="flex gap-3">
-                      {['男', '女'].map(gender => (
+                <>
+                  {/* ===== INPATIENT: 搜索患者 / 手工新增 ===== */}
+                  {isInpatientSource ? (
+                    <div className="rounded-xl border p-4" style={{ background: '#FAFCFE', borderColor: '#DDF0F3' }}>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
                         <button
-                          key={gender}
                           type="button"
-                          onClick={() => setForm(prev => ({ ...prev, patientGender: gender }))}
-                          disabled={!!linkedPatient}
-                          className="flex-1 py-2 rounded-lg text-sm border transition-colors disabled:opacity-50"
-                          style={form.patientGender === gender
-                            ? { background: '#0BBECF', color: '#fff', borderColor: '#0BBECF' }
-                            : { background: '#fff', color: '#4b5563', borderColor: '#d1d5db' }}
+                          onClick={() => { handlePatientLink('search'); setPatientSearchQuery(''); setHealthRecordExpanded(false) }}
+                          className="rounded-xl border px-4 py-3 text-left transition-colors"
+                          style={patientLinkMode === 'search' || patientLinkMode === null
+                            ? { borderColor: '#0BBECF', background: '#F0FBFC' }
+                            : { borderColor: '#E5E7EB', background: '#fff' }}
                         >
-                          {gender}
+                          <div className="text-sm font-semibold text-gray-800">🔍 搜索患者</div>
+                          <div className="text-xs text-gray-500 mt-1">在医共体平台患者主索引中按姓名或身份证号搜索</div>
                         </button>
-                      ))}
+                          <button
+                            type="button"
+                            onClick={() => { handlePatientLink('manual'); }}
+                            className="rounded-xl border px-4 py-3 text-left transition-colors"
+                            style={patientLinkMode === 'manual'
+                              ? { borderColor: '#0BBECF', background: '#F0FBFC' }
+                              : { borderColor: '#E5E7EB', background: '#fff' }}
+                          >
+                            <div className="text-sm font-semibold text-gray-800">✏️ 新增患者</div>
+                          </button>
+                      </div>
+
+                      {/* Patient search input */}
+                      {(patientLinkMode === 'search' || patientLinkMode === null) && !linkedPatient && (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={patientSearchQuery}
+                            onChange={e => setPatientSearchQuery(e.target.value)}
+                            placeholder="输入姓名或身份证号"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
+                          {patientSearchQuery && (
+                            <div className="mt-1 border border-gray-200 rounded-lg shadow-sm bg-white">
+                              {MOCK_INPATIENT_PATIENTS.filter(p =>
+                                p.name.includes(patientSearchQuery) || p.idCard.includes(patientSearchQuery)
+                              ).map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setLinkedPatient(p)
+                                    setForm(prev => ({
+                                      ...prev,
+                                      patientId: p.id,
+                                      patientName: p.name,
+                                      patientGender: p.gender,
+                                      patientAge: String(p.age),
+                                      patientIdCard: p.idCard,
+                                      patientPhone: p.phone,
+                                    }))
+                                    setPatientSearchQuery('')
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0"
+                                >
+                                  <div className="font-medium text-sm text-gray-800">{p.name}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{p.gender} · {p.age}岁 · {p.idCard.slice(0, 6)}****{p.idCard.slice(-4)} · {p.phone}</div>
+                                </button>
+                              ))}
+                              {MOCK_INPATIENT_PATIENTS.filter(p =>
+                                p.name.includes(patientSearchQuery) || p.idCard.includes(patientSearchQuery)
+                              ).length === 0 && (
+                                <div className="px-4 py-3 text-sm text-gray-400">未找到匹配患者，请切换至手工新增</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Linked patient display */}
+                      {linkedPatient && (
+                        <div>
+                          <div className="flex items-center justify-between mb-2">
+                            <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>✅ 已关联患者主索引</span>
+                            <button type="button" onClick={() => { setLinkedPatient(null); setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' })); setHealthRecordExpanded(false) }} className="text-xs text-gray-400 hover:text-gray-600">重新搜索</button>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  ) : (
+                    /* ===== OUTPATIENT: search patient / manual entry ===== */
+                    <div className="rounded-xl border p-4" style={{ background: '#FAFCFE', borderColor: '#DDF0F3' }}>
+                      <div className="grid grid-cols-2 gap-3 mb-4">
+                        <button
+                          type="button"
+                          onClick={() => { handlePatientLink('search'); setPatientSearchQuery(''); }}
+                          className="rounded-xl border px-4 py-3 text-left transition-colors"
+                          style={patientLinkMode === 'search' || patientLinkMode === null
+                            ? { borderColor: '#0BBECF', background: '#F0FBFC' }
+                            : { borderColor: '#E5E7EB', background: '#fff' }}
+                        >
+                          <div className="text-sm font-semibold text-gray-800">🔍 搜索患者</div>
+                          <div className="text-xs text-gray-500 mt-1">在医共体平台患者主索引中按姓名或身份证号搜索</div>
+                        </button>
+                          <button
+                            type="button"
+                            onClick={() => { handlePatientLink('manual'); setPatientSearchQuery(''); setHealthRecordExpanded(false) }}
+                            className="rounded-xl border px-4 py-3 text-left transition-colors"
+                            style={patientLinkMode === 'manual'
+                              ? { borderColor: '#0BBECF', background: '#F0FBFC' }
+                              : { borderColor: '#E5E7EB', background: '#fff' }}
+                          >
+                            <div className="text-sm font-semibold text-gray-800">✏️ 新增患者</div>
+                          </button>
+                      </div>
+
+                      {/* Patient search input */}
+                      {(patientLinkMode === 'search' || patientLinkMode === null) && !linkedPatient && (
+                        <div className="relative">
+                          <input
+                            type="text"
+                            value={patientSearchQuery}
+                            onChange={e => setPatientSearchQuery(e.target.value)}
+                            placeholder="输入姓名或身份证号"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
+                          {patientSearchQuery && (
+                            <div className="mt-1 border border-gray-200 rounded-lg shadow-sm bg-white">
+                              {MOCK_INPATIENT_PATIENTS.filter(p =>
+                                p.name.includes(patientSearchQuery) || p.idCard.includes(patientSearchQuery)
+                              ).map(p => (
+                                <button
+                                  key={p.id}
+                                  type="button"
+                                  onClick={() => {
+                                    setLinkedPatient(p)
+                                    setForm(prev => ({
+                                      ...prev,
+                                      patientId: p.id,
+                                      patientName: p.name,
+                                      patientGender: p.gender,
+                                      patientAge: String(p.age),
+                                      patientIdCard: p.idCard,
+                                      patientPhone: p.phone,
+                                    }))
+                                    setPatientSearchQuery('')
+                                  }}
+                                  className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0"
+                                >
+                                  <div className="font-medium text-sm text-gray-800">{p.name}</div>
+                                  <div className="text-xs text-gray-500 mt-0.5">{p.gender} · {p.age}岁 · {p.idCard.slice(0, 6)}****{p.idCard.slice(-4)} · {p.phone}</div>
+                                </button>
+                              ))}
+                              {MOCK_INPATIENT_PATIENTS.filter(p =>
+                                p.name.includes(patientSearchQuery) || p.idCard.includes(patientSearchQuery)
+                              ).length === 0 && (
+                                <div className="px-4 py-3 text-sm text-gray-400">未找到匹配患者，请切换至手工新增</div>
+                              )}
+                            </div>
+                          )}
+                        </div>
+                      )}
+
+                      {/* Linked patient badge */}
+                      {linkedPatient && (
+                        <div className="flex items-center justify-between">
+                          <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>✅ 已关联患者主索引</span>
+                          <button
+                            type="button"
+                            onClick={() => {
+                              setLinkedPatient(null)
+                              setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' }))
+                              setPatientSearchQuery('')
+                            }}
+                            className="text-xs text-gray-400 hover:text-gray-600"
+                          >
+                            重新搜索
+                          </button>
+                        </div>
+                      )}
+
+                    </div>
+                  )}
+
+                  {/* Patient basic info */}
+                  <h2 className="text-base font-semibold text-gray-800 mt-2">患者基本信息</h2>
+                  <div className="grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">姓名 <span className="text-red-500">*</span></label>
+                      <input type="text" value={form.patientName}
+                        onChange={event => setForm(prev => ({ ...prev, patientName: event.target.value }))}
+                        placeholder="患者姓名" readOnly={!!linkedPatient}
+                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">性别 <span className="text-red-500">*</span></label>
+                      <div className="flex gap-3">
+                        {['男', '女'].map(gender => (
+                          <button key={gender} type="button"
+                            onClick={() => setForm(prev => ({ ...prev, patientGender: gender }))}
+                            disabled={!!linkedPatient}
+                            className="flex-1 py-2 rounded-lg text-sm border transition-colors disabled:opacity-50"
+                            style={form.patientGender === gender
+                              ? { background: '#0BBECF', color: '#fff', borderColor: '#0BBECF' }
+                              : { background: '#fff', color: '#4b5563', borderColor: '#d1d5db' }}>
+                            {gender}
+                          </button>
+                        ))}
+                      </div>
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">出生日期 / 年龄</label>
+                      {linkedPatient ? (
+                        <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600">
+                          {linkedPatient.age}岁
+                        </div>
+                      ) : (
+                        <div className="flex gap-2">
+                          <input type="text" value={form.patientAge}
+                            onChange={event => setForm(prev => ({ ...prev, patientAge: event.target.value }))}
+                            placeholder="岁" className="flex-1 border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                      )}
+                      {linkedPatient && <div className="text-xs text-gray-400 mt-1">根据关联信息自动带出</div>}
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">联系电话 <span className="text-red-500">*</span></label>
+                      <input type="text" value={form.patientPhone}
+                        onChange={event => setForm(prev => ({ ...prev, patientPhone: event.target.value }))}
+                        placeholder="13800138000" readOnly={!!linkedPatient}
+                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`} />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">身份证号</label>
+                      <input type="text" value={form.patientIdCard}
+                        onChange={event => setForm(prev => ({ ...prev, patientIdCard: event.target.value }))}
+                        placeholder="510623***1234" readOnly={!!linkedPatient}
+                        className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`} />
                     </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      年龄
-                    </label>
-                    <div className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm bg-gray-50 text-gray-600">
-                      {form.patientAge ? `${form.patientAge}岁` : '—'}
-                    </div>
-                    <div className="text-xs text-gray-400 mt-1">根据关联信息自动带出</div>
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      联系电话 {patientLinkMode !== 'manual' && <span className="text-gray-400 font-normal">(已关联)</span>}
-                    </label>
-                    <input
-                      type="text"
-                      value={form.patientPhone}
-                      onChange={event => setForm(prev => ({ ...prev, patientPhone: event.target.value }))}
-                      placeholder="13800138000"
-                      readOnly={!!linkedPatient}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                      身份证号
-                      <span className="text-gray-400 text-xs ml-1">（后4位显示，系统自动脱敏）</span>
-                    </label>
-                    <input
-                      type="text"
-                      value={form.patientIdCard}
-                      onChange={event => setForm(prev => ({ ...prev, patientIdCard: event.target.value }))}
-                      placeholder="510623***1234"
-                      readOnly={!!linkedPatient}
-                      className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
-                    />
-                  </div>
-                  {linkedPatient?.clinicId && (
-                    <div className="col-span-2 mt-2 p-3 rounded-lg" style={{ background: '#F0FBFC', border: '1px solid #DDF0F3' }}>
-                      <div className="text-xs font-medium" style={{ color: '#0892a0' }}>当前门诊信息</div>
-                      <div className="grid grid-cols-2 gap-2 mt-2 text-sm">
+
+                  {!isInpatientSource && (
+                    <div className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                      <div className="mb-3">
+                        <div className="text-sm font-semibold text-gray-700">门诊关联信息</div>
+                      </div>
+                      <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <span className="text-gray-400">门诊号：</span>
-                          <span className="font-medium text-gray-800">{linkedPatient.clinicId}</span>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前门诊科室</label>
+                          <input
+                            type="text"
+                            value={form.outpatientDept}
+                            onChange={event => setForm(prev => ({ ...prev, outpatientDept: event.target.value }))}
+                            placeholder="如：全科门诊、内科门诊"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
                         </div>
                         <div>
-                          <span className="text-gray-400">科室：</span>
-                          <span className="font-medium text-gray-800">{linkedPatient.dept}</span>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前接诊医生</label>
+                          <input
+                            type="text"
+                            value={form.outpatientDoctor}
+                            onChange={event => setForm(prev => ({ ...prev, outpatientDoctor: event.target.value }))}
+                            placeholder="请输入医生姓名"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
                         </div>
                         <div>
-                          <span className="text-gray-400">医生：</span>
-                          <span className="font-medium text-gray-800">{linkedPatient.doctor}</span>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">就诊时间</label>
+                          <input
+                            type="datetime-local"
+                            value={form.outpatientVisitTime}
+                            onChange={event => setForm(prev => ({ ...prev, outpatientVisitTime: event.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
                         </div>
                         <div>
-                          <span className="text-gray-400">就诊时间：</span>
-                          <span className="font-medium text-gray-800">{linkedPatient.visitTime}</span>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">门诊号 / 就诊记录号</label>
+                          <input
+                            type="text"
+                            value={form.outpatientNo}
+                            onChange={event => setForm(prev => ({ ...prev, outpatientNo: event.target.value }))}
+                            placeholder="请输入门诊号或就诊记录号"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                          />
                         </div>
                       </div>
                     </div>
                   )}
-                </div>
+
+                  {/* Health record collapsible (inpatient only, when linked and hasHealthRecord) */}
+                  {isInpatientSource && linkedPatient?.hasHealthRecord && (
+                    <div className="rounded-lg border" style={{ borderColor: '#DDF0F3' }}>
+                      <button
+                        type="button"
+                        onClick={() => setHealthRecordExpanded(prev => !prev)}
+                        className="w-full flex items-center justify-between px-4 py-3 text-sm text-left"
+                        style={{ color: '#0892a0' }}
+                      >
+                        <span>📋 该患者有居民健康档案记录，点击展开查看历史诊断及慢病信息（仅供参考）</span>
+                        <span>{healthRecordExpanded ? '▲' : '▼'}</span>
+                      </button>
+                      {healthRecordExpanded && (
+                        <div className="px-4 pb-4 border-t border-gray-100">
+                          <div className="mt-3 space-y-2">
+                            <div>
+                              <div className="text-xs text-gray-400 mb-1">慢病标签</div>
+                              <div className="flex gap-2 flex-wrap">
+                                {linkedPatient.healthRecordSummary?.chronicDiseases?.map(d => (
+                                  <span key={d} className="text-xs px-2 py-1 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>{d}</span>
+                                ))}
+                              </div>
+                            </div>
+                            <div>
+                              <div className="text-xs text-gray-400 mb-1">最近就诊</div>
+                              <div className="text-sm text-gray-700">{linkedPatient.healthRecordSummary?.lastVisit}</div>
+                            </div>
+                          </div>
+                        </div>
+                      )}
+                    </div>
+                  )}
+
+                  {/* Inpatient: Hospitalization info */}
+                  {isInpatientSource && (
+                    <div className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                      <div className="text-sm font-semibold text-gray-700 mb-1">本次住院信息</div>
+                      <div className="text-xs text-gray-400 mb-3">以下住院信息请根据病历手工填写，系统暂未对接住院系统。</div>
+                      <div className="grid grid-cols-2 gap-4">
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">住院号 <span className="text-red-500">*</span></label>
+                          <input type="text" value={form.inpatientWardNo}
+                            onChange={e => setForm(prev => ({ ...prev, inpatientWardNo: e.target.value }))}
+                            placeholder="请输入住院号"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">入院日期 <span className="text-red-500">*</span></label>
+                          <input type="date" value={form.inpatientAdmissionDate}
+                            onChange={e => setForm(prev => ({ ...prev, inpatientAdmissionDate: e.target.value }))}
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院科室 <span className="text-red-500">*</span></label>
+                          <input type="text" value={form.inpatientWard}
+                            onChange={e => setForm(prev => ({ ...prev, inpatientWard: e.target.value }))}
+                            placeholder="如：内科、骨科"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                        <div>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前主管医生 / 经治医生 <span className="text-red-500">*</span></label>
+                          <input type="text" value={form.inpatientDoctor}
+                            onChange={e => setForm(prev => ({ ...prev, inpatientDoctor: e.target.value }))}
+                            placeholder="请输入医生姓名"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                        <div className="col-span-2">
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院诊断 <span className="text-red-500">*</span></label>
+                          <input type="text" value={form.inpatientDiagnosis}
+                            onChange={e => setForm(prev => ({ ...prev, inpatientDiagnosis: e.target.value }))}
+                            placeholder="请输入住院诊断"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
               )}
             </div>
           </div>
@@ -866,134 +1194,245 @@ export default function CreateReferral() {
 
         {normalStep === 1 && (
           <div className="p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">诊断及转诊原因</h2>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">诊断及转诊目的</h2>
             <div className="space-y-4">
-              {/* CHG-40: 根据基层当前就诊类型动态渲染字段组 */}
               <div className="rounded-lg border px-4 py-3 text-sm" style={{ background: '#F8FDFE', borderColor: '#DDF0F3' }}>
                 <span className="text-gray-500">患者当前就诊类型：</span>
                 <span className="font-semibold text-gray-800 ml-1">{visitTypeLabel}</span>
               </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">主诉与现病史 <span className="text-red-500">*</span></label>
-                <textarea
-                  value={form.chiefComplaint}
-                  onChange={event => setForm(prev => ({ ...prev, chiefComplaint: event.target.value }))}
-                  rows={3}
-                  placeholder="描述患者主要症状、发病时间、病情演变等"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">初步诊断（ICD-10） <span className="text-red-500">*</span></label>
-                <ICD10Search value={form.diagnosis} onChange={handleDiagnosisChange} required />
-                {form.diagnosis && (
-                  <div className="mt-2 flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1.5 rounded-lg">
-                    <span>✓</span>
-                    <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
-                  </div>
-                )}
-                {deptSuggestion && (
-                  <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                    <span style={{ color: '#2563EB' }}>💡 推荐科室：</span>
-                    {deptSuggestion.depts.map(dept => (
-                      <button
-                        key={dept}
-                        type="button"
-                        onClick={() => {
-                          setForm(prev => ({ ...prev, toDept: dept }))
-                          setDeptSuggestion(null)
-                        }}
-                        className="px-2 py-0.5 rounded text-xs font-medium"
-                        style={{ background: '#DBEAFE', color: '#1D4ED8' }}
-                      >
-                        {dept}
-                      </button>
-                    ))}
-                    <button type="button" onClick={() => setDeptSuggestion(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600">忽略</button>
-                  </div>
-                )}
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">转诊原因 <span className="text-red-500">*</span></label>
-                <textarea
-                  value={form.reason}
-                  onChange={event => setForm(prev => ({ ...prev, reason: event.target.value }))}
-                  rows={2}
-                  placeholder="说明转诊必要性"
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                />
-              </div>
-              <div>
-                <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                  用药情况 {isInpatientSource && <span className="text-red-500">*</span>}
-                </label>
-                <textarea
-                  value={form.medicationSummary}
-                  onChange={event => setForm(prev => ({ ...prev, medicationSummary: event.target.value }))}
-                  rows={2}
-                  placeholder={isInpatientSource ? '请填写当前住院用药情况' : '如门诊已有用药可填写'}
-                  className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                />
-              </div>
-              {renderAttachmentUploader({
-                title: '已做检查/检验报告',
-                hint: '（可上传附件，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
-                files: attachments,
-                onChange: handleAttachmentSelect,
-                onRemove: (index) => setAttachments(prev => prev.filter((_, currentIndex) => currentIndex !== index)),
-              })}
 
-              {isInpatientSource && (
-                <div className="grid grid-cols-2 gap-4 rounded-xl border p-4" style={{ background: '#FCFCFD', borderColor: '#E5E7EB' }}>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">入院日期 <span className="text-red-500">*</span></label>
-                    <input
-                      type="date"
-                      value={form.inpatientAdmissionDate}
-                      onChange={event => setForm(prev => ({ ...prev, inpatientAdmissionDate: event.target.value }))}
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    />
+              {/* ===== INPATIENT specific ===== */}
+              {isInpatientSource ? (
+                <>
+                  {/* Group 1: 诊断与转诊目的 */}
+                  <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                    <div className="text-sm font-semibold text-gray-700">诊断与转诊目的</div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">转院目的 <span className="text-red-500">*</span></label>
+                      <div className="space-y-2">
+                        {['需上级医院进一步明确诊断', '需专科进一步评估', '需进一步治疗', '需手术 / 介入 / 特殊处置', '当前医院资源或能力不足', '患者 / 家属主动要求', '其他'].map(opt => (
+                          <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" name="transferPurpose" value={opt}
+                              checked={inpatientTransferPurpose === opt}
+                              onChange={() => setInpatientTransferPurpose(opt)}
+                              className="text-cyan-500" />
+                            <span className="text-gray-700">{opt}</span>
+                          </label>
+                        ))}
+                        {inpatientTransferPurpose === '其他' && (
+                          <input type="text" value={inpatientTransferPurposeOther}
+                            onChange={e => setInpatientTransferPurposeOther(e.target.value)}
+                            placeholder="请说明其他原因（必填）"
+                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none mt-1 ml-5" />
+                        )}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">当前病情评估 <span className="text-red-500">*</span></label>
+                      <div className="flex flex-wrap gap-3">
+                        {['病情稳定', '相对稳定，建议尽快转院', '需重点关注'].map(opt => (
+                          <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" name="conditionAssessment" value={opt}
+                              checked={conditionAssessment === opt}
+                              onChange={() => setConditionAssessment(opt)} />
+                            <span className="text-gray-700">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-2">是否适合转运 <span className="text-red-500">*</span></label>
+                      <div className="flex flex-wrap gap-3">
+                        {['适合转运', '需评估后转运', '暂不建议转运'].map(opt => (
+                          <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
+                            <input type="radio" name="transportSuitability" value={opt}
+                              checked={transportSuitability === opt}
+                              onChange={() => setTransportSuitability(opt)} />
+                            <span className="text-gray-700">{opt}</span>
+                          </label>
+                        ))}
+                      </div>
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">转运注意事项 <span className="text-gray-400 text-xs">（选填）</span></label>
+                      <textarea value={transportNotes} onChange={e => setTransportNotes(e.target.value)}
+                        rows={2} placeholder="如有特殊转运注意事项可补充"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                    </div>
                   </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">住院诊断 <span className="text-red-500">*</span></label>
-                    <input
-                      type="text"
-                      value={form.inpatientDiagnosis}
-                      onChange={event => setForm(prev => ({ ...prev, inpatientDiagnosis: event.target.value }))}
-                      placeholder="请输入住院诊断"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                    />
+
+                  {/* Group 2: 病历摘要 */}
+                  <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                    <div className="text-sm font-semibold text-gray-700">病历摘要</div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">主诉与现病史 <span className="text-red-500">*</span></label>
+                      <textarea value={form.chiefComplaint}
+                        onChange={event => setForm(prev => ({ ...prev, chiefComplaint: event.target.value }))}
+                        rows={3} placeholder="描述患者主要症状、发病时间、病情演变等"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院诊断（ICD-10）<span className="text-red-500">*</span></label>
+                      <ICD10Search value={form.diagnosis} onChange={handleDiagnosisChange} required
+                        placeholder="可填写当前住院主要诊断编码，如 J18.9" />
+                      {form.diagnosis && (
+                        <div className="mt-2 flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1.5 rounded-lg">
+                          <span>✓</span>
+                          <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
+                        </div>
+                      )}
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">当前治疗经过 / 当前用药情况 <span className="text-red-500">*</span></label>
+                      <textarea value={form.medicationSummary}
+                        onChange={event => setForm(prev => ({ ...prev, medicationSummary: event.target.value }))}
+                        rows={3} placeholder="请填写当前住院治疗经过及用药情况"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">当前治疗方案摘要 <span className="text-gray-400 text-xs">（选填）</span></label>
+                      <textarea value={form.currentTreatmentPlanSummary}
+                        onChange={event => setForm(prev => ({ ...prev, currentTreatmentPlanSummary: event.target.value }))}
+                        rows={3} placeholder="请输入当前治疗方案摘要"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                    </div>
+
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">病情变化说明 <span className="text-gray-400 text-xs">（选填）</span></label>
+                      <textarea value={form.conditionChangeNote}
+                        onChange={event => setForm(prev => ({ ...prev, conditionChangeNote: event.target.value }))}
+                        rows={2} placeholder="如有近期病情变化可补充说明"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                    </div>
                   </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">当前治疗方案摘要 <span className="text-red-500">*</span></label>
-                    <textarea
-                      value={form.currentTreatmentPlanSummary}
-                      onChange={event => setForm(prev => ({ ...prev, currentTreatmentPlanSummary: event.target.value }))}
-                      rows={3}
-                      placeholder="请输入当前治疗方案摘要"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                    />
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">病情变化说明</label>
-                    <textarea
-                      value={form.conditionChangeNote}
-                      onChange={event => setForm(prev => ({ ...prev, conditionChangeNote: event.target.value }))}
-                      rows={2}
-                      placeholder="如有近期病情变化可补充说明"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                    />
-                  </div>
-                  <div className="col-span-2">
+
+                  {/* Group 3: 资料上传 */}
+                  <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                    <div className="text-sm font-semibold text-gray-700">资料上传</div>
                     {renderAttachmentUploader({
-                      title: '护理记录',
-                      hint: '（可上传附件，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
+                      title: '检查 / 检验资料上传',
+                      hint: '（选填，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
+                      files: attachments,
+                      onChange: handleAttachmentSelect,
+                      onRemove: (index) => setAttachments(prev => prev.filter((_, i) => i !== index)),
+                    })}
+                    {renderAttachmentUploader({
+                      title: '护理记录上传',
+                      hint: '（选填，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
                       files: nursingAttachments,
                       onChange: handleNursingAttachmentSelect,
-                      onRemove: (index) => setNursingAttachments(prev => prev.filter((_, currentIndex) => currentIndex !== index)),
+                      onRemove: (index) => setNursingAttachments(prev => prev.filter((_, i) => i !== index)),
                     })}
                   </div>
-                </div>
+                </>
+              ) : (
+                /* ===== OUTPATIENT ===== */
+                <>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">主诉与现病史 <span className="text-red-500">*</span></label>
+                    <textarea value={form.chiefComplaint}
+                      onChange={event => setForm(prev => ({ ...prev, chiefComplaint: event.target.value }))}
+                      rows={3} placeholder="描述患者主要症状、发病时间、病情演变等"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">初步诊断（ICD-10） <span className="text-red-500">*</span></label>
+                    <ICD10Search value={form.diagnosis} onChange={handleDiagnosisChange} required />
+                    {form.diagnosis && (
+                      <div className="mt-2 flex items-center gap-2 text-sm text-green-600 bg-green-50 px-3 py-1.5 rounded-lg">
+                        <span>✓</span>
+                        <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
+                      </div>
+                    )}
+                    {deptSuggestion && (
+                      <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
+                        <span style={{ color: '#2563EB' }}>💡 推荐科室：</span>
+                        {deptSuggestion.depts.map(dept => (
+                          <button key={dept} type="button"
+                            onClick={() => { setForm(prev => ({ ...prev, toDept: dept })); setDeptSuggestion(null) }}
+                            className="px-2 py-0.5 rounded text-xs font-medium"
+                            style={{ background: '#DBEAFE', color: '#1D4ED8' }}>{dept}</button>
+                        ))}
+                        <button type="button" onClick={() => setDeptSuggestion(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600">忽略</button>
+                      </div>
+                    )}
+                  </div>
+                  <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
+                    <div className="text-sm font-semibold text-gray-700">转诊目的</div>
+                    <div className="grid grid-cols-2 gap-3">
+                      {OUTPATIENT_TRANSFER_PURPOSE_OPTIONS.map(option => (
+                        <label key={option} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer text-sm">
+                          <input
+                            type="checkbox"
+                            checked={outpatientTransferPurpose.includes(option)}
+                            onChange={() => setOutpatientTransferPurpose(prev =>
+                              prev.includes(option)
+                                ? prev.filter(item => item !== option)
+                                : [...prev, option]
+                            )}
+                            className="mt-0.5"
+                          />
+                          <span className="text-gray-700">{option}</span>
+                        </label>
+                      ))}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">当前病情评估 <span className="text-gray-400 text-xs">（非必填）</span></label>
+                    <div className="flex flex-wrap gap-3">
+                      {OUTPATIENT_CONDITION_ASSESSMENT_OPTIONS.map(option => (
+                        <label key={option} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input
+                            type="radio"
+                            name="outpatientConditionAssessment"
+                            value={option}
+                            checked={outpatientConditionAssessment === option}
+                            onChange={() => setOutpatientConditionAssessment(option)}
+                          />
+                          <span className="text-gray-700">{option}</span>
+                        </label>
+                      ))}
+                      {outpatientConditionAssessment && (
+                        <button
+                          type="button"
+                          onClick={() => setOutpatientConditionAssessment('')}
+                          className="text-xs text-gray-400 hover:text-gray-600"
+                        >
+                          清空
+                        </button>
+                      )}
+                    </div>
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">补充说明 <span className="text-gray-400 text-xs">（选填）</span></label>
+                    <textarea value={form.reason}
+                      onChange={event => setForm(prev => ({ ...prev, reason: event.target.value }))}
+                      rows={2} placeholder="如需补充说明当前判断依据、已沟通情况，可填写"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                  </div>
+                  <div>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">用药情况</label>
+                    <textarea value={form.medicationSummary}
+                      onChange={event => setForm(prev => ({ ...prev, medicationSummary: event.target.value }))}
+                      rows={2} placeholder="如门诊已有用药可填写"
+                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
+                  </div>
+                  {renderAttachmentUploader({
+                    title: '已做检查/检验报告',
+                    hint: '（可上传附件，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
+                    files: attachments,
+                    onChange: handleAttachmentSelect,
+                    onRemove: (index) => setAttachments(prev => prev.filter((_, i) => i !== index)),
+                  })}
+                </>
               )}
             </div>
           </div>
@@ -1001,21 +1440,15 @@ export default function CreateReferral() {
 
         {normalStep === 2 && (
           <div className="p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">选择接收机构及科室</h2>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">选择目标医院及科室</h2>
             <div className="space-y-3">
               {INSTITUTIONS.filter(item => item.type === 'county').map(inst => (
-                <div
-                  key={inst.id}
-                  onClick={() => setForm(prev => ({ ...prev, toInstitutionId: inst.id, toDept: '' }))}
+                <div key={inst.id} onClick={() => setForm(prev => ({ ...prev, toInstitutionId: inst.id, toDept: '' }))}
                   className="border rounded-xl p-4 cursor-pointer transition-all"
                   style={form.toInstitutionId === inst.id
                     ? { borderColor: '#0BBECF', background: '#F0FBFC', boxShadow: '0 0 0 2px #a4edf5' }
-                    : { borderColor: '#e5e7eb', background: '#fff' }}
-                >
-                  <div className="flex items-center justify-between mb-2">
-                    <div className="font-medium text-gray-800">{inst.name}</div>
-                    <span className="text-xs px-2 py-0.5 bg-green-100 text-green-600 rounded-full">{inst.status}</span>
-                  </div>
+                    : { borderColor: '#e5e7eb', background: '#fff' }}>
+                  <div className="font-medium text-gray-800 mb-2">{inst.name}</div>
                   <div className="text-xs text-gray-500">医共体成员机构 · 县级医院</div>
                 </div>
               ))}
@@ -1023,91 +1456,47 @@ export default function CreateReferral() {
 
             {selectedInstitution && (
               <div className="mt-5">
-                <label className="block text-sm font-medium text-gray-700 mb-2">期望接收科室 <span className="text-red-500">*</span></label>
+                <label className="block text-sm font-medium text-gray-700 mb-2">目标科室 <span className="text-red-500">*</span></label>
                 <div className="grid grid-cols-2 gap-2">
                   {selectedInstitution.departments.map(dept => {
-                    const deptInfo = selectedInstitution.departmentInfo?.[dept]
-                    const remaining = deptInfo ? deptInfo.dailyQuota - deptInfo.todayReserved : null
-                    const isFull = deptInfo && deptInfo.dailyQuota > 0 && remaining <= 0
                     const isSelected = form.toDept === dept
                     return (
-                      <button
-                        key={dept}
-                        type="button"
+                      <button key={dept} type="button"
                         onClick={() => setForm(prev => ({ ...prev, toDept: dept }))}
                         className="rounded-lg border transition-all text-left"
                         style={isSelected
                           ? { borderColor: '#0BBECF', background: '#F0FBFC', boxShadow: '0 0 0 2px #a4edf5' }
-                          : { borderColor: '#e5e7eb', background: '#fff' }}
-                      >
+                          : { borderColor: '#e5e7eb', background: '#fff' }}>
                         <div className="px-3 py-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium" style={isSelected ? { color: '#0892a0' } : { color: '#374151' }}>{dept}</span>
-                            {deptInfo && deptInfo.dailyQuota > 0 && (
-                              isFull
-                                ? <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: '#fff7ed', color: '#ea580c' }}>今日已满（0/{deptInfo.dailyQuota}）</span>
-                                : <span className="text-xs" style={{ color: '#6b7280' }}>剩余 {remaining}/{deptInfo.dailyQuota} 名额</span>
-                            )}
-                            {deptInfo && deptInfo.dailyQuota === 0 && (
-                              <span className="text-xs text-gray-400">未配置转诊专用号源</span>
-                            )}
                           </div>
+                          <div className="text-xs text-gray-400 mt-1">按医院已维护的转诊科室范围提交申请</div>
                         </div>
                       </button>
                     )
                   })}
                 </div>
-                <div className="mt-2 text-xs text-gray-400">以上为转诊专用保留名额，不代表全院实际资源情况</div>
-                {selectedDeptFull && (
-                  <div className="mt-3 flex items-start gap-2 px-4 py-3 rounded-lg bg-amber-50 border border-amber-200 text-sm text-amber-800">
-                    <span className="flex-shrink-0 mt-0.5">⚠️</span>
-                    <div>
-                      <div className="font-medium">该科室今日转诊名额已满（0/{selectedDeptInfo.dailyQuota}）</div>
-                      <div className="text-xs mt-0.5 text-amber-700">仍可提交申请，接诊医生将人工协调就诊安排</div>
-                    </div>
-                  </div>
-                )}
+                <div className="mt-2 text-xs text-gray-400">科室信息仅用于提交转诊申请，不代表实时号源、床位或已确认接收。</div>
+
                 {form.toDept && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
-                    <div className="text-sm font-medium text-gray-700 mb-2">承接方式偏好（供转诊中心参考）</div>
-                    <div className="flex gap-2">
-                      {[
-                        { value: 'outpatient', label: '门诊就诊' },
-                        { value: 'inpatient', label: '住院收治' },
-                      ].map(option => (
-                        <button
-                          key={option.value}
-                          type="button"
-                          onClick={() => setAdmissionTypePref(option.value)}
-                          className="flex-1 py-2 rounded-lg border text-sm transition-colors"
-                          style={admissionTypePref === option.value
-                            ? { borderColor: '#0BBECF', background: '#f0fbfc', color: '#0892a0', fontWeight: '500' }
-                            : { borderColor: '#e5e7eb', color: '#6b7280' }}
-                        >
-                          {option.label}
-                        </button>
+                    <div className="text-sm font-medium text-gray-700 mb-2">期望处理方式</div>
+                    <div className="flex flex-col gap-2">
+                      {ADMISSION_TYPE_PREFERENCE_OPTIONS.map(option => (
+                        <label key={option.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                          <input type="radio" name="admissionTypePref" value={option.value}
+                            checked={admissionTypePref === option.value}
+                            onChange={() => setAdmissionTypePref(option.value)} />
+                          <span className="text-gray-700">{option.label}</span>
+                        </label>
                       ))}
                     </div>
-                    {admissionTypePref === 'inpatient' && (
-                      <div className="mt-3 rounded-lg border p-3" style={{ background: '#eff6ff', borderColor: '#bfdbfe' }}>
-                        <div className="text-sm font-semibold text-blue-800 mb-1">🏥 转诊专用床位</div>
-                        {selectedDeptInfo?.dailyReservedBeds > 0 ? (
-                          <>
-                            <div className="text-sm">
-                              今日剩余 <span className={`font-bold ${bedFull ? 'text-orange-500' : 'text-green-600'}`}>{bedRemaining}</span> / {selectedDeptInfo.dailyReservedBeds} 床
-                            </div>
-                            {bedFull && (
-                              <div className="mt-1.5 text-xs font-medium" style={{ color: '#C2410C' }}>
-                                ⚠️ 今日转诊床位已满，仍可提交，转诊中心将人工协调
-                              </div>
-                            )}
-                          </>
-                        ) : (
-                          <div className="text-sm text-gray-400">该科室未配置转诊专用床位</div>
-                        )}
-                        <div className="text-xs text-gray-400 mt-1.5">以上为转诊预留床位，不代表全院实际床位情况</div>
+                    <div className="mt-3 rounded-lg border p-3" style={{ background: '#f8fafc', borderColor: '#e2e8f0' }}>
+                      <div className="text-sm text-gray-700">
+                        系统将按所选医院与科室进入后续审核/受理流程，最终处理方式以受理结果为准。
                       </div>
-                    )}
+                    </div>
                   </div>
                 )}
               </div>
@@ -1117,13 +1506,46 @@ export default function CreateReferral() {
 
         {normalStep === 3 && (
           <div className="p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-2">患者知情同意</h2>
-            <p className="text-sm text-gray-500 mb-5">根据 CHG-39，普通上转需改为线下签署并上传附件后才能提交。</p>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">患者知情同意</h2>
             <div className="space-y-4">
               <div className="flex items-center gap-2 px-4 py-3 bg-amber-50 border border-amber-200 rounded-xl text-amber-800 text-sm">
                 <span>ℹ️</span>
                 <span>请先下载模板、完成线下签字，再上传已签署文件。</span>
               </div>
+
+              {/* Signer type */}
+              <div>
+                <label className="block text-sm font-medium text-gray-700 mb-2">签署人类型 <span className="text-red-500">*</span></label>
+                <div className="flex gap-4">
+                  {[{ value: 'patient', label: '患者本人' }, { value: 'family', label: '家属代签' }].map(opt => (
+                    <label key={opt.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                      <input type="radio" name="signerType" value={opt.value}
+                        checked={signerType === opt.value}
+                        onChange={() => setSignerType(opt.value)} />
+                      <span className="text-gray-700">{opt.label}</span>
+                    </label>
+                  ))}
+                </div>
+                {signerType === 'family' && (
+                  <div className="mt-3 grid grid-cols-2 gap-4">
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">代签关系 <span className="text-red-500">*</span></label>
+                      <input type="text" value={signerRelation}
+                        onChange={e => setSignerRelation(e.target.value)}
+                        placeholder="如：女儿、配偶"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                    </div>
+                    <div>
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">代签原因 <span className="text-red-500">*</span></label>
+                      <input type="text" value={signerReason}
+                        onChange={e => setSignerReason(e.target.value)}
+                        placeholder="请填写代签原因"
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                    </div>
+                  </div>
+                )}
+              </div>
+
               <ConsentOfflinePanel
                 signedBy={consentSignedBy}
                 onSignedByChange={setConsentSignedBy}
@@ -1131,10 +1553,12 @@ export default function CreateReferral() {
                 onSelectFile={handleConsentFileSelect}
                 onRemoveFile={clearConsentFile}
                 error={consentError}
+                showSignerSelector={false}
+                uploadLabel="上传已签署的转院知情同意书"
               />
               {!consentFile && (
-                <div className="rounded-lg px-4 py-3 bg-blue-50 border border-blue-200 text-sm text-blue-800">
-                  请先上传已签署的知情同意书，再进入下一步。
+                <div className="text-center">
+                  <div className="text-sm text-gray-400">请上传已签署的知情同意书后继续</div>
                 </div>
               )}
             </div>
@@ -1143,22 +1567,22 @@ export default function CreateReferral() {
 
         {normalStep === 4 && (
           <div className="p-6">
-            <h2 className="text-base font-semibold text-gray-800 mb-4">确认提交信息</h2>
+            <h2 className="text-base font-semibold text-gray-800 mb-4">确认提交摘要</h2>
             <div className="space-y-3">
-              <div className="rounded-xl divide-y divide-gray-100 overflow-hidden" style={{ background: '#f9fafb' }}>
+              <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
-                  <span className="text-xs font-semibold uppercase" style={{ color: '#0892a0' }}>患者信息</span>
+                  <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>患者基础信息</span>
                 </div>
-                <div className="grid grid-cols-3 gap-0">
+                <div className="grid grid-cols-3">
                   {[
                     ['姓名', form.patientName],
                     ['性别', form.patientGender],
-                    ['年龄', `${linkedPatient?.age || form.patientAge}岁`],
+                    ['年龄', form.patientAge ? `${form.patientAge}岁` : '—'],
                     ['联系电话', form.patientPhone],
-                    ['身份证号', form.patientIdCard || '—'],
-                    ['当前就诊类型', visitTypeLabel],
+                    ['身份证号', form.patientIdCard ? `${form.patientIdCard.slice(0, 3)}****${form.patientIdCard.slice(-4)}` : '—'],
+                    ['患者类型', visitTypeLabel],
                   ].map(([key, value]) => (
-                    <div key={key} className="px-4 py-2.5">
+                    <div key={key} className="px-4 py-2.5 border-t border-gray-100">
                       <div className="text-xs text-gray-400">{key}</div>
                       <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
                     </div>
@@ -1166,70 +1590,143 @@ export default function CreateReferral() {
                 </div>
               </div>
 
-              <div className="rounded-xl divide-y divide-gray-100 overflow-hidden" style={{ background: '#f9fafb' }}>
+              {!isInpatientSource && (
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
+                    <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>门诊关联信息</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    {[
+                      ['当前门诊科室', form.outpatientDept || '—'],
+                      ['当前接诊医生', form.outpatientDoctor || '—'],
+                      ['就诊时间', form.outpatientVisitTime || '—'],
+                      ['门诊号 / 就诊记录号', form.outpatientNo || '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              {isInpatientSource && (
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
+                    <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>本次住院信息</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    {[
+                      ['住院号', form.inpatientWardNo || '—'],
+                      ['入院日期', form.inpatientAdmissionDate || '—'],
+                      ['当前住院科室', form.inpatientWard || '—'],
+                      ['当前主管医生 / 经治医生', form.inpatientDoctor || '—'],
+                      ['当前住院诊断', form.inpatientDiagnosis || '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className={`px-4 py-2.5 border-t border-gray-100 ${key === '当前住院诊断' ? 'col-span-2' : ''}`}>
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+              )}
+
+              <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
-                  <span className="text-xs font-semibold uppercase" style={{ color: '#0892a0' }}>诊断及原因</span>
+                  <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>诊断与转诊目的</span>
                 </div>
-                <div className="px-4 py-2.5">
-                  <div className="text-xs text-gray-400">初步诊断</div>
-                  <div className="text-sm font-medium text-gray-800 mt-0.5">{form.diagnosis?.code} {form.diagnosis?.name}</div>
-                </div>
-                <div className="px-4 py-2.5">
-                  <div className="text-xs text-gray-400">主诉</div>
-                  <div className="text-sm text-gray-800 mt-0.5 line-clamp-2">{form.chiefComplaint}</div>
-                </div>
-                <div className="px-4 py-2.5">
-                  <div className="text-xs text-gray-400">转诊原因</div>
-                  <div className="text-sm text-gray-800 mt-0.5">{form.reason}</div>
-                </div>
-                <div className="px-4 py-2.5">
-                  <div className="text-xs text-gray-400">用药情况</div>
-                  <div className="text-sm text-gray-800 mt-0.5">{form.medicationSummary || '—'}</div>
-                </div>
-                {isInpatientSource && (
-                  <>
-                    <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400">入院日期</div>
-                      <div className="text-sm text-gray-800 mt-0.5">{form.inpatientAdmissionDate || '—'}</div>
-                    </div>
-                    <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400">住院诊断</div>
-                      <div className="text-sm text-gray-800 mt-0.5">{form.inpatientDiagnosis || '—'}</div>
-                    </div>
-                    <div className="px-4 py-2.5">
-                      <div className="text-xs text-gray-400">当前治疗方案摘要</div>
-                      <div className="text-sm text-gray-800 mt-0.5">{form.currentTreatmentPlanSummary || '—'}</div>
-                    </div>
-                  </>
+                {isInpatientSource ? (
+                  <div>
+                    {[
+                      ['转院目的', inpatientTransferPurpose === '其他' ? `其他：${inpatientTransferPurposeOther}` : inpatientTransferPurpose],
+                      ['当前病情评估', conditionAssessment],
+                      ['是否适合转运', transportSuitability],
+                      ...(transportNotes ? [['转运注意事项', transportNotes]] : []),
+                      ['当前治疗经过 / 当前用药情况', form.medicationSummary || '—'],
+                      ...(form.conditionChangeNote ? [['病情变化说明', form.conditionChangeNote]] : []),
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                ) : (
+                  <div>
+                    {[
+                      ['初步诊断', `${form.diagnosis?.code || ''} ${form.diagnosis?.name || ''}`],
+                      ['主诉', form.chiefComplaint],
+                      ['转诊目的', outpatientTransferPurposeSummary],
+                      ['当前病情评估', outpatientConditionAssessment || '未填写'],
+                      ...(form.reason ? [['补充说明', form.reason]] : []),
+                      ['用药情况', form.medicationSummary || '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
                 )}
               </div>
 
-              <div className="rounded-xl divide-y divide-gray-100 overflow-hidden" style={{ background: '#f9fafb' }}>
+              <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
                 <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
-                  <span className="text-xs font-semibold uppercase" style={{ color: '#0892a0' }}>接收机构</span>
+                  <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>目标医院与处理方式</span>
                 </div>
-                <div className="grid grid-cols-2 gap-0">
-                  <div className="px-4 py-2.5">
-                    <div className="text-xs text-gray-400">机构</div>
-                    <div className="text-sm font-medium text-gray-800 mt-0.5">{selectedInstitution?.name}</div>
+                <div className="grid grid-cols-3">
+                  {[
+                    ['目标医院', selectedInstitution?.name || '—'],
+                    ['目标科室', form.toDept || '—'],
+                    ['期望处理方式', admissionTypePrefLabel],
+                  ].map(([key, value]) => (
+                    <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                      <div className="text-xs text-gray-400">{key}</div>
+                      <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                    </div>
+                  ))}
+                </div>
+              </div>
+
+              <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
+                  <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>已上传资料清单</span>
+                </div>
+                <div>
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">已上传检查 / 检验资料</div>
+                    <div className="text-sm text-gray-800 mt-0.5">
+                      {attachments.length > 0 ? attachments.map(f => f.name).join('、') : '未上传'}
+                    </div>
                   </div>
-                  <div className="px-4 py-2.5">
-                    <div className="text-xs text-gray-400">科室</div>
-                    <div className="text-sm font-medium text-gray-800 mt-0.5">{form.toDept}</div>
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">已上传护理记录</div>
+                    <div className="text-sm text-gray-800 mt-0.5">
+                      {nursingAttachments.length > 0 ? nursingAttachments.map(f => f.name).join('、') : '未上传'}
+                    </div>
                   </div>
-                  <div className="px-4 py-2.5">
-                    <div className="text-xs text-gray-400">承接方式偏好</div>
-                    <div className="text-sm font-medium text-gray-800 mt-0.5">
-                      {admissionTypePref === 'inpatient' ? '住院收治' : '门诊就诊'}
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">知情同意状态</div>
+                    <div className="text-sm text-green-600 font-medium mt-0.5">已完成</div>
+                  </div>
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">已上传知情同意书</div>
+                    <div className="text-sm text-gray-800 mt-0.5">{consentFile?.name || '—'}</div>
+                  </div>
+                  <div className="px-4 py-2.5 border-t border-gray-100">
+                    <div className="text-xs text-gray-400">签署人类型</div>
+                    <div className="text-sm text-gray-800 mt-0.5">
+                      {signerType === 'family' ? `家属代签（${signerRelation}）` : '患者本人'}
                     </div>
                   </div>
                 </div>
               </div>
 
-              <div className="flex items-center gap-2 px-4 py-3 bg-blue-50 border border-blue-200 rounded-xl text-blue-800 text-sm">
-                <span>📋</span>
-                <span className="font-medium">普通转诊</span>
-                <span className="text-blue-700">— 提交后进入院内审核流程</span>
+              <div className="flex items-start gap-2 px-4 py-3 rounded-xl text-sm" style={{ background: '#FFF7ED', border: '1px solid #FED7AA', color: '#92400E' }}>
+                <span>⚠️</span>
+                <span>提交后将进入后续审核/受理流程，若资料不完整可能被退回补充。</span>
               </div>
             </div>
           </div>
@@ -1292,7 +1789,7 @@ export default function CreateReferral() {
                   <button
                     key={option.value}
                     type="button"
-                    onClick={() => setEmergencyEntryMode(option.value)}
+                    onClick={() => handleEmergencyEntryModeChange(option.value)}
                     className="rounded-xl border px-4 py-4 text-left transition-colors"
                     style={emergencyEntryMode === option.value
                       ? { borderColor: option.value === 'retro' ? '#6B7280' : '#ef4444', background: option.value === 'retro' ? '#F9FAFB' : '#FEF2F2' }
@@ -1312,7 +1809,7 @@ export default function CreateReferral() {
               </div>
               {isRetroEntry && (
                 <div className="mt-3 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3 text-sm text-gray-700">
-                  CHG-41：补录模式仅记录转诊事实，不触发急诊科/专科实时通知，不发送患者短信，也不会开启15分钟紧急修改窗口。
+                  补录模式仅记录转诊事实，不触发急诊科/专科实时通知，不发送患者短信，也不会开启15分钟紧急修改窗口。
                 </div>
               )}
             </div>
@@ -1320,8 +1817,6 @@ export default function CreateReferral() {
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">基本信息</h3>
               <div className="space-y-4">
-                {/* CHG-40: 急诊上转仍展示基层当前就诊类型，但为选填 */}
-                {renderSourceVisitTypeSelector({ required: false })}
                 {isRetroEntry && (
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">患者到院时间 <span className="text-red-500">*</span></label>
@@ -1500,6 +1995,44 @@ export default function CreateReferral() {
             </div>
 
             <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">转运评估</h3>
+              <div className="space-y-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-4">
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">是否具备转运条件 <span className="text-red-500">*</span></label>
+                  <div className="flex flex-wrap gap-3">
+                    {EMERGENCY_TRANSPORT_CONDITION_OPTIONS.map(option => (
+                      <label key={option} className="flex items-center gap-2 cursor-pointer text-sm">
+                        <input
+                          type="radio"
+                          name="emergencyTransportCondition"
+                          value={option}
+                          checked={emergencyTransportCondition === option}
+                          onChange={() => setEmergencyTransportCondition(option)}
+                        />
+                        <span className="text-gray-700">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-2">转运需求</label>
+                  <div className="grid grid-cols-2 md:grid-cols-3 gap-3">
+                    {EMERGENCY_TRANSPORT_NEED_OPTIONS.map(option => (
+                      <label key={option} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer text-sm">
+                        <input
+                          type="checkbox"
+                          checked={emergencyTransportNeeds.includes(option)}
+                          onChange={() => toggleEmergencyTransportNeed(option)}
+                        />
+                        <span className="text-gray-700">{option}</span>
+                      </label>
+                    ))}
+                  </div>
+                </div>
+              </div>
+            </div>
+
+            <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">接收准备</h3>
               <label className="block text-sm font-medium text-gray-700 mb-2">目标接收医院 <span className="text-red-500">*</span></label>
               {emergencyHospitalConfig.mode === 'single' ? (
@@ -1525,15 +2058,9 @@ export default function CreateReferral() {
                 </div>
               )}
 
-              {selectedInstitution && (
-                <div className="mt-3 rounded-lg border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-900">
-                  已选：{selectedInstitution.name} · 急诊科
-                </div>
-              )}
-
-              <div className="mt-4 rounded-xl border border-gray-200 bg-gray-50 px-4 py-3">
-                <div className="text-sm font-medium text-gray-800">接诊入口：急诊科</div>
-                <div className="text-xs text-gray-500 mt-1">急诊转诊由目标医院急诊科先行接诊</div>
+              <div className="mt-3 inline-flex items-center gap-2 rounded-full bg-gray-50 px-3 py-1.5 text-xs text-gray-500">
+                <span className="font-medium text-gray-700">接诊入口：急诊科</span>
+                <span>急诊转诊由目标医院急诊科先行接诊</span>
               </div>
 
               <div className="mt-4">
@@ -1568,78 +2095,6 @@ export default function CreateReferral() {
               </button>
               {showEmergencySupplementary && (
                 <div className="p-4 space-y-4">
-                  {form.sourceVisitType && (
-                    <div className="rounded-lg border px-4 py-3" style={{ background: '#F8FDFE', borderColor: '#DDF0F3' }}>
-                      <div className="text-sm font-medium text-gray-800 mb-2">基层来源信息</div>
-                      <div className="text-xs text-gray-500 mb-3">仅供县级医生参考，不影响后续 admissionType 判断。</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">
-                            用药情况 {isInpatientSource && <span className="text-red-500">*</span>}
-                          </label>
-                          <textarea
-                            value={form.medicationSummary}
-                            onChange={event => setForm(prev => ({ ...prev, medicationSummary: event.target.value }))}
-                            rows={2}
-                            placeholder={isInpatientSource ? '如选择住院患者，建议填写当前住院用药情况' : '可选填写门诊当前用药情况'}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                          />
-                        </div>
-                        {isInpatientSource && (
-                          <>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1.5">入院日期</label>
-                              <input
-                                type="date"
-                                value={form.inpatientAdmissionDate}
-                                onChange={event => setForm(prev => ({ ...prev, inpatientAdmissionDate: event.target.value }))}
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                              />
-                            </div>
-                            <div>
-                              <label className="block text-sm font-medium text-gray-700 mb-1.5">住院诊断</label>
-                              <input
-                                type="text"
-                                value={form.inpatientDiagnosis}
-                                onChange={event => setForm(prev => ({ ...prev, inpatientDiagnosis: event.target.value }))}
-                                placeholder="请输入住院诊断"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1.5">当前治疗方案摘要</label>
-                              <textarea
-                                value={form.currentTreatmentPlanSummary}
-                                onChange={event => setForm(prev => ({ ...prev, currentTreatmentPlanSummary: event.target.value }))}
-                                rows={2}
-                                placeholder="请输入当前治疗方案摘要"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              <label className="block text-sm font-medium text-gray-700 mb-1.5">病情变化说明</label>
-                              <textarea
-                                value={form.conditionChangeNote}
-                                onChange={event => setForm(prev => ({ ...prev, conditionChangeNote: event.target.value }))}
-                                rows={2}
-                                placeholder="可选填写病情变化说明"
-                                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                              />
-                            </div>
-                            <div className="col-span-2">
-                              {renderAttachmentUploader({
-                                title: '护理记录',
-                                hint: '（可上传附件，支持 PDF / JPG / PNG，单文件 ≤ 10MB）',
-                                files: nursingAttachments,
-                                onChange: handleNursingAttachmentSelect,
-                                onRemove: (index) => setNursingAttachments(prev => prev.filter((_, currentIndex) => currentIndex !== index)),
-                              })}
-                            </div>
-                          </>
-                        )}
-                      </div>
-                    </div>
-                  )}
                   <div>
                     <div className="text-xs text-gray-500 mb-3">用于补充当前病情、已做处置等信息，帮助目标医院提前准备</div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">病情补充/已做处置</label>
@@ -1667,12 +2122,107 @@ export default function CreateReferral() {
             <h2 className="text-base font-semibold text-gray-800">急诊转出提交确认</h2>
             <div className="rounded-xl border border-red-100 overflow-hidden">
               <div className="px-4 py-3 bg-red-50 flex items-center justify-between">
-                <div className="text-sm font-semibold text-red-800">信息摘要</div>
+                <div className="text-sm font-semibold text-red-800">确认提交摘要</div>
                 <button type="button" onClick={() => setEmergencyStep(0)} className="text-xs text-red-500 hover:text-red-700">返回修改</button>
               </div>
-              <div className="px-4 py-4 space-y-3 text-sm">
+              <div className="px-4 py-4 space-y-3">
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#FEE2E2' }}>
+                    <span className="text-xs font-semibold text-red-700">患者基础信息</span>
+                  </div>
+                  <div className="grid grid-cols-3">
+                    {[
+                      ['姓名', form.patientName],
+                      ['性别', form.patientGender || '—'],
+                      ['年龄', form.patientAge ? `${form.patientAge}岁` : '—'],
+                      ['联系电话', form.patientPhone || '—'],
+                      ['身份证号', form.patientIdCard ? `${form.patientIdCard.slice(0, 3)}****${form.patientIdCard.slice(-4)}` : '—'],
+                      ['患者类型', '急诊'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#FEE2E2' }}>
+                    <span className="text-xs font-semibold text-red-700">急诊信息</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    {[
+                      ['录入方式', isRetroEntry ? '补录录入' : '实时转诊'],
+                      ['初步诊断', `${form.diagnosis?.code || '—'} ${form.diagnosis?.name || '—'}`.trim()],
+                      ['紧急程度', selectedUrgency?.label || '—'],
+                      ['患者意识状态', consciousnessStatus === 'unclear' ? '意识不清' : consciousnessStatus === 'conscious' ? '意识清醒' : '—'],
+                      ['患者到院时间', isRetroEntry && form.patientArrivedAt ? new Date(form.patientArrivedAt).toLocaleString('zh-CN') : '—'],
+                      ['主诉 / 急转原因', form.chiefComplaint || '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#FEE2E2' }}>
+                    <span className="text-xs font-semibold text-red-700">转运评估</span>
+                  </div>
+                  <div className="grid grid-cols-2">
+                    {[
+                      ['是否具备转运条件', emergencyTransportCondition || '—'],
+                      ['转运需求', emergencyTransportNeeds.length > 0 ? emergencyTransportNeeds.join('、') : '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#FEE2E2' }}>
+                    <span className="text-xs font-semibold text-red-700">接收准备</span>
+                  </div>
+                  <div className="grid grid-cols-3">
+                    {[
+                      ['目标医院', selectedInstitution?.name || '—'],
+                      ['接诊入口', '急诊科'],
+                      ['联动专科', linkedSpecialty || '—'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
+                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
+                  <div className="px-4 py-2" style={{ background: '#FEE2E2' }}>
+                    <span className="text-xs font-semibold text-red-700">已上传资料清单</span>
+                  </div>
+                  <div>
+                    {[
+                      ['已上传检查 / 检验资料', attachments.length > 0 ? attachments.map(file => file.name).join('、') : '未上传'],
+                      ['已上传护理记录', nursingAttachments.length > 0 ? nursingAttachments.map(file => file.name).join('、') : '未上传'],
+                      ['知情同意状态', consentMethod === 'offline_upload' ? '已上传' : '待补传'],
+                      ['已上传知情同意书', consentMethod === 'offline_upload' && consentFile ? consentFile.name : '未上传'],
+                    ].map(([key, value]) => (
+                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
+                        <div className="text-xs text-gray-400">{key}</div>
+                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
+                      </div>
+                    ))}
+                  </div>
+                </div>
+
                 <div className="flex items-center gap-2">
-                  <span className="text-gray-500">患者：</span>
                   <span className="font-medium text-gray-800">{form.patientName}</span>
                   {selectedUrgency && (
                     <span className="px-2 py-0.5 rounded-full text-xs font-semibold" style={{ background: selectedUrgency.bg, color: selectedUrgency.color }}>
@@ -1685,19 +2235,6 @@ export default function CreateReferral() {
                     </span>
                   )}
                 </div>
-                <div><span className="text-gray-500">联系电话：</span><span className="font-medium text-gray-800">{form.patientPhone || '—'}</span></div>
-                <div><span className="text-gray-500">录入方式：</span><span className="font-medium text-gray-800">{isRetroEntry ? '补录录入' : '实时转诊'}</span></div>
-                {isRetroEntry && (
-                  <div><span className="text-gray-500">患者到院时间：</span><span className="font-medium text-gray-800">{form.patientArrivedAt ? new Date(form.patientArrivedAt).toLocaleString('zh-CN') : '—'}</span></div>
-                )}
-                <div><span className="text-gray-500">基层当前就诊类型：</span><span className="font-medium text-gray-800">{visitTypeLabel}</span></div>
-                <div><span className="text-gray-500">目标医院：</span><span className="font-medium text-gray-800">{selectedInstitution?.name || '—'}</span></div>
-                <div><span className="text-gray-500">接诊入口：</span><span className="font-medium text-gray-800">急诊科</span></div>
-                <div><span className="text-gray-500">患者意识状态：</span><span className="font-medium text-gray-800">{consciousnessStatus === 'unclear' ? '意识不清' : consciousnessStatus === 'conscious' ? '意识清醒' : '—'}</span></div>
-                <div><span className="text-gray-500">主诉/急转原因：</span><span className="font-medium text-gray-800">{form.chiefComplaint || '—'}</span></div>
-                {linkedSpecialty && (
-                  <div><span className="text-gray-500">联动专科：</span><span className="font-medium text-gray-800">{linkedSpecialty || '—'}</span></div>
-                )}
               </div>
             </div>
 
@@ -1832,6 +2369,15 @@ export default function CreateReferral() {
           </div>
         </div>
       </div>
+      {showRetroConfirmModal && (
+        <EmergencyRetroConfirmModal
+          onCancel={() => setShowRetroConfirmModal(false)}
+          onConfirm={() => {
+            setEmergencyEntryMode('retro')
+            setShowRetroConfirmModal(false)
+          }}
+        />
+      )}
     </>
   )
 
@@ -1850,24 +2396,6 @@ export default function CreateReferral() {
       {selectedFlow === 'normal' && renderNormalFlow()}
       {selectedFlow === 'emergency' && renderEmergencyFlow()}
 
-      <ClinicRecordPicker
-        isOpen={patientLinkMode === 'clinic'}
-        onClose={() => setPatientLinkMode(null)}
-        onSelect={(record) => {
-          setLinkedPatient({
-            name: record.patientName,
-            gender: record.gender,
-            age: record.age,
-            phone: record.phone,
-            idCard: '',
-            clinicId: record.id,
-            dept: record.dept,
-            doctor: record.doctor,
-            visitTime: record.visitTime,
-          })
-          setPatientLinkMode(null)
-        }}
-      />
     </div>
   )
 }

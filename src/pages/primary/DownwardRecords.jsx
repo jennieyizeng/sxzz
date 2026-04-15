@@ -20,9 +20,9 @@ function RowNo({ n }) {
 
 function getAllocationLabel(ref) {
   const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
-  if (mode === 'designated') return '定向指派'
-  if (mode === 'coordinator_reassign') return '负责人改派中'
-  return '负责人待分配'
+  if (mode === 'designated') return '指定接收医生'
+  if (mode === 'coordinator_reassign') return '仅指定机构'
+  return '仅指定机构'
 }
 
 function getCurrentOwner(ref) {
@@ -128,7 +128,7 @@ export default function PrimaryDownwardRecords() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者', '性别/年龄', '诊断（ICD-10）', '来源机构', '接收方式', '当前归属', '状态', '发起时间', '操作'].map(h => (
+              {['序号', '患者', '性别/年龄', '当前诊断（ICD-10）', '转出机构', '接收方式', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>

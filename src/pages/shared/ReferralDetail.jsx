@@ -10,8 +10,11 @@ import ClinicalStructuredSection from '../../components/ClinicalStructuredSectio
 import RehabPlanSection from '../../components/RehabPlanSection'
 import AttachmentSection from '../../components/AttachmentSection'
 import { buildClinicalPackage } from '../../utils/clinicalPackage'
+import { getConsentInfo } from '../../utils/consentUpload'
 import { canViewEmergencyModifyWindowInfo, canViewEmergencyReferralDetail, getEmergencyHospitalConfig } from '../../utils/emergencyReferral'
-import { canViewCountyUpwardReferralDetail, isAssignedToCurrentCountyDoctor } from '../../utils/countyReferralAccess'
+import { canCurrentCountyDoctorHandleOrdinaryUpward, canViewCountyUpwardReferralDetail } from '../../utils/countyReferralAccess'
+import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
+import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
 
 function formatTime(isoStr) {
   if (!isoStr) return '—'
@@ -24,6 +27,36 @@ function formatTime(isoStr) {
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+function renderDetailValue(item) {
+  if (item?.type === 'tags' && Array.isArray(item?.value)) {
+    return (
+      <div className="flex flex-wrap gap-2 mt-1">
+        {item.value.map(tag => (
+          <span
+            key={tag}
+            className="inline-flex items-center px-2.5 py-1 rounded-full text-xs font-medium"
+            style={{ background: '#E0F6F9', color: '#0892A0' }}
+          >
+            {tag}
+          </span>
+        ))}
+      </div>
+    )
+  }
+
+  if (Array.isArray(item?.value)) {
+    return (
+      <div className="space-y-1 mt-0.5">
+        {item.value.map(value => (
+          <div key={value} className="text-sm text-gray-800 font-medium">{value}</div>
+        ))}
+      </div>
+    )
+  }
+
+  return <div className="text-sm text-gray-800 font-medium mt-0.5 whitespace-pre-line">{item?.value || '—'}</div>
 }
 
 const DOWNWARD_RECEIVER_OPTIONS = {
@@ -201,12 +234,22 @@ function CollaborativeCloseDialog({ onConfirm, onCancel }) {
   )
 }
 
-function EmergencySupplementDialog({ referral, referrals, onConfirm, onCancel }) {
+function EmergencySupplementDialog({
+  referral,
+  referrals,
+  onConfirm,
+  onCancel,
+  title = '补录接诊信息',
+  description = '患者到院后填写实际接诊信息，急诊不生成预约码。',
+  confirmText = '保存补录信息',
+}) {
   const institution = INSTITUTIONS.find(item => item.name === referral?.toInstitution)
   const departmentOptions = institution?.departments?.length ? institution.departments : ['急诊科']
   const initialDept = referral?.admissionArrangement?.department || referral?.admissionArrangement?.emergencyNotifiedDepts?.[0] || referral?.toDept || '急诊科'
   const initialDeptConfig = institution?.departmentInfo?.[initialDept]
-  const initialArrivedAt = new Date().toISOString().slice(0, 16)
+  const initialArrivedAt = referral?.patientArrivedAt
+    ? new Date(referral.patientArrivedAt).toISOString().slice(0, 16)
+    : new Date().toISOString().slice(0, 16)
   const [form, setForm] = useState({
     patientArrivedAt: initialArrivedAt,
     department: initialDept,
@@ -261,8 +304,8 @@ function EmergencySupplementDialog({ referral, referrals, onConfirm, onCancel })
       <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
       <div className="relative bg-white rounded-2xl shadow-2xl w-[460px] overflow-hidden">
         <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800 text-lg">补录接诊信息</h3>
-          <p className="text-sm text-gray-500 mt-1">患者到院后填写实际接诊信息，急诊不生成预约码。</p>
+          <h3 className="font-semibold text-gray-800 text-lg">{title}</h3>
+          <p className="text-sm text-gray-500 mt-1">{description}</p>
         </div>
         <div className="p-6 space-y-4">
           <div>
@@ -372,7 +415,7 @@ function EmergencySupplementDialog({ referral, referrals, onConfirm, onCancel })
               className={`flex-1 py-2 rounded-lg text-sm font-medium text-white ${!canConfirm ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
               style={canConfirm ? { background: '#ef4444' } : {}}
             >
-              保存补录信息
+              {confirmText}
             </button>
           </div>
         </div>
@@ -541,7 +584,7 @@ export default function ReferralDetail() {
   const location = useLocation()
   const {
     currentRole, currentUser, referrals,
-    acceptReferral, rejectReferral, cancelReferral, closeReferral, collaborativeCloseReferral, reopenReferral, completeReferral,
+    acceptReferral, rejectReferral, cancelReferral, closeReferral, collaborativeCloseReferral, reopenReferral, completeReferral, completeRetroEmergencyReferral,
     acceptDownwardReferral, completeDownwardReferral, rejectDownwardReferral, cancelDownwardReferral,
     reassignDownwardReferral, selfAcceptDownwardReferral, rejectDownwardByCoordinator,
     approveInternalReview, rejectInternalReview, fillAdmissionArrangement, supplementEmergencyAdmission, emergencyModifyReferral,
@@ -588,6 +631,7 @@ export default function ReferralDetail() {
   const isAdmin = currentRole === ROLES.ADMIN
   const downwardAllocationMode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
   const isEmergencyReferral = !!ref.is_emergency
+  const isRetroEntry = !!ref.isRetroEntry
   const isGreenChannel = ref.referral_type === 'green_channel'  // CHG-30
   const clinicalPackage = buildClinicalPackage(ref)
   const emergencyModifiableUntilTs = isEmergencyReferral
@@ -601,6 +645,20 @@ export default function ReferralDetail() {
   const emergencySupplemented = isEmergencyReferral && !!ref.admissionArrangement?.department
   const emergencySubmitState = location.state?.submitSuccess?.referralId === id ? location.state.submitSuccess : null
   const hasPendingEmergencyModifyNotice = !!ref.emergencyModifyAt && !ref.emergencyModifyNotifiedAt
+  // CHG-39: 详情页统一使用新知情同意字段，旧字段作为兼容回退
+  const consentInfo = getConsentInfo(ref)
+  const consentPreviewAvailable = !!consentInfo.consentFileUrl
+  const isTerminalReferralStatus = [
+    UPWARD_STATUS.COMPLETED,
+    UPWARD_STATUS.CANCELLED,
+    UPWARD_STATUS.CLOSED,
+    DOWNWARD_STATUS.COMPLETED,
+    DOWNWARD_STATUS.CANCELLED,
+    DOWNWARD_STATUS.CLOSED,
+  ].includes(ref.status)
+  const canShowConsentUploadPlaceholder = consentInfo.isPendingUpload && currentUser?.name === ref.fromDoctor && !isTerminalReferralStatus
+  const upwardDetailSections = isUpward ? getUpwardDetailSections(ref, consentInfo) : []
+  const downwardDetailSections = isDownward ? getDownwardDetailSections(ref, consentInfo) : []
 
   // ── 角色操作权限判断 ──
   const isCountyAttendingDoctor = currentRole === ROLES.COUNTY
@@ -655,9 +713,8 @@ export default function ReferralDetail() {
 
   // P0-6：受理锁定——只有经办医生（或未受理时）才可接收/拒绝，改用 assignedDoctorId 比较
   const claimLockOk = !ref.assignedDoctorId || ref.assignedDoctorId === currentUser?.id
-  const assignedToCurrentCountyDoctor = isAssignedToCurrentCountyDoctor(ref, currentUser)
-  const canAcceptUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && assignedToCurrentCountyDoctor
-  const canRejectUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && assignedToCurrentCountyDoctor
+  const canAcceptUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
+  const canRejectUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
   const canCompleteUpward = isAdmin && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
     isEmergencyReferral ? emergencySupplemented : !!ref.admissionArrangement
   )
@@ -674,12 +731,14 @@ export default function ReferralDetail() {
   const canEmergencyModify = currentRole === ROLES.PRIMARY &&
     isUpward &&
     isEmergencyReferral &&
+    !isRetroEntry &&
     ref.status === UPWARD_STATUS.IN_TRANSIT &&
     emergencyWindowOpen &&
     currentUser?.name === ref.fromDoctor
   const emergencyModifyLocked = currentRole === ROLES.PRIMARY &&
     isUpward &&
     isEmergencyReferral &&
+    !isRetroEntry &&
     ref.status === UPWARD_STATUS.IN_TRANSIT &&
     !emergencyWindowOpen &&
     currentUser?.name === ref.fromDoctor
@@ -716,7 +775,8 @@ export default function ReferralDetail() {
   const adminCanUrgeDownwardAccept = isAdmin && isDownward && ref.status === DOWNWARD_STATUS.PENDING
   // M-7：管理员可在详情页直接填写接诊安排（role-permission-matrix v1.3 第3A节）
   const adminCanArrange = isAdmin && isUpward && !isEmergencyReferral && ref.status === UPWARD_STATUS.IN_TRANSIT && !ref.admissionArrangement
-  const adminCanSupplementEmergency = isAdmin && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && emergencySupplementPending
+  const adminCanRetroCompleteEmergency = isAdmin && isUpward && isEmergencyReferral && isRetroEntry && ref.status === UPWARD_STATUS.IN_TRANSIT && emergencySupplementPending
+  const adminCanSupplementEmergency = isAdmin && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && emergencySupplementPending && !isRetroEntry
   const adminCanCompleteEmergency = isAdmin && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && emergencySupplemented
 
   const handleAction = (type) => {
@@ -763,6 +823,13 @@ export default function ReferralDetail() {
         break
       case 'supplementEmergencyConfirm':
         supplementEmergencyAdmission(id, dialog.form)
+        setDialog(null)
+        break
+      case 'completeRetroEmergency':
+        setDialog({ type: 'completeRetroEmergency' })
+        break
+      case 'completeRetroEmergencyConfirm':
+        completeRetroEmergencyReferral(id, dialog.form)
         setDialog(null)
         break
       case 'emergencyModify':
@@ -934,39 +1001,46 @@ export default function ReferralDetail() {
           <div className="flex items-center gap-3">
             <div className="text-3xl">✅</div>
             <div>
-              <div className="text-lg font-semibold text-emerald-900">急诊转诊已提交</div>
+              <div className="text-lg font-semibold text-emerald-900">{emergencySubmitState.title || '急诊转诊已提交'}</div>
               <div className="text-sm text-emerald-700">转诊单号 {ref.referralCode || ref.referralNo || ref.id}</div>
             </div>
           </div>
 
           <div className="mt-4 rounded-lg border border-emerald-100 bg-white px-4 py-4">
-            <div className="text-sm font-medium text-gray-700 mb-3">已发出的通知</div>
-            <div className="space-y-2 text-sm">
-              <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
-                <div className="font-medium text-gray-800">✅ 患者短信 已发送至 {maskedPatientPhone}</div>
-                <button
-                  type="button"
-                  onClick={() => setShowEmergencySuccessSms(prev => !prev)}
-                  className="mt-2 text-xs text-emerald-700 hover:text-emerald-900"
-                >
-                  {showEmergencySuccessSms ? '收起短信内容 ▲' : '展开查看短信内容 ▼'}
-                </button>
-                {showEmergencySuccessSms && (
-                  <div className="mt-2 text-sm font-mono whitespace-pre-line text-gray-700">
-                    {messageTimeline[0]?.content || emergencySubmitState.smsPreview}
-                  </div>
+            <div className="text-sm font-medium text-gray-700 mb-3">{isRetroEntry ? '补录说明' : '已发出的通知'}</div>
+            {isRetroEntry ? (
+              <div className="space-y-2 text-sm text-gray-700">
+                <div>本单已按 CHG-41 以补录模式入账，不触发急诊实时联动通知，也不发送患者短信。</div>
+                <div>转诊中心后续将在详情页一次性完成“补录并确认”，完成后直接进入数据上报。</div>
+              </div>
+            ) : (
+              <div className="space-y-2 text-sm">
+                <div className="rounded-lg border border-gray-200 bg-gray-50 px-3 py-3">
+                  <div className="font-medium text-gray-800">✅ 患者短信 已发送至 {maskedPatientPhone}</div>
+                  <button
+                    type="button"
+                    onClick={() => setShowEmergencySuccessSms(prev => !prev)}
+                    className="mt-2 text-xs text-emerald-700 hover:text-emerald-900"
+                  >
+                    {showEmergencySuccessSms ? '收起短信内容 ▲' : '展开查看短信内容 ▼'}
+                  </button>
+                  {showEmergencySuccessSms && (
+                    <div className="mt-2 text-sm font-mono whitespace-pre-line text-gray-700">
+                      {messageTimeline[0]?.content || emergencySubmitState.smsPreview}
+                    </div>
+                  )}
+                </div>
+                <div className="text-gray-700">✅ 转诊中心 已推送工作台通知</div>
+                <div className="text-gray-700">✅ 急诊科值班 已推送信息通知</div>
+                <div className="text-gray-700">✅ {isGreenChannel ? (ref.linkedSpecialty || '联动专科') : '急诊科'}负责人 已推送通知</div>
+                {isGreenChannel && ref.linkedSpecialty && (
+                  <div className="text-gray-700">✅ {ref.linkedSpecialty}科室 绿色通道双线联动通知</div>
                 )}
               </div>
-              <div className="text-gray-700">✅ 转诊中心 已推送工作台通知</div>
-              <div className="text-gray-700">✅ 急诊科值班 已推送信息通知</div>
-              <div className="text-gray-700">✅ {isGreenChannel ? (ref.linkedSpecialty || '联动专科') : '急诊科'}负责人 已推送通知</div>
-              {isGreenChannel && ref.linkedSpecialty && (
-                <div className="text-gray-700">✅ {ref.linkedSpecialty}科室 绿色通道双线联动通知</div>
-              )}
-            </div>
+            )}
           </div>
 
-          {canViewEmergencyModifyInfo && (
+          {canViewEmergencyModifyInfo && !isRetroEntry && (
             <div className="mt-4 rounded-lg border border-orange-200 bg-orange-50 px-4 py-4">
               <div className="text-sm font-semibold text-orange-900">紧急修改窗口</div>
               <div className="text-sm text-orange-800 mt-2">提交后15分钟内可修改目标医院及联动专科通知</div>
@@ -1008,14 +1082,14 @@ export default function ReferralDetail() {
         </div>
       )}
 
-      {isEmergencyReferral && ref.isUrgentUnhandled && (
+      {isEmergencyReferral && ref.isUrgentUnhandled && !isRetroEntry && (
         <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-5 py-4">
           <div className="text-sm font-semibold text-red-700">⚠️ 该急诊转诊已提交超过4小时仍未完成接诊确认，已升级告警</div>
           <div className="text-xs text-red-500 mt-1">已提交 {emergencyElapsedHours}小时{emergencyElapsedRemainMinutes}分钟</div>
         </div>
       )}
 
-      {isEmergencyReferral && hasPendingEmergencyModifyNotice && currentRole === ROLES.PRIMARY && (
+      {isEmergencyReferral && hasPendingEmergencyModifyNotice && !isRetroEntry && currentRole === ROLES.PRIMARY && (
         <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-5 py-4">
           <div className="text-sm font-semibold text-red-700">⚠️ 重要提示</div>
           <div className="text-sm text-red-700 mt-2">
@@ -1030,7 +1104,7 @@ export default function ReferralDetail() {
         </div>
       )}
 
-      {isEmergencyReferral && hasPendingEmergencyModifyNotice && (
+      {isEmergencyReferral && hasPendingEmergencyModifyNotice && !isRetroEntry && (
         <div className="mb-4 rounded-xl border border-orange-300 bg-orange-50 px-5 py-4">
           <div className="flex items-start justify-between gap-4">
             <div>
@@ -1063,6 +1137,11 @@ export default function ReferralDetail() {
               {isEmergencyReferral && (
                 <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded border border-red-300">
                   {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                </span>
+              )}
+              {isRetroEntry && (
+                <span className="bg-gray-100 text-gray-700 text-xs font-bold px-2 py-0.5 rounded border border-gray-300">
+                  补录
                 </span>
               )}
               {isGreenChannel && (
@@ -1155,6 +1234,15 @@ export default function ReferralDetail() {
                 className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-medium transition-colors"
               >
                 补录接诊信息
+              </button>
+            )}
+
+            {adminCanRetroCompleteEmergency && (
+              <button
+                onClick={() => handleAction('completeRetroEmergency')}
+                className="px-4 py-2 bg-gray-700 hover:bg-gray-800 text-white rounded-lg text-sm font-medium transition-colors"
+              >
+                完成补录并确认
               </button>
             )}
 
@@ -1437,24 +1525,24 @@ export default function ReferralDetail() {
         </div>
       )}
 
-      {/* G4：急诊知情同意补录提示条（A-13，consentDeferred=true 时显示） */}
-      {ref.is_emergency && ref.consentDeferred && ref.status !== UPWARD_STATUS.COMPLETED && ref.status !== UPWARD_STATUS.CANCELLED && ref.status !== UPWARD_STATUS.CLOSED && (
+      {/* CHG-39: 急诊知情同意改为线下签署后补传 */}
+      {ref.is_emergency && consentInfo.isPendingUpload && ref.status !== UPWARD_STATUS.COMPLETED && ref.status !== UPWARD_STATUS.CANCELLED && ref.status !== UPWARD_STATUS.CLOSED && (
         <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-amber-50 border border-amber-300 rounded-xl text-sm text-amber-800">
           <span className="text-lg flex-shrink-0">⚠️</span>
           <div className="flex-1">
-            <span className="font-medium">急诊知情同意待补录</span>
-            <span className="ml-2 text-amber-600 text-xs">（需在接诊后24小时内完成，否则将告警管理员）</span>
+            <span className="font-medium">急诊知情同意待补传</span>
+            <span className="ml-2 text-amber-600 text-xs">（需在接诊后24小时内完成线下签署并上传附件，起算时间以患者到院时间为准）</span>
           </div>
           {currentRole === ROLES.PRIMARY && (
             <button
               onClick={() => setDialog({
                 type: 'notice',
-                title: '知情同意补录入口待对接',
-                description: '当前尚未接入第三方电子签署平台，后续将在此处打开补录签署流程。'
+                title: '上传知情同意附件',
+                description: '当前版本请由发起医生在对应流程中补传线下签署附件。'
               })}
               className="flex-shrink-0 px-3 py-1.5 bg-amber-500 hover:bg-amber-600 text-white text-xs font-medium rounded-lg transition-colors"
             >
-              立即补录
+              上传附件
             </button>
           )}
         </div>
@@ -1480,18 +1568,26 @@ export default function ReferralDetail() {
           {isEmergencyReferral && !ref.admissionArrangement?.department ? (
             <div className="px-5 py-4 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fdba74' }}>
               <div className="flex items-center justify-between mb-3">
-                <span className="text-sm font-semibold text-orange-700">⚡ 急诊待补录</span>
+                <span className="text-sm font-semibold text-orange-700">{isRetroEntry ? '📝 急诊补录待确认' : '⚡ 急诊待补录'}</span>
                 <span className="text-xs text-orange-400">提交于 {formatTime(ref.createdAt)}</span>
               </div>
               <div className="text-xs text-orange-600 mb-3">
-                已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓{isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}
+                {isRetroEntry
+                  ? '补录模式未触发实时通知；转诊中心完成补录并确认后将直接进入已完成。'
+                  : `已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓${isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}`}
               </div>
               <div className={`grid gap-3 text-sm ${canViewEmergencyModifyInfo ? 'grid-cols-2' : 'grid-cols-1'}`}>
                 <div>
                   <span className="text-orange-500 text-xs">当前状态</span>
-                  <div className="font-medium text-orange-900">待补录接诊信息</div>
+                  <div className="font-medium text-orange-900">{isRetroEntry ? '待完成补录并确认' : '待补录接诊信息'}</div>
                 </div>
-                {canViewEmergencyModifyInfo && (
+                {isRetroEntry && ref.patientArrivedAt && (
+                  <div>
+                    <span className="text-orange-500 text-xs">患者到院时间</span>
+                    <div className="font-medium text-orange-900">{formatTime(ref.patientArrivedAt)}</div>
+                  </div>
+                )}
+                {canViewEmergencyModifyInfo && !isRetroEntry && (
                   <div>
                     <span className="text-orange-500 text-xs">紧急修改窗口</span>
                     <div className="font-medium text-orange-900">{emergencyWindowOpen ? `剩余 ${emergencyWindowMinutes}:${emergencyWindowSeconds}` : '已关闭'}</div>
@@ -1516,7 +1612,9 @@ export default function ReferralDetail() {
               </div>
               {isEmergencyReferral && (
                 <div className="text-xs text-blue-500 mb-3">
-                  已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓{isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}
+                  {isRetroEntry
+                    ? '补录模式：未触发急诊科、专科负责人和转诊中心实时通知'
+                    : `已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓${isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}`}
                 </div>
               )}
               <div className="grid grid-cols-2 gap-3 text-sm">
@@ -1774,113 +1872,99 @@ export default function ReferralDetail() {
           {/* 申请详情 Tab */}
           {activeTab === 'detail' && (
             <div className="space-y-5">
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">患者基本信息</h3>
-                <div className="grid grid-cols-3 gap-4 rounded p-4" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
-                  {[
-                    ['姓名', ref.patient.name],
-                    ['性别', ref.patient.gender || '未知'],
-                    ['年龄', ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'],
-                    ['身份证号', ref.patient.idCard],
-                    ['联系电话', ref.patient.phone],
-                    ['地址', ref.patient.address || '—'],
-                  ].map(([k, v]) => (
-                    <div key={k}>
-                      <div className="text-xs text-gray-400">{k}</div>
-                      <div className="text-sm text-gray-800 font-medium mt-0.5">{v}</div>
-                    </div>
+              {isUpward ? (
+                <>
+                  {upwardDetailSections.map(summary => (
+                    <ReferralSummaryCard key={summary.title} summary={summary} />
                   ))}
-                </div>
-              </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">
-                  {isUpward ? `${upwardDisplayLabel}信息` : `${downwardDisplayLabel}信息`}
-                </h3>
-                <div className="rounded p-4" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
-                  <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-                    <div>
-                      <div className="text-xs text-gray-400 mb-1">诊断</div>
-                      <div className="text-sm font-medium text-gray-800">
-                        {ref.diagnosis?.code || '—'} {ref.diagnosis?.name || '—'}
-                      </div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-400 mb-1">{isUpward ? '转诊原因' : `${downwardDisplayLabel}原因`}</div>
-                      <div className="text-sm text-gray-700 line-clamp-2">{ref.reason || '—'}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-400 mb-1">资料查看</div>
-                      <div className="text-sm text-gray-700">详见“转诊资料”页签</div>
-                    </div>
-                  </div>
-                </div>
-              </div>
-
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">转诊机构信息</h3>
-                <div className="rounded p-4" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
-                  <div className="grid grid-cols-2 gap-4">
-                    <div>
-                      <div className="text-xs text-gray-400 mb-1">转出机构</div>
-                      <div className="text-sm font-medium">{ref.fromInstitution}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">经治医生：{ref.fromDoctor}</div>
-                    </div>
-                    <div>
-                      <div className="text-xs text-gray-400 mb-1">接收机构</div>
-                      <div className="text-sm font-medium">{ref.toInstitution || '待确认'}</div>
-                      <div className="text-xs text-gray-500 mt-0.5">
-                        科室：{ref.toDept || '—'}
-                        {ref.toDoctor && ` · 接诊医生：${ref.toDoctor}`}
-                      </div>
-                    </div>
-                    {isDownward && (
-                      <div className="col-span-2 rounded-lg border px-3 py-3" style={{ background: '#fff', borderColor: '#e5e7eb' }}>
-                        <div className="text-xs text-gray-400 mb-1">{downwardDisplayLabel}分配方式</div>
-                        <div className="text-sm font-medium text-gray-800">
-                          {downwardAllocationMode === 'designated'
-                            ? '指定接收医生'
-                            : downwardAllocationMode === 'coordinator'
-                              ? '仅指定机构，由基层负责人分配'
-                              : '负责人改派窗口'}
-                        </div>
-                        <div className="text-xs text-gray-500 mt-1">
-                          {downwardAllocationMode === 'designated' && `指定医生：${ref.designatedDoctorName || '—'}`}
-                          {downwardAllocationMode === 'coordinator' && '当前由基层转诊负责人处理待分配。'}
-                          {downwardAllocationMode === 'coordinator_reassign' && `最近一次改派时间：${formatTime(ref.coordinatorActionAt)}`}
-                        </div>
-                        {!!ref.rejectedDoctorIds?.length && (
-                          <div className="mt-2 text-xs text-amber-700">指定医生已拒绝，当前由基层负责人继续处理改派。</div>
-                        )}
-                      </div>
-                    )}
-                  </div>
                   {isGreenChannel && INSTITUTIONS.find(i => i.name === ref.toInstitution)?.departmentInfo?.[ref.toDept]?.rescueResources && (
-                    <div className="mt-4 rounded-lg border px-4 py-3" style={{ background: '#fffbeb', borderColor: '#fcd34d' }}>
+                    <div className="rounded-xl border px-4 py-4" style={{ background: '#fffbeb', borderColor: '#fcd34d' }}>
                       <div className="text-sm font-medium text-amber-800 mb-1">目标科室抢救资源参考</div>
                       <div className="text-xs text-amber-700 leading-relaxed">
                         {INSTITUTIONS.find(i => i.name === ref.toInstitution)?.departmentInfo?.[ref.toDept]?.rescueResources}
                       </div>
                     </div>
                   )}
-                </div>
-              </div>
 
-              <div>
-                <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">知情同意</h3>
-                <div className={`flex items-center gap-2 px-4 py-3 rounded-xl text-sm ${ref.consentSigned
-                  ? 'bg-green-50 border border-green-200 text-green-700'
-                  : 'bg-orange-50 border border-orange-200 text-orange-700'
-                  }`}>
-                  <span>{ref.consentSigned ? '✅' : '⏳'}</span>
-                  <span>
-                    {ref.consentSigned
-                      ? `签署完成 · 时间：${formatTime(ref.consentTime)} · 电子存档已生成`
-                      : '待签署'
-                    }
-                  </span>
-                </div>
-              </div>
+                  {(consentInfo.isUploaded || canShowConsentUploadPlaceholder) && (
+                    <div className={`px-4 py-4 rounded-xl text-sm ${consentInfo.isUploaded
+                      ? 'bg-green-50 border border-green-200 text-green-700'
+                      : 'bg-orange-50 border border-orange-200 text-orange-700'
+                    }`}>
+                      <div className="flex items-center justify-between gap-3 flex-wrap">
+                        <div className="space-y-1">
+                          <div className="font-medium">知情同意附件</div>
+                          <div>签署人：{consentInfo.signedByLabel}</div>
+                          <div>上传时间：{formatTime(consentInfo.consentUploadedAt)}</div>
+                          {!consentInfo.isUploaded && (
+                            <div className="text-orange-700">提示：急诊患者请于到院后24小时内上传签署文件</div>
+                          )}
+                        </div>
+                        <div className="flex items-center gap-2 flex-wrap">
+                          {consentInfo.isUploaded && (
+                            <>
+                              <button
+                                type="button"
+                                onClick={() => setDialog({
+                                  type: 'notice',
+                                  title: consentPreviewAvailable ? '附件预览' : '暂无原件预览',
+                                  description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接预览附件，请通过归档渠道查看原件。' : '当前记录未上传可预览的签署附件。'
+                                })}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-white"
+                              >
+                                预览
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => setDialog({
+                                  type: 'notice',
+                                  title: consentPreviewAvailable ? '附件下载' : '暂无可下载附件',
+                                  description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接下载附件，请通过归档渠道获取原件。' : '当前记录未上传可下载的签署附件。'
+                                })}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-white"
+                              >
+                                下载
+                              </button>
+                            </>
+                          )}
+                          {canShowConsentUploadPlaceholder && (
+                            <button
+                              type="button"
+                              onClick={() => setDialog({
+                                type: 'notice',
+                                title: '上传知情同意附件',
+                                description: '当前版本请由发起医生在对应流程中补传线下签署附件。'
+                              })}
+                              className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors"
+                            >
+                              上传附件
+                            </button>
+                          )}
+                        </div>
+                      </div>
+                    </div>
+                  )}
+                </>
+              ) : (
+                <>
+                  {downwardDetailSections.map(section => (
+                    <div key={section.title}>
+                      <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">{section.title}</h3>
+                      <div className="rounded p-4" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
+                        <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+                          {section.items.map(item => (
+                            <div key={`${section.title}-${item.label}`} className={typeof item.value === 'string' && item.value.length > 60 ? 'md:col-span-2' : ''}>
+                              <div className="text-xs text-gray-400">{item.label}</div>
+                              {renderDetailValue(item)}
+                            </div>
+                          ))}
+                        </div>
+                      </div>
+                    </div>
+                  ))}
+                </>
+              )}
 
               {isEmergencyReferral && (
                 <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
@@ -2029,21 +2113,20 @@ export default function ReferralDetail() {
                 </button>
                 {showConsentRecord && (
                   <div className="px-4 py-3">
-                    {/* Assumption: 知情同意记录从 ref.consentRecord 字段获取；mockData 中暂无此字段，使用占位演示数据 */}
                     {ref.consentRecord ? (
                       <div className="flex items-center justify-between text-sm">
                         <div>
                           <span className="text-gray-600">签署人：</span>
                           <span className="font-medium text-gray-900">{ref.consentRecord.signerName}</span>
                           <span className="text-gray-400 mx-2">|</span>
-                          <span className="text-gray-600">签署时间：</span>
+                          <span className="text-gray-600">上传时间：</span>
                           <span className="text-gray-900">{ref.consentRecord.signedAt}</span>
                         </div>
                         <button
                             onClick={() => setDialog({
                               type: 'notice',
-                              title: '签署原件查看待对接',
-                              description: '当前仅展示知情同意签署记录，后续将在此处打开原件查看链接。'
+                              title: '签署原件查看',
+                              description: '当前版本暂不支持在详情页直接打开原件，请通过归档渠道查看签署附件。'
                             })}
                           className="text-sm hover:underline"
                           style={{ color: '#0BBECF' }}
@@ -2055,19 +2138,19 @@ export default function ReferralDetail() {
                       <div className="flex items-center justify-between text-sm">
                         <div>
                           <span className="text-gray-600">签署人：</span>
-                          <span className="font-medium text-gray-800">{ref.patient?.name ?? '患者本人'}</span>
+                          <span className="font-medium text-gray-800">{consentInfo.signedByLabel}</span>
                           <span className="text-gray-400 mx-2">|</span>
-                          <span className="text-gray-600">签署时间：</span>
+                          <span className="text-gray-600">上传时间：</span>
                           <span className="text-gray-800">
-                            {ref.consentTime ? new Date(ref.consentTime).toLocaleString('zh-CN') : (ref.createdAt ? new Date(ref.createdAt).toLocaleString('zh-CN') : '—')}
+                            {consentInfo.consentUploadedAt ? new Date(consentInfo.consentUploadedAt).toLocaleString('zh-CN') : (ref.createdAt ? new Date(ref.createdAt).toLocaleString('zh-CN') : '—')}
                           </span>
-                          <span className="ml-2 text-xs text-orange-500">（当前仅展示签署记录）</span>
+                          {!consentPreviewAvailable && <span className="ml-2 text-xs text-orange-500">（当前未上传可查看原件）</span>}
                         </div>
                         <button
                             onClick={() => setDialog({
                               type: 'notice',
-                              title: '签署原件查看待对接',
-                              description: '当前这条签署记录暂无可打开的原件文件，后续将在此处展示原件查看入口。'
+                              title: consentPreviewAvailable ? '签署原件查看' : '暂无可打开的原件',
+                              description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接打开原件，请通过归档渠道查看签署附件。' : '当前记录未上传可查看的签署附件。'
                             })}
                           className="text-sm hover:underline"
                           style={{ color: '#0BBECF' }}
@@ -2127,7 +2210,7 @@ export default function ReferralDetail() {
                             r.status === '已拒绝' ? 'bg-gray-100 text-gray-500' :
                             r.status === '已撤销' ? 'bg-gray-100 text-gray-500' :
                             r.status === '转诊中' ? 'bg-blue-50 text-blue-700' :
-                            r.status === '待审核' ? 'bg-orange-50 text-orange-600' :
+                            ['待受理', '待审核'].includes(r.status) ? 'bg-orange-50 text-orange-600' :
                             r.status === '待接收' ? 'bg-orange-50 text-orange-600' :
                             'bg-gray-100 text-gray-600'
                           }`}>{r.status === '待审核' ? '待受理' : r.status}</span>
@@ -2253,6 +2336,17 @@ export default function ReferralDetail() {
           referral={ref}
           referrals={referrals}
           onConfirm={(form) => { supplementEmergencyAdmission(id, form); setDialog(null) }}
+          onCancel={() => setDialog(null)}
+        />
+      )}
+      {dialog?.type === 'completeRetroEmergency' && (
+        <EmergencySupplementDialog
+          referral={ref}
+          referrals={referrals}
+          title="完成补录并确认"
+          description="补录模式下请一次性填写到院与接诊信息，保存后将直接完成接诊确认并触发数据上报。"
+          confirmText="完成补录并确认"
+          onConfirm={(form) => { setDialog({ type: 'completeRetroEmergency', form }); handleAction('completeRetroEmergencyConfirm') }}
           onCancel={() => setDialog(null)}
         />
       )}

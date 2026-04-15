@@ -43,8 +43,8 @@ const NAV_CONFIG = {
     { path: '/county/dashboard', label: '工作台', icon: '📊' },
     {
       label: '转入管理', icon: '⬆️', children: [
-        { path: '/county/review-list', label: '科室待受理转入' },
-        { path: '/county/referral-records', label: '科室转入记录' },
+        { path: '/county/review-list', label: '待受理转入' },
+        { path: '/county/referral-records', label: '转入记录' },
       ]
     },
     {

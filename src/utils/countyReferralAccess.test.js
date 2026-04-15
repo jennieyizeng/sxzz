@@ -2,6 +2,7 @@ import test from 'node:test'
 import assert from 'node:assert/strict'
 import { ROLES } from '../data/mockData.js'
 import {
+  canCurrentCountyDoctorHandleOrdinaryUpward,
   canViewCountyUpwardReferralDetail,
   isAssignedToCurrentCountyDoctor,
   matchesDepartmentScope,
@@ -39,6 +40,48 @@ test('allows ordinary county doctor to view only personally assigned ordinary up
 
   assert.equal(canViewCountyUpwardReferralDetail({ currentRole: ROLES.COUNTY, currentUser, referral: assignedReferral }), true)
   assert.equal(canViewCountyUpwardReferralDetail({ currentRole: ROLES.COUNTY, currentUser, referral: otherReferral }), false)
+})
+
+test('allows preferred county doctor to handle unassigned ordinary upward referrals within the same institution', () => {
+  const currentUser = {
+    id: 'county_doctor_1',
+    name: '李志远',
+    institution: 'xx市人民医院',
+    dept: '内科',
+    isPreferredDoctor: true,
+  }
+  const unassignedReferral = {
+    type: 'upward',
+    is_emergency: false,
+    toInstitution: 'xx市人民医院',
+    toDept: '心血管科',
+    assignedDoctorId: null,
+    assignedDoctorName: null,
+  }
+
+  assert.equal(canCurrentCountyDoctorHandleOrdinaryUpward(unassignedReferral, currentUser), true)
+  assert.equal(canViewCountyUpwardReferralDetail({ currentRole: ROLES.COUNTY, currentUser, referral: unassignedReferral }), true)
+})
+
+test('blocks ordinary county doctor from handling referrals already claimed by another doctor', () => {
+  const currentUser = {
+    id: 'county_doctor_1',
+    name: '李志远',
+    institution: 'xx市人民医院',
+    dept: '内科',
+    isPreferredDoctor: true,
+  }
+  const claimedReferral = {
+    type: 'upward',
+    is_emergency: false,
+    toInstitution: 'xx市人民医院',
+    toDept: '心血管科',
+    assignedDoctorId: 'county_doctor_2',
+    assignedDoctorName: '王晓敏',
+  }
+
+  assert.equal(canCurrentCountyDoctorHandleOrdinaryUpward(claimedReferral, currentUser), false)
+  assert.equal(canViewCountyUpwardReferralDetail({ currentRole: ROLES.COUNTY, currentUser, referral: claimedReferral }), false)
 })
 
 test('allows county department head to view only matching department ordinary upward detail', () => {

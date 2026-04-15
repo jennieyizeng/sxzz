@@ -140,6 +140,11 @@ export default function PrimaryReferralList() {
                       {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
                     </span>
                   )}
+                  {ref.isRetroEntry && (
+                    <span className="text-xs font-bold px-1.5 py-0.5 rounded mr-1 bg-gray-100 text-gray-700 border border-gray-300">
+                      补录
+                    </span>
+                  )}
                   {ref.referral_type === 'green_channel' && (
                     <span className="text-xs font-bold px-1.5 py-0.5 rounded mr-1 text-white" style={{ background: '#10b981' }}>绿通</span>
                   )}

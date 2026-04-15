@@ -204,6 +204,11 @@ export default function AdminDashboard() {
                           <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white bg-red-500">
                             {emergencyBadge}
                           </span>
+                          {ref.isRetroEntry && (
+                            <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                              补录
+                            </span>
+                          )}
                           {ref.referral_type === 'green_channel' && (
                             <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#10b981' }}>
                               绿通
@@ -213,7 +218,9 @@ export default function AdminDashboard() {
                         <div className="text-sm font-medium text-gray-800">{ref.patient?.name}</div>
                         <div className="text-xs text-gray-500">{ref.diagnosis?.name}</div>
                         <div className="text-xs text-gray-400 mt-1">
-                          已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓{ref.referral_type === 'green_channel' && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}
+                          {ref.isRetroEntry
+                            ? '补录模式：未触发实时通知'
+                            : `已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓${ref.referral_type === 'green_channel' && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}`}
                         </div>
                       </td>
                       <td className="px-4 py-3 text-sm text-gray-700">{ref.urgencyLevel ? `第${ref.urgencyLevel}级` : '—'}</td>
@@ -445,6 +452,11 @@ export default function AdminDashboard() {
                   <div className="flex items-center gap-2">
                     <span className="font-semibold text-red-700">{ref.patient?.name}</span>
                     <span className="text-xs text-red-600">{ref.diagnosis?.name}</span>
+                    {ref.isRetroEntry && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                        补录
+                      </span>
+                    )}
                     {ref.referral_type === 'green_channel' && (
                       <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#10b981' }}>绿通</span>
                     )}

@@ -9,7 +9,7 @@ function upwardSteps(internalAuditEnabled) {
     ...(internalAuditEnabled ? [
       { id: 'internal', label: '院内审核', lane: 'primary', statuses: ['待内审'] },
     ] : []),
-    { id: 'notify',   label: '待受理',     lane: 'system',  statuses: ['待审核'] },
+    { id: 'notify',   label: '待受理',     lane: 'system',  statuses: ['待受理', '待审核'] },
     { id: 'transit',  label: '患者前往',   lane: 'patient', statuses: ['转诊中'] },
     { id: 'confirm',  label: '接诊确认',   lane: 'system',  statuses: ['已完成'] },
     { id: 'complete', label: '上报数据',   lane: 'system',  statuses: ['已完成'] },

@@ -1,0 +1,73 @@
+<h2>CHG-39 演示版改造方案</h2>
+<p class="subtitle">先对齐改造深度，再进入逐步修改</p>
+
+<div class="cards">
+  <div class="card" data-choice="a" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">方案 A: 最小演示替换</div>
+        <div class="mockup-body">
+          <div class="mock-content">
+            创建页:
+            <ul>
+              <li>下载模板</li>
+              <li>上传附件区块</li>
+              <li>急诊可选待补传</li>
+            </ul>
+            详情页:
+            <ul>
+              <li>已上传 / 待补传状态</li>
+              <li>预览 / 下载按钮</li>
+              <li>上传附件占位按钮</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 A</h3>
+      <p>只改关键页面和展示文案，上传按钮保留占位，适合演示和研发讲解。</p>
+    </div>
+  </div>
+
+  <div class="card" data-choice="b" onclick="toggleSelect(this)">
+    <div class="card-image">
+      <div class="mockup">
+        <div class="mockup-header">方案 B: 演示一致性增强</div>
+        <div class="mockup-body">
+          <div class="mock-content">
+            在方案 A 基础上再补:
+            <ul>
+              <li>mock 数据同步改新字段</li>
+              <li>操作日志演示更完整</li>
+              <li>旧电子签名文案基本清干净</li>
+            </ul>
+          </div>
+        </div>
+      </div>
+    </div>
+    <div class="card-body">
+      <h3>方案 B</h3>
+      <p>演示更完整，页面之间更统一，仍然不接真实上传链路。我推荐这个。</p>
+    </div>
+  </div>
+</div>
+
+<div class="pros-cons">
+  <div class="pros">
+    <h4>我推荐方案 B</h4>
+    <ul>
+      <li>最符合你说的“给研发讲清楚示例”</li>
+      <li>不会陷入真实上传实现</li>
+      <li>上下转和详情页口径更一致</li>
+    </ul>
+  </div>
+  <div class="cons">
+    <h4>不建议方案 C</h4>
+    <ul>
+      <li>现在就做真实上传交互</li>
+      <li>会把演示任务拖成实现任务</li>
+      <li>超出这轮 CHG-39 的目标</li>
+    </ul>
+  </div>
+</div>

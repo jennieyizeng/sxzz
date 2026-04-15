@@ -1,6 +1,7 @@
 const STATUS_STYLES = {
   '草稿':   { dot: '#9ca3af', bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
   '待内审': { dot: '#60a5fa', bg: '#eff6ff', text: '#2563eb', border: '#bfdbfe' }, // CHG-32 院内审核
+  '待受理': { dot: '#f59e0b', bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
   '待审核': { dot: '#f59e0b', bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
   '待接收': { dot: '#f59e0b', bg: '#fffbeb', text: '#b45309', border: '#fde68a' },
   '转诊中': { dot: '#0BBECF', bg: '#E0F6F9', text: '#0892a0', border: '#a4edf5' },

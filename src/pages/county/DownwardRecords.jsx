@@ -126,7 +126,7 @@ export default function CountyDownwardRecords() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号','患者','性别/年龄','诊断（ICD-10）','接收机构','科室','接收方式','当前归属','当前进展','状态','发起时间','操作'].map(h => (
+              {['序号','患者','性别/年龄','当前诊断（ICD-10）','目标基层机构','自动匹配承接科室','接收方式','指定接收医生 / 当前归属','当前进展','状态','发起时间','操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>

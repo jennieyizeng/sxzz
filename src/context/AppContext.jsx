@@ -91,6 +91,20 @@ function toDateOnly(value) {
   return normalized.includes('T') ? normalized.split('T')[0] : normalized
 }
 
+function normalizeConsentFields(referral) {
+  const consentMethod = referral?.consentMethod
+    || (referral?.consentDeferred ? 'pending_upload' : referral?.consentSigned ? 'offline_upload' : null)
+
+  return {
+    ...referral,
+    consentMethod,
+    consentFileUrl: referral?.consentFileUrl
+      ?? (consentMethod === 'offline_upload' && referral?.consentSigned ? `mock://consent/${referral.id || Date.now()}` : null),
+    consentUploadedAt: referral?.consentUploadedAt ?? referral?.consentTime ?? null,
+    consentSignedBy: referral?.consentSignedBy || 'patient',
+  }
+}
+
 export function AppProvider({ children }) {
   // 当前登录角色（演示用切换器）——持久化到 sessionStorage，防止 URL 直接导航后角色重置
   const [currentRole, setCurrentRole] = useState(() => {
@@ -105,7 +119,8 @@ export function AppProvider({ children }) {
   }
 
   // 转诊记录列表（全局 state，所有角色共享）
-  const [referrals, setReferrals] = useState(MOCK_REFERRALS_INIT)
+  // CHG-39: 初始化时统一补齐知情同意新字段，兼容历史 mock 数据
+  const [referrals, setReferrals] = useState(() => MOCK_REFERRALS_INIT.map(normalizeConsentFields))
 
   // 通知消息
   const [notifications, setNotifications] = useState(MOCK_NOTIFICATIONS_INIT)
@@ -139,11 +154,14 @@ export function AppProvider({ children }) {
   const submitReferral = useCallback((referralData) => {
     const isEmergencyBypass = referralData.is_emergency && !referralData.consentSigned
     const isEmergency = !!referralData.is_emergency
+    // CHG-41: 急诊补录模式仅记账，不触发实时联动
+    const isRetroEntry = isEmergency && !!referralData.isRetroEntry
+    const shouldSendEmergencyRealtimeSignals = isEmergency && !isRetroEntry
     const nowIso = new Date().toISOString()
     const targetInstitution = getInstitutionByName(referralData.toInstitution)
     const emergencyDeptPhone = targetInstitution?.emergencyDeptPhone || targetInstitution?.departmentInfo?.['急诊科']?.nurseStationPhone || ''
     const referralCode = isEmergency ? buildEmergencyReferralCode(nowIso) : null
-    const initialSmsContent = isEmergency
+    const initialSmsContent = shouldSendEmergencyRealtimeSignals
       ? buildEmergencyInitialSms({
           institutionName: referralData.toInstitution,
           targetDepartment: referralData.linkedSpecialty || referralData.toDept,
@@ -162,6 +180,11 @@ export function AppProvider({ children }) {
       createdAt: nowIso,
       updatedAt: nowIso,
       transferredAt: isEmergency ? nowIso : null,
+      // CHG-39: 线下签署字段，旧字段继续保留以兼容现有页面逻辑
+      consentMethod: referralData.consentMethod || (isEmergencyBypass ? 'pending_upload' : 'offline_upload'),
+      consentFileUrl: referralData.consentFileUrl ?? null,
+      consentUploadedAt: referralData.consentUploadedAt ?? (isEmergencyBypass ? null : nowIso),
+      consentSignedBy: referralData.consentSignedBy || 'patient',
       consentSigned: !isEmergencyBypass,
       consentTime: isEmergencyBypass ? null : nowIso,
       consentDeferred: isEmergencyBypass || undefined,
@@ -169,9 +192,12 @@ export function AppProvider({ children }) {
       assignedDoctorId: referralData.assignedDoctorId ?? null,
       assignedDoctorName: referralData.assignedDoctorName ?? null,
       isUrgentUnhandled: false,
+      isRetroEntry,
+      retroEntryOperatorId: isRetroEntry ? currentUser.id : null,
+      retroEntryOperatorName: isRetroEntry ? currentUser.name : null,
       adminAssigned: false,
       internalNote: referralData.internalNote ?? '',
-      emergencyModifiableUntil: isEmergency ? new Date(new Date(nowIso).getTime() + 15 * 60 * 1000).toISOString() : null,
+      emergencyModifiableUntil: shouldSendEmergencyRealtimeSignals ? new Date(new Date(nowIso).getTime() + 15 * 60 * 1000).toISOString() : null,
       emergencyAlertConfirmedAt: null,
       emergencyAlertConfirmedBy: null,
       emergencyAlertConfirmedByName: null,
@@ -183,30 +209,46 @@ export function AppProvider({ children }) {
       closeReason: null,
       hisVisitId: null,
       reminderSent48h: false,
-      patientSmsLog: isEmergency
+      patientSmsLog: shouldSendEmergencyRealtimeSignals
         ? [{ kind: 'initial', sentAt: nowIso, content: initialSmsContent, status: '已送达' }]
         : [],
       emergencyNotificationStatus: isEmergency
         ? {
-            emergencyDuty: true,
-            departmentHead: true,
-            referralCenter: true,
-            targetSpecialistHead: referralData.referral_type === 'green_channel' && !!referralData.linkedSpecialty,
+            emergencyDuty: shouldSendEmergencyRealtimeSignals,
+            departmentHead: shouldSendEmergencyRealtimeSignals,
+            referralCenter: shouldSendEmergencyRealtimeSignals,
+            targetSpecialistHead: shouldSendEmergencyRealtimeSignals && referralData.referral_type === 'green_channel' && !!referralData.linkedSpecialty,
           }
         : null,
-      patientArrivedAt: null,
+      patientArrivedAt: isRetroEntry ? (referralData.patientArrivedAt || null) : null,
       emergencyAdmissionType: null,
       specialistConsultRequested: false,
       logs: [
         ...(referralData.logs || []),
-        { time: nowIso, actor: currentUser.name, action: isEmergency ? '提交急诊上转申请，直接进入转诊中' : '提交上转申请' },
-        ...(isEmergencyBypass ? [{ time: nowIso, actor: '系统', action: '急诊豁免知情同意，需24小时内补录' }] : []),
+        { time: nowIso, actor: currentUser.name, action: isEmergency ? (isRetroEntry ? '提交急诊补录申请，直接进入转诊中' : '提交急诊上转申请，直接进入转诊中') : '提交上转申请' },
+        // CHG-40: 记录上转提交时的基层当前就诊类型
+        ...(referralData.sourceVisitType ? [{
+          time: nowIso,
+          actor: currentUser.name,
+          action: `提交字段记录：基层当前就诊类型=${referralData.sourceVisitType === 'inpatient' ? '住院' : '门诊'}`,
+        }] : []),
+        ...(isRetroEntry ? [{
+          time: nowIso,
+          actor: currentUser.name,
+          action: 'CHG-41：提交字段记录：isRetroEntry=true',
+          note: `补录操作人=${currentUser.name}${referralData.patientArrivedAt ? `；患者到院时间=${formatSmsTime(referralData.patientArrivedAt)}` : ''}`,
+        }] : []),
+        ...(isEmergencyBypass ? [{ time: nowIso, actor: '系统', action: '急诊知情同意待补传，需24小时内完成线下签署并上传附件' }] : []),
         ...(isEmergency ? [{
           time: nowIso,
           actor: '系统',
-          action: referralData.referral_type === 'green_channel' && referralData.linkedSpecialty
-            ? `急诊转诊：已自动通知转诊中心、急诊科值班及${referralData.linkedSpecialty}负责人，并向患者发送首条就诊短信`
-            : '急诊转诊：已自动通知转诊中心、急诊科值班及相关负责人，并向患者发送首条就诊短信',
+          action: shouldSendEmergencyRealtimeSignals
+            ? (
+                referralData.referral_type === 'green_channel' && referralData.linkedSpecialty
+                  ? `急诊转诊：已自动通知转诊中心、急诊科值班及${referralData.linkedSpecialty}负责人，并向患者发送首条就诊短信`
+                  : '急诊转诊：已自动通知转诊中心、急诊科值班及相关负责人，并向患者发送首条就诊短信'
+              )
+            : 'CHG-41：补录模式提交，不触发实时通知、不发送患者短信、不进入紧急修改窗口',
         }] : [
           { time: nowIso, actor: '系统', action: '通知推送至县级接诊科室' },
         ]),
@@ -214,7 +256,7 @@ export function AppProvider({ children }) {
     }
     setReferrals(prev => [newRef, ...prev])
 
-    if (isEmergency) {
+    if (shouldSendEmergencyRealtimeSignals) {
       // P0-7 ① 对口联系医生（isPreferredDoctor=true → ROLES.COUNTY）
       addNotification({
         type: 'emergency_new',
@@ -241,7 +283,7 @@ export function AppProvider({ children }) {
         targetRole: ROLES.ADMIN,
         referralId: newRef.id,
       })
-    } else {
+    } else if (!isEmergency) {
       // 普通上转只通知县级医生
       addNotification({
         type: 'upward_new',
@@ -376,7 +418,8 @@ export function AppProvider({ children }) {
   const completeReferral = useCallback((referralId) => {
     const completedAt = new Date().toISOString()
     const ref = referrals.find(r => r.id === referralId)
-    const completionSms = ref?.is_emergency
+    const isRetroEntry = !!ref?.isRetroEntry
+    const completionSms = ref?.is_emergency && !isRetroEntry
       ? buildEmergencyCompletionSms({
           institutionName: ref?.toInstitution,
           actualDepartment: ref?.admissionArrangement?.department,
@@ -411,27 +454,29 @@ export function AppProvider({ children }) {
         logs: [
           ...r.logs,
           { time: completedAt, actor: currentUser.name, action: '完成接诊确认（转诊中心）' },
-          { time: completedAt, actor: '系统', action: '状态更新为已完成，触发数据上报' },
+          { time: completedAt, actor: '系统', action: isRetroEntry ? 'CHG-41：补录模式完成接诊确认，状态更新为已完成并触发数据上报（未发送实时通知）' : '状态更新为已完成，触发数据上报' },
           ...(completionSms ? [{ time: completedAt, actor: '系统', action: '已向患者发送就诊确认短信' }] : []),
           ...(r.appointmentInfo?.status === 'reserved' ? [{ time: completedAt, actor: '系统', action: '预约码已核销（转诊完成）' }] : []),
           ...(newBedStatus === 'bed_used' ? [{ time: completedAt, actor: '系统', action: '床位已核销（患者已入院）' }] : []),
         ],
       }
     }))
-    addNotification({
-      type: 'upward_completed',
-      title: '上转已完成',
-      content: `患者${ref?.patient?.name}上转已完成`,
-      targetRole: ROLES.PRIMARY,
-      referralId,
-    })
-    addNotification({
-      type: 'upward_completed',
-      title: '上转已完成',
-      content: `患者${ref?.patient?.name}上转已完成，转诊中心已确认接诊`,
-      targetRole: ROLES.ADMIN,
-      referralId,
-    })
+    if (!isRetroEntry) {
+      addNotification({
+        type: 'upward_completed',
+        title: '上转已完成',
+        content: `患者${ref?.patient?.name}上转已完成`,
+        targetRole: ROLES.PRIMARY,
+        referralId,
+      })
+      addNotification({
+        type: 'upward_completed',
+        title: '上转已完成',
+        content: `患者${ref?.patient?.name}上转已完成，转诊中心已确认接诊`,
+        targetRole: ROLES.ADMIN,
+        referralId,
+      })
+    }
   }, [addNotification, currentUser, referrals])
 
   // 基层接收下转（待接收→转诊中，与上转对称，无独立已接收状态）
@@ -670,11 +715,22 @@ export function AppProvider({ children }) {
       coordinatorActionLog: data.coordinatorActionLog || [],
       createdAt: nowIso,
       updatedAt: nowIso,
+      // CHG-39: 下转默认走线下签署并上传
+      consentMethod: data.consentMethod || 'offline_upload',
+      consentFileUrl: data.consentFileUrl ?? null,
+      consentUploadedAt: data.consentUploadedAt ?? nowIso,
+      consentSignedBy: data.consentSignedBy || 'patient',
       consentSigned: true,
       consentTime: nowIso,
       closeReason: null,
       hisVisitId: null,
       logs: [
+        {
+          time: nowIso,
+          actor: currentUser.name,
+          action: '上传已签署知情同意书',
+          note: `${data.consentSignedBy === 'family' ? '家属代签' : '患者本人'}${data.consentFileUrl ? ' · 已挂载附件' : ''}`,
+        },
         {
           time: nowIso,
           actor: currentUser.name,
@@ -849,6 +905,9 @@ export function AppProvider({ children }) {
     const nextLinkedSpecialty = updates.linkedSpecialty || null
     const nextEmergencyDeptPhone = targetInstitution?.emergencyDeptPhone || targetInstitution?.departmentInfo?.['急诊科']?.nurseStationPhone || ''
     const ref = referrals.find(r => r.id === referralId)
+    if (ref?.isRetroEntry) {
+      return { success: false, error: 'RETRO_ENTRY_LOCKED' }
+    }
     const updatedSms = buildEmergencyModifySms({
       institutionName: nextInstitutionName,
       targetDepartment: nextLinkedSpecialty || ref?.linkedSpecialty || nextDept,
@@ -891,6 +950,82 @@ export function AppProvider({ children }) {
     addNotification({ type: 'emergency_modified', title: '🚨 急诊转诊目标已更新', content, targetRole: ROLES.COUNTY2, targetInstitution: nextInstitutionName, referralId })
     addNotification({ type: 'emergency_modified', title: '🚨 急诊转诊目标已更新', content: `患者${ref?.patient?.name}的急诊转诊已紧急修改为 ${nextInstitutionName} · ${nextDept}`, targetRole: ROLES.ADMIN, referralId })
   }, [addNotification, currentUser, referrals])
+
+  const completeRetroEmergencyReferral = useCallback((referralId, data) => {
+    const requiredFields = ['patientArrivedAt', 'department', 'emergencyAdmissionType', 'visitTime']
+    if (requiredFields.some(field => !data?.[field])) {
+      return { success: false, error: 'MISSING_REQUIRED' }
+    }
+
+    const completedAt = new Date().toISOString()
+    const ref = referrals.find(r => r.id === referralId)
+    if (!ref) return { success: false, error: 'NOT_FOUND' }
+
+    const departmentConfig = getDepartmentConfig(ref.toInstitution, data.department)
+    const isInpatient = data.emergencyAdmissionType === 'inpatient'
+    const todayStart = new Date(); todayStart.setHours(0, 0, 0, 0)
+    const occupiedBeds = isInpatient
+      ? referrals.filter(r =>
+          r.id !== referralId &&
+          r.toInstitution === ref.toInstitution &&
+          (r.admissionArrangement?.department || r.toDept) === data.department &&
+          r.bedStatus === 'bed_reserved' &&
+          r.admissionArrangement?.bedReservedAt &&
+          new Date(r.admissionArrangement.bedReservedAt) >= todayStart
+        ).length
+      : 0
+    const dailyReservedBeds = departmentConfig?.dailyReservedBeds ?? 0
+    const canReserveBed = isInpatient && data.ward && (dailyReservedBeds === 0 || occupiedBeds < dailyReservedBeds)
+    const bedReservedAt = canReserveBed ? completedAt : undefined
+
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const newBedStatus = isInpatient ? (canReserveBed ? 'bed_reserved' : 'not_applicable') : 'not_applicable'
+      return {
+        ...r,
+        status: UPWARD_STATUS.COMPLETED,
+        completedAt,
+        updatedAt: completedAt,
+        admissionType: isInpatient ? 'inpatient' : (data.emergencyAdmissionType === 'outpatient' ? 'outpatient' : 'emergency'),
+        patientArrivedAt: data.patientArrivedAt,
+        emergencyAdmissionType: data.emergencyAdmissionType,
+        specialistConsultRequested: !!data.specialistConsultRequested,
+        isUrgentUnhandled: false,
+        reminderSent48h: false,
+        bedStatus: newBedStatus,
+        admissionArrangement: {
+          ...(r.admissionArrangement || {}),
+          department: data.department,
+          visitTime: data.visitTime,
+          doctorName: data.doctorName || '',
+          room: data.room || '',
+          floor: data.floor || '',
+          departmentPhone: data.departmentPhone || '',
+          ward: data.ward || '',
+          bedNumber: data.bedNumber || '',
+          nurseStationPhone: data.nurseStationPhone || '',
+          emergencyNotifiedDepts: r.admissionArrangement?.emergencyNotifiedDepts || ['急诊科', ...(r.referral_type === 'green_channel' && r.linkedSpecialty ? [r.linkedSpecialty] : [])],
+          emergencyNotes: r.admissionArrangement?.emergencyNotes || '',
+          arrangedAt: completedAt,
+          arrangedBy: currentUser.name,
+          ...(bedReservedAt ? { bedReservedAt } : {}),
+        },
+        logs: [
+          ...r.logs,
+          {
+            time: completedAt,
+            actor: currentUser.name,
+            action: `CHG-41：完成补录并确认：${data.department}，就诊时间：${new Date(data.visitTime).toLocaleString('zh-CN')}`,
+            note: `isRetroEntry=true；患者到院=${formatSmsTime(data.patientArrivedAt)}；承接方式=${data.emergencyAdmissionType}${data.specialistConsultRequested ? '；已启动专科会诊' : ''}`,
+          },
+          ...(canReserveBed ? [{ time: completedAt, actor: '系统', action: `床位已预占：${data.ward} ${data.bedNumber || '（入院时分配）'}` }] : []),
+          { time: completedAt, actor: '系统', action: 'CHG-41：补录模式完成接诊确认，未发送实时通知与患者短信，已触发数据上报' },
+        ],
+      }
+    }))
+
+    return { success: true }
+  }, [currentUser, referrals])
 
   const markEmergencyFirstViewed = useCallback((referralId) => {
     const viewedAt = new Date().toISOString()
@@ -1234,6 +1369,8 @@ export function AppProvider({ children }) {
   // CHG-34：改为从 auditRuleConfig 动态读取开关，不再硬编码
   const submitForInternalReview = useCallback((referralData) => {
     const isEmergency = !!referralData.is_emergency
+    const isRetroEntry = isEmergency && !!referralData.isRetroEntry
+    const shouldSendEmergencyRealtimeSignals = isEmergency && !isRetroEntry
     const nowIso = new Date().toISOString()
     // CHG-34：读取提交方（基层机构）的上转审核配置，而非目标科室
     const auditConfig = getAuditConfig(currentUser.dept, 'upward', currentUser.institution)
@@ -1241,7 +1378,7 @@ export function AppProvider({ children }) {
     const targetInstitution = getInstitutionByName(referralData.toInstitution)
     const emergencyDeptPhone = targetInstitution?.emergencyDeptPhone || targetInstitution?.departmentInfo?.['急诊科']?.nurseStationPhone || ''
     const referralCode = isEmergency ? buildEmergencyReferralCode(nowIso) : null
-    const initialSmsContent = isEmergency
+    const initialSmsContent = shouldSendEmergencyRealtimeSignals
       ? buildEmergencyInitialSms({
           institutionName: referralData.toInstitution,
           targetDepartment: referralData.linkedSpecialty || referralData.toDept,
@@ -1261,6 +1398,11 @@ export function AppProvider({ children }) {
       referralNo: isEmergency ? referralCode : (referralData.referralNo ?? null),
       createdAt: nowIso,
       updatedAt: nowIso,
+      // CHG-39: 普通上转提交时同步写入线下签署字段
+      consentMethod: referralData.consentMethod || (referralData.consentSigned ? 'offline_upload' : 'pending_upload'),
+      consentFileUrl: referralData.consentFileUrl ?? null,
+      consentUploadedAt: referralData.consentUploadedAt ?? (referralData.consentSigned ? nowIso : null),
+      consentSignedBy: referralData.consentSignedBy || 'patient',
       consentSigned: referralData.consentSigned ?? false,
       consentTime: referralData.consentSigned ? nowIso : null,
       admissionType: isEmergency ? 'emergency' : referralData.admissionType,
@@ -1269,30 +1411,33 @@ export function AppProvider({ children }) {
       assignedDoctorId: null,
       assignedDoctorName: null,
       isUrgentUnhandled: false,
+      isRetroEntry,
+      retroEntryOperatorId: isRetroEntry ? currentUser.id : null,
+      retroEntryOperatorName: isRetroEntry ? currentUser.name : null,
       adminAssigned: false,
       internalNote: referralData.internalNote ?? '',
       admissionArrangement: null,
-      emergencyModifiableUntil: isEmergency ? new Date(new Date(nowIso).getTime() + 15 * 60 * 1000).toISOString() : null,
+      emergencyModifiableUntil: shouldSendEmergencyRealtimeSignals ? new Date(new Date(nowIso).getTime() + 15 * 60 * 1000).toISOString() : null,
       emergencyAlertConfirmedAt: null,
       firstViewedAt: null,
       linkedSpecialty: referralData.linkedSpecialty || null,
       internalAuditLog: [],
       emergencyModifyAt: null,
       emergencyModifyNotifiedAt: null,
-      patientSmsLog: isEmergency
+      patientSmsLog: shouldSendEmergencyRealtimeSignals
         ? [{ kind: 'initial', sentAt: nowIso, content: initialSmsContent, status: '已送达' }]
         : [],
       emergencyNotificationStatus: isEmergency
         ? {
-            emergencyDuty: true,
-            departmentHead: true,
-            referralCenter: true,
-            targetSpecialistHead: referralData.referral_type === 'green_channel' && !!referralData.linkedSpecialty,
+            emergencyDuty: shouldSendEmergencyRealtimeSignals,
+            departmentHead: shouldSendEmergencyRealtimeSignals,
+            referralCenter: shouldSendEmergencyRealtimeSignals,
+            targetSpecialistHead: shouldSendEmergencyRealtimeSignals && referralData.referral_type === 'green_channel' && !!referralData.linkedSpecialty,
           }
         : null,
       emergencyAlertConfirmedBy: null,
       emergencyAlertConfirmedByName: null,
-      patientArrivedAt: null,
+      patientArrivedAt: isRetroEntry ? (referralData.patientArrivedAt || null) : null,
       emergencyAdmissionType: null,
       specialistConsultRequested: false,
       downwardAssignedDoctorId: null,
@@ -1304,13 +1449,29 @@ export function AppProvider({ children }) {
           : needsInternalReview
             ? { time: nowIso, actor: currentUser.name, action: `提交上转申请，等待院内审核（${currentUser.institution}·${currentUser.dept}已配置审核规则）` }
             : { time: nowIso, actor: currentUser.name, action: `提交上转申请（${currentUser.institution}·${currentUser.dept}未启用院内审核，直接进入待受理）` },
+        // CHG-40: 记录上转提交时的基层当前就诊类型
+        ...(referralData.sourceVisitType ? [{
+          time: nowIso,
+          actor: currentUser.name,
+          action: `提交字段记录：基层当前就诊类型=${referralData.sourceVisitType === 'inpatient' ? '住院' : '门诊'}`,
+        }] : []),
+        ...(isRetroEntry ? [{
+          time: nowIso,
+          actor: currentUser.name,
+          action: 'CHG-41：提交字段记录：isRetroEntry=true',
+          note: `补录操作人=${currentUser.name}${referralData.patientArrivedAt ? `；患者到院时间=${formatSmsTime(referralData.patientArrivedAt)}` : ''}`,
+        }] : []),
         ...(needsInternalReview ? [{ time: nowIso, actor: '系统', action: '通知科主任：有新转诊申请待院内审核' }] : []),
         ...(!needsInternalReview && isEmergency ? [{
           time: nowIso,
           actor: '系统',
-          action: referralData.referral_type === 'green_channel' && referralData.linkedSpecialty
-            ? `急诊转诊：已自动通知转诊中心、急诊科值班及${referralData.linkedSpecialty}负责人，并向患者发送首条就诊短信`
-            : '急诊转诊：已自动通知转诊中心、急诊科值班及相关负责人，并向患者发送首条就诊短信',
+          action: shouldSendEmergencyRealtimeSignals
+            ? (
+                referralData.referral_type === 'green_channel' && referralData.linkedSpecialty
+                  ? `急诊转诊：已自动通知转诊中心、急诊科值班及${referralData.linkedSpecialty}负责人，并向患者发送首条就诊短信`
+                  : '急诊转诊：已自动通知转诊中心、急诊科值班及相关负责人，并向患者发送首条就诊短信'
+              )
+            : 'CHG-41：补录模式提交，不触发实时通知、不发送患者短信、不进入紧急修改窗口',
         }] : []),
       ],
       closeReason: null,
@@ -1327,7 +1488,7 @@ export function AppProvider({ children }) {
         targetRole: ROLES.PRIMARY_HEAD,
         referralId: newRef.id,
       })
-    } else if (isEmergency) {
+    } else if (shouldSendEmergencyRealtimeSignals) {
       addNotification({
         type: 'emergency_new',
         title: '🚨 急诊上转申请——请立即处理',
@@ -1607,7 +1768,7 @@ export function AppProvider({ children }) {
           if (ref.type !== 'upward' || ref.status !== UPWARD_STATUS.IN_TRANSIT) return ref
 
           const createdAt = new Date(ref.createdAt).getTime()
-          if (ref.is_emergency && !ref.admissionArrangement && Number.isFinite(createdAt) && now - createdAt > fourHours && !ref.isUrgentUnhandled) {
+          if (ref.is_emergency && !ref.isRetroEntry && !ref.admissionArrangement && Number.isFinite(createdAt) && now - createdAt > fourHours && !ref.isUrgentUnhandled) {
             changed = true
             pendingNotifications.push({
               type: 'emergency_overdue',
@@ -1784,6 +1945,7 @@ export function AppProvider({ children }) {
       collaborativeCloseReferral,
       reopenReferral,
       completeReferral,
+      completeRetroEmergencyReferral,
       acceptDownwardReferral,
       completeDownwardReferral,
       rejectDownwardReferral,

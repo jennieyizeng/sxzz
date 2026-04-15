@@ -22,6 +22,45 @@ export function isAssignedToCurrentCountyDoctor(referral, currentUser) {
   )
 }
 
+export function canCurrentCountyDoctorHandleOrdinaryUpward(referral, currentUser) {
+  if (referral?.type !== 'upward' || referral?.is_emergency) return false
+
+  if (
+    currentUser?.institution &&
+    referral?.toInstitution &&
+    currentUser.institution !== referral.toInstitution
+  ) {
+    return false
+  }
+
+  if (isAssignedToCurrentCountyDoctor(referral, currentUser)) return true
+
+  if (referral?.assignedDoctorId || referral?.assignedDoctorName || referral?.assignedDoctor) {
+    return false
+  }
+
+  if (referral?.toDoctor && referral.toDoctor === currentUser?.name) return true
+  if (matchesDepartmentScope(referral?.toDept, currentUser?.dept)) return true
+
+  return Boolean(currentUser?.isPreferredDoctor)
+}
+
+export function canCurrentCountyDoctorViewIncomingReferral(referral, currentUser) {
+  if (referral?.type !== 'upward' || referral?.is_emergency) return false
+
+  if (
+    currentUser?.institution &&
+    referral?.toInstitution &&
+    currentUser.institution !== referral.toInstitution
+  ) {
+    return false
+  }
+
+  if (matchesDepartmentScope(referral?.toDept, currentUser?.dept)) return true
+
+  return Boolean(currentUser?.isPreferredDoctor)
+}
+
 export function canViewCountyUpwardReferralDetail({
   currentRole,
   currentUser,
@@ -30,7 +69,7 @@ export function canViewCountyUpwardReferralDetail({
   if (referral?.type !== 'upward' || referral?.is_emergency) return true
 
   if (currentRole === ROLES.COUNTY) {
-    return isAssignedToCurrentCountyDoctor(referral, currentUser)
+    return canCurrentCountyDoctorHandleOrdinaryUpward(referral, currentUser)
   }
 
   if (currentRole === ROLES.COUNTY2) {

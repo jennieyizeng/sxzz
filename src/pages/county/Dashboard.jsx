@@ -1,16 +1,14 @@
-import { useEffect, useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ROLES, UPWARD_STATUS, DOWNWARD_STATUS } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
-import { matchesDepartmentScope } from '../../utils/countyReferralAccess'
+import { canCurrentCountyDoctorViewIncomingReferral, isAssignedToCurrentCountyDoctor, matchesDepartmentScope } from '../../utils/countyReferralAccess'
 
-function fromNow(isoStr, nowTs) {
-  const diff = nowTs - new Date(isoStr)
-  const d = Math.floor(diff / 86400000)
-  const h = Math.floor(diff / 3600000)
-  const m = Math.floor(diff / 60000)
-  if (d > 0) return `${d}天前`; if (h > 0) return `${h}小时前`; return `${m}分钟前`
+function fmtDateTime(isoStr) {
+  if (!isoStr) return '—'
+  const d = new Date(isoStr)
+  const pad = n => String(n).padStart(2, '0')
+  return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
 function RowNo({ n }) {
   return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: '#0BBECF' }}>{n}</span>
@@ -34,20 +32,16 @@ const TD = 'px-3 py-2.5 text-sm'
 export default function CountyDashboard() {
   const { referrals, currentUser, myNotifications } = useApp()
   const navigate = useNavigate()
-  const [nowTs, setNowTs] = useState(() => Date.now())
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
-  const isMine = (referral) =>
-    referral.assignedDoctorId === currentUser.id ||
-    (!referral.assignedDoctorId && referral.assignedDoctorName === currentUser.name)
   const pendingReview = referrals.filter(r => {
     if (r.type !== 'upward' || r.status !== UPWARD_STATUS.PENDING || r.is_emergency) return false
     if (isCountyDepartmentHead) return matchesDepartmentScope(r.toDept, currentUser.dept)
-    return isMine(r)
+    return canCurrentCountyDoctorViewIncomingReferral(r, currentUser)
   })
   const inTransitOrdinary = referrals.filter(r => {
     if (r.type !== 'upward' || r.status !== UPWARD_STATUS.IN_TRANSIT || r.is_emergency) return false
     if (isCountyDepartmentHead) return matchesDepartmentScope(r.toDept, currentUser.dept)
-    return isMine(r)
+    return isAssignedToCurrentCountyDoctor(r, currentUser)
   })
   const downwardRecords = referrals.filter(r => {
     if (r.type !== 'downward') return false
@@ -55,15 +49,6 @@ export default function CountyDashboard() {
     return r.fromDoctor === currentUser.name
   })
   const unreadNotifs = myNotifications.filter(n => !n.read).slice(0, 3)
-  const todayPendingReviewCount = useMemo(
-    () => pendingReview.filter(r => nowTs - new Date(r.createdAt) < 86400000).length,
-    [nowTs, pendingReview],
-  )
-
-  useEffect(() => {
-    const timer = window.setInterval(() => setNowTs(Date.now()), 60 * 1000)
-    return () => window.clearInterval(timer)
-  }, [])
 
   return (
     <div className="p-5">
@@ -72,8 +57,8 @@ export default function CountyDashboard() {
         <div className="text-xs text-gray-400 mt-0.5">{currentUser.name} · {currentUser.institution} · {currentUser.dept}</div>
       </div>
       <div className="grid grid-cols-4 gap-3 mb-5">
-        <StatCard icon="⏳" iconBg="#FFF8E0" label={isCountyDepartmentHead ? '科室待受理转入' : '待受理转入'} items={[{ label: '待处理', value: pendingReview.length, color: '#f59e0b' }, { label: '今日', value: todayPendingReviewCount }]} onClick={() => navigate('/county/review-list')} />
-        <StatCard icon="🏥" iconBg="#D4F5F9" label={isCountyDepartmentHead ? '科室进行中转入' : '进行中转入'} items={[{ label: isCountyDepartmentHead ? '本科室' : '我负责', value: inTransitOrdinary.length }, { label: '今日更新', value: inTransitOrdinary.filter(r => nowTs - new Date(r.updatedAt) < 86400000).length }]} onClick={() => navigate('/county/review-list')} />
+        <StatCard icon="⏳" iconBg="#FFF8E0" label={isCountyDepartmentHead ? '科室待受理转入' : '待受理转入'} items={[{ label: '待处理', value: pendingReview.length, color: '#f59e0b' }, { label: '今日', value: pendingReview.filter(r => new Date(r.createdAt).toDateString() === new Date().toDateString()).length }]} onClick={() => navigate('/county/review-list')} />
+        <StatCard icon="🏥" iconBg="#D4F5F9" label={isCountyDepartmentHead ? '科室进行中转入' : '进行中转入'} items={[{ label: isCountyDepartmentHead ? '本科室' : '我负责', value: inTransitOrdinary.length }, { label: '今日更新', value: inTransitOrdinary.filter(r => new Date().getTime() - new Date(r.updatedAt) < 86400000).length }]} onClick={() => navigate('/county/review-list')} />
         <StatCard
           icon="⬇️"
           iconBg="#C8F5E5"
@@ -99,23 +84,32 @@ export default function CountyDashboard() {
               <button onClick={() => navigate('/county/review-list')} className="text-xs" style={{ color: '#0BBECF' }}>查看全部 →</button>
             </div>
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者', '诊断', '转出机构', '转入科室', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
-              <tbody>
-                {pendingReview.length === 0 ? <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">暂无待受理申请</td></tr>
-                  : pendingReview.map((ref, i) => (
-                    <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
-                      <td className={TD}><RowNo n={i + 1} /></td>
-                      <td className={TD}><span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span></td>
-                      <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
-                      <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                      <td className={TD + ' text-gray-500'}>{ref.toDept}</td>
-                      <td className={TD + ' text-xs text-gray-400'}>{fromNow(ref.createdAt, nowTs)}</td>
-                      <td className={TD} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => navigate(`/referral/${ref.id}`)} className={`text-xs px-2 py-1 rounded ${isCountyDepartmentHead ? '' : 'text-white'}`} style={isCountyDepartmentHead ? { color: '#0BBECF' } : { background: '#0BBECF' }}>{isCountyDepartmentHead ? '详情' : '受理'}</button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
+              <thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
+<tbody>
+                  {pendingReview.length === 0 ? <tr><td colSpan={10} className="py-8 text-center text-gray-400 text-sm">暂无待受理申请</td></tr>
+                    : pendingReview.map((ref, i) => (
+                      <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
+                        <td className={TD}><RowNo n={i + 1} /></td>
+                        <td className={TD}>
+                          <span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span>
+                        </td>
+                        <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
+                        <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
+                        <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
+                        <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
+                        <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
+                        <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                        <td className={TD + ' text-xs text-gray-400'}>{fmtDateTime(ref.createdAt)}</td>
+                        <td className={TD} onClick={e => e.stopPropagation()}>
+                          <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                          {!isCountyDepartmentHead && <>
+                            <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-1" style={{ color: '#10b981' }}>受理</button>
+                            <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#ef4444' }}>拒绝</button>
+                          </>}
+                        </td>
+                      </tr>
+                    ))}
+                </tbody>
             </table>
           </div>
 
@@ -132,23 +126,28 @@ export default function CountyDashboard() {
               </div>
             </div>
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者', '诊断', '来源机构', '转诊单号', '状态', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
-              <tbody>
-                {inTransitOrdinary.length === 0 ? <tr><td colSpan={7} className="py-8 text-center text-gray-400 text-sm">{isCountyDepartmentHead ? '暂无本科室进行中转入' : '暂无我负责的进行中转入'}</td></tr>
-                  : inTransitOrdinary.map((ref, i) => (
-                    <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFEFE'}>
-                      <td className={TD}><RowNo n={i + 1} /></td>
-                      <td className={TD}><span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span></td>
-                      <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
-                      <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                      <td className={TD}>{ref.referralCode || ref.referralNo ? <span className="font-mono text-xs" style={{ color: '#0892a0' }}>{ref.referralCode || ref.referralNo}</span> : <span className="text-gray-300">—</span>}</td>
-                      <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
-                      <td className={TD} onClick={e => e.stopPropagation()}>
-                        <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>详情</button>
-                      </td>
-                    </tr>
-                  ))}
-              </tbody>
+<thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
+               <tbody>
+                 {inTransitOrdinary.length === 0 ? <tr><td colSpan={10} className="py-8 text-center text-gray-400 text-sm">{isCountyDepartmentHead ? '暂无本科室进行中转入' : '暂无我负责的进行中转入'}</td></tr>
+                   : inTransitOrdinary.map((ref, i) => (
+                     <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFEFE'}>
+                       <td className={TD}><RowNo n={i + 1} /></td>
+                       <td className={TD}>
+                         <span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span>
+                       </td>
+                       <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
+                       <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
+                       <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
+                       <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
+                       <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
+                       <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                       <td className={TD + ' text-xs text-gray-400'}>{fmtDateTime(ref.createdAt)}</td>
+                       <td className={TD} onClick={e => e.stopPropagation()}>
+                         <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                       </td>
+                     </tr>
+                   ))}
+               </tbody>
             </table>
           </div>
         </div>

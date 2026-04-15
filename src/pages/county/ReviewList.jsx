@@ -3,7 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ROLES, UPWARD_STATUS } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
-import { matchesDepartmentScope } from '../../utils/countyReferralAccess'
+import { canCurrentCountyDoctorViewIncomingReferral, matchesDepartmentScope } from '../../utils/countyReferralAccess'
 
 // P0-6：COUNTY2 也属于县级医生角色
 const COUNTY_ROLES = [ROLES.COUNTY, ROLES.COUNTY2]
@@ -33,21 +33,18 @@ const TD = 'px-3 py-2.5 text-sm'
 const STATUS_FILTERS = ['全部', '待受理', '急诊', '转诊中', '已完成', '已拒绝']
 
 export default function CountyReviewList() {
-  const { referrals, currentUser, claimReferral } = useApp()
+  const { referrals, currentUser } = useApp()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('全部')
   const [search, setSearch] = useState('')
   const isOrdinaryCountyDoctor = currentUser.role === ROLES.COUNTY
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
-  const isMine = (referral) =>
-    referral.assignedDoctorId === currentUser.id ||
-    (!referral.assignedDoctorId && referral.assignedDoctorName === currentUser.name)
 
   const upwardRefs = referrals.filter(r =>
     r.type === 'upward' &&
     (
       isOrdinaryCountyDoctor
-        ? (!r.is_emergency && isMine(r))
+        ? (!r.is_emergency && canCurrentCountyDoctorViewIncomingReferral(r, currentUser))
         : isCountyDepartmentHead
           ? (!r.is_emergency && matchesDepartmentScope(r.toDept, currentUser.dept))
           : true
@@ -73,21 +70,13 @@ export default function CountyReviewList() {
     return 0
   })
 
-  function handleClaim(e, refId) {
-    e.stopPropagation()
-    const result = claimReferral(refId)
-    if (result && !result.success && result.error === 'ALREADY_ASSIGNED') {
-      alert(`该申请已由${result.assignedDoctorName}医生受理，无法重复受理`)
-    }
-  }
-
   return (
     <div className="p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-700">{isCountyDepartmentHead ? '科室待受理转入' : '待受理转入列表'}</h2>
         <div className="text-xs text-gray-400 mt-0.5">
           {isOrdinaryCountyDoctor
-            ? '仅显示当前县级医生本人负责或待本人受理的普通转入单据'
+            ? '仅显示当前县级医生本人负责或当前可受理的普通转入单据'
             : isCountyDepartmentHead
               ? '仅显示本科室相关普通转入单据'
               : '待受理及历史转入申请，急诊申请自动置顶展示 · 急诊/绿通由转诊中心处理，县级医生此页只读查看'}
@@ -130,14 +119,14 @@ export default function CountyReviewList() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '知情同意', '状态', isCountyDepartmentHead ? '处理状态' : '受理状态', '申请时间', '操作'].map(h => (
+              {['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={12} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>{isCountyDepartmentHead ? '暂无本科室待受理转入' : '暂无待受理转入'}</td></tr>
+              <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>{isCountyDepartmentHead ? '暂无本科室待受理转入' : '暂无待受理转入'}</td></tr>
             ) : sorted.map((ref, i) => {
               const isEmergency = ref.is_emergency === true
               // P0-6：改用 assignedDoctorId 判断受理状态
@@ -163,6 +152,11 @@ export default function CountyReviewList() {
                       ? <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded mr-1 bg-red-200 text-red-800 border border-red-400">🔴 急诊 · 4h未受理 · 需立即处理</span>
                       : isEmergency && <EmergencyTag />
                     }
+                    {ref.isRetroEntry && (
+                      <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded mr-1 bg-gray-100 text-gray-700 border border-gray-300">
+                        补录
+                      </span>
+                    )}
                     <span className="font-medium text-gray-800">{ref.patient.name}</span>
                   </td>
                   <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
@@ -171,57 +165,18 @@ export default function CountyReviewList() {
                   </td>
                   <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
                   <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
-                  <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
-                  <td className={TD}>
-                    {ref.consentSigned
-                      ? <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>✓ 已签</span>
-                      : <span className="text-xs text-gray-400">待签</span>}
-                  </td>
-                  <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
-
-                  {/* P0-6 受理状态列 */}
-                  <td className={TD} onClick={e => e.stopPropagation()}>
-                    {ref.status !== UPWARD_STATUS.PENDING ? (
-                      <span className="text-xs text-gray-400">{isEmergency ? '转诊中心处理' : '—'}</span>
-                    ) : isCountyDepartmentHead ? (
-                      <span className="text-xs text-gray-400">
-                        {isClaimed ? `已由${ref.assignedDoctorName || ref.assignedDoctor}医生处理` : '本科室待处理'}
-                      </span>
-                    ) : isClaimed ? (
-                      <span className="text-xs px-1.5 py-0.5 rounded" style={{
-                        background: isClaimedByMe ? '#EFF6FF' : '#F3F4F6',
-                        color: isClaimedByMe ? '#1D4ED8' : '#6B7280',
-                        border: `1px solid ${isClaimedByMe ? '#BFDBFE' : '#E5E7EB'}`
-                      }}>
-                        {isClaimedByMe
-                          ? '✓ 我已受理'
-                          : `已由${ref.assignedDoctorName || ref.assignedDoctor}医生受理`}
-                      </span>
-                    ) : isEmergency ? (
-                      <span className="text-xs px-1.5 py-0.5 rounded border border-red-200 bg-red-50 text-red-600">
-                        只读查看
-                      </span>
-                    ) : (
-                      <button
-                        onClick={e => handleClaim(e, ref.id)}
-                        className="text-xs px-2.5 py-1 rounded font-medium text-white transition-opacity hover:opacity-80"
-                        style={{ background: isEmergency ? '#DC2626' : '#0BBECF' }}
-                      >
-                        {isEmergency ? '🔴 立即受理' : '受理'}
-                      </button>
-                    )}
-                  </td>
-
-                  <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleDateString('zh-CN')}</td>
-                  <td className={TD} onClick={e => e.stopPropagation()}>
-                    <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
-                    {!isCountyDepartmentHead && ref.status === UPWARD_STATUS.PENDING && !isEmergency && (isClaimedByMe || !isClaimed) && (
-                      <>
-                        <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-1" style={{ color: '#10b981' }}>接收</button>
-                        <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#ef4444' }}>拒绝</button>
-                      </>
-                    )}
-                  </td>
+<td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
+                   <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                   <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
+                   <td className={TD} onClick={e => e.stopPropagation()}>
+                     <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                     {!isCountyDepartmentHead && ref.status === UPWARD_STATUS.PENDING && !isEmergency && (isClaimedByMe || !isClaimed) && (
+                       <>
+                         <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-1" style={{ color: '#10b981' }}>受理</button>
+                         <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#ef4444' }}>拒绝</button>
+                       </>
+                     )}
+                   </td>
                 </tr>
               )
             })}

@@ -149,10 +149,74 @@ test('narrows county doctor menu and dashboard to personal workbench wording', (
   assert.equal(dashboardSource.includes('!r.assignedDoctorId || isMine(r)'), false)
   assert.equal(reviewListSource.includes('上转审核列表'), false)
   assert.equal(reviewListSource.includes('待受理转入列表'), true)
-  assert.equal(reviewListSource.includes('仅显示当前县级医生本人负责或待本人受理的普通转入单据'), true)
+  assert.equal(reviewListSource.includes('仅显示当前县级医生本人负责或当前可受理的普通转入单据'), true)
   assert.equal(reviewListSource.includes('(r.status === UPWARD_STATUS.PENDING ? (!r.assignedDoctorId || isMine(r)) : isMine(r))'), false)
-  assert.equal(referralRecordsSource.includes('仅显示当前县级医生本人负责的普通转入记录'), true)
+  assert.equal(referralRecordsSource.includes('仅显示当前县级医生本人负责或当前可受理的普通转入记录'), true)
   assert.equal(referralRecordsSource.includes('UPWARD_STATUS.PENDING'), true)
+})
+
+test('keeps ordinary upward status and outpatient referral summary copy aligned with the new form wording', () => {
+  const mockDataSource = fs.readFileSync(path.join(rootDir, 'data/mockData.js'), 'utf8')
+  const createReferralSource = fs.readFileSync(path.join(rootDir, 'pages/primary/CreateReferral.jsx'), 'utf8')
+  const referralDetailSource = fs.readFileSync(path.join(rootDir, 'pages/shared/ReferralDetail.jsx'), 'utf8')
+  const upwardDisplaySource = fs.readFileSync(path.join(rootDir, 'utils/upwardReferralDisplay.js'), 'utf8')
+
+  assert.equal(mockDataSource.includes("PENDING:                  '待受理'"), true)
+  assert.equal(createReferralSource.includes('期望处理方式'), true)
+  assert.equal(createReferralSource.includes('承接方式偏好'), false)
+  assert.equal(createReferralSource.includes('当前门诊科室'), true)
+  assert.equal(createReferralSource.includes('当前接诊医生'), true)
+  assert.equal(createReferralSource.includes('就诊时间'), true)
+  assert.equal(createReferralSource.includes('门诊号 / 就诊记录号'), true)
+  assert.equal(createReferralSource.includes('转诊目的'), true)
+  assert.equal(createReferralSource.includes('当前病情评估'), true)
+  assert.equal(createReferralSource.includes('门诊关联信息'), true)
+  assert.equal(createReferralSource.includes('诊断与转诊目的'), true)
+  assert.equal(createReferralSource.includes('已上传资料清单'), true)
+  assert.equal(createReferralSource.includes('提交后将进入后续审核/受理流程，若资料不完整可能被退回补充。'), true)
+  assert.equal(createReferralSource.includes('选择门诊记录'), false)
+  assert.equal(createReferralSource.includes('建议专科评估（门诊）'), false)
+  assert.equal(upwardDisplaySource.includes('期望处理方式'), true)
+  assert.equal(referralDetailSource.includes('承接方式偏好'), false)
+  assert.equal(referralDetailSource.includes('基层来源信息，仅供参考'), false)
+  assert.equal(referralDetailSource.includes('getUpwardDetailSections(ref, consentInfo)'), true)
+  assert.equal(upwardDisplaySource.includes('门诊关联信息'), true)
+  assert.equal(upwardDisplaySource.includes('本次住院信息'), true)
+  assert.equal(upwardDisplaySource.includes('诊断与转诊目的'), true)
+  assert.equal(upwardDisplaySource.includes('目标医院与处理方式'), true)
+  assert.equal(upwardDisplaySource.includes('已上传资料清单'), true)
+  assert.equal(upwardDisplaySource.includes('急诊信息'), true)
+  assert.equal(upwardDisplaySource.includes('接收准备'), true)
+})
+
+test('shows explicit consent upload guidance before normal referral can proceed', () => {
+  const createReferralSource = fs.readFileSync(path.join(rootDir, 'pages/primary/CreateReferral.jsx'), 'utf8')
+  const consentPanelSource = fs.readFileSync(path.join(rootDir, 'components/ConsentOfflinePanel.jsx'), 'utf8')
+
+  assert.equal(consentPanelSource.includes('选择已签署文件'), true)
+  assert.equal(createReferralSource.includes('请上传已签署的知情同意书后继续'), true)
+})
+
+test('keeps emergency initiation changes scoped to the primary-doctor emergency page', () => {
+  const createReferralSource = fs.readFileSync(path.join(rootDir, 'pages/primary/CreateReferral.jsx'), 'utf8')
+  const emergencySection = createReferralSource.split('const renderEmergencyFlow = () => (')[1] || ''
+
+  assert.equal(emergencySection.includes('转运评估'), true)
+  assert.equal(emergencySection.includes('是否具备转运条件'), true)
+  assert.equal(emergencySection.includes('转运需求'), true)
+  assert.equal(createReferralSource.includes('适合转运'), true)
+  assert.equal(createReferralSource.includes('需评估后转运'), true)
+  assert.equal(createReferralSource.includes('吸氧'), true)
+  assert.equal(createReferralSource.includes('监护'), true)
+  assert.equal(createReferralSource.includes('担架'), true)
+  assert.equal(createReferralSource.includes('医护陪同'), true)
+  assert.equal(createReferralSource.includes('120转运'), true)
+  assert.equal(createReferralSource.includes('仅用于患者已先行到院后的事后登记，不触发实时通知，不作为实时接诊依据'), true)
+  assert.equal(createReferralSource.includes('确认切换'), true)
+  assert.equal(emergencySection.includes('患者当前就诊类型'), false)
+  assert.equal(emergencySection.includes('已选：'), false)
+  assert.equal(emergencySection.includes('renderSourceVisitTypeSelector'), false)
+  assert.equal(createReferralSource.includes('转院目的与转运评估'), false)
 })
 
 test('keeps ordinary county doctor messages scoped to personal responsible referrals', () => {
@@ -202,7 +266,7 @@ test('distinguishes county department head navigation and pages from ordinary co
 test('keeps county downward creation page role-neutral for county doctor and department head', () => {
   const createDownwardSource = fs.readFileSync(path.join(rootDir, 'pages/county/CreateDownward.jsx'), 'utf8')
 
-  assert.equal(createDownwardSource.includes('由当前发起人直接指定接收人，基层负责人同步知情。'), true)
+  assert.equal(createDownwardSource.includes('直接通知指定医生，同时抄送基层负责人'), true)
   assert.equal(createDownwardSource.includes('由县级医生直接指定接收人，基层负责人同步知情。'), false)
 })
 
@@ -466,10 +530,92 @@ test('uses transfer-in and transfer-out wording for primary and county roles ins
   assert.equal(countyDownwardRecordsSource.includes('转出记录'), true)
   assert.equal(countyDownwardRecordsSource.includes('发起转出'), true)
   assert.equal(countyCreateDownwardSource.includes('发起转出申请'), true)
-  assert.equal(countyCreateDownwardSource.includes('转出交接资料'), true)
-  assert.equal(countyCreateDownwardSource.includes('转出资料包'), true)
+  assert.equal(countyCreateDownwardSource.includes('患者信息'), true)
+  assert.equal(countyCreateDownwardSource.includes('接收资料'), true)
+  assert.equal(countyCreateDownwardSource.includes('知情同意'), true)
+  assert.equal(countyCreateDownwardSource.includes('提交确认'), true)
+  assert.equal(countyCreateDownwardSource.includes('患者与基本信息'), false)
+  assert.equal(countyCreateDownwardSource.includes('转出交接资料'), false)
+  assert.equal(countyCreateDownwardSource.includes('转出资料与康复方案'), false)
   assert.equal(countyCreateDownwardSource.includes('转出原因'), true)
   assert.equal(countyCreateDownwardSource.includes('提交转出申请'), true)
+})
+
+test('restructures county downward creation into the new four-step information flow', () => {
+  const createDownwardSource = fs.readFileSync(path.join(rootDir, 'pages/county/CreateDownward.jsx'), 'utf8')
+
+  assert.equal(createDownwardSource.includes("const STEPS = ['患者信息', '接收资料', '知情同意', '提交确认']"), true)
+  assert.equal(createDownwardSource.includes('患者资料获取'), true)
+  assert.equal(createDownwardSource.includes('请先检索患者，再带出患者基础信息和转出资料。'), true)
+  assert.equal(createDownwardSource.includes('请输入患者姓名 / 身份证号 / 住院号'), true)
+  assert.equal(createDownwardSource.includes('检索患者'), true)
+  assert.equal(createDownwardSource.includes('选择该患者'), true)
+  assert.equal(createDownwardSource.includes('已选择患者：'), true)
+  assert.equal(createDownwardSource.includes('数据状态：已成功带出患者资料'), true)
+  assert.equal(createDownwardSource.includes('更换患者'), true)
+  assert.equal(createDownwardSource.includes('重新拉取资料'), true)
+  assert.equal(createDownwardSource.includes('重新拉取可能覆盖已填写的患者基础信息和转出资料，是否继续？'), true)
+  assert.equal(createDownwardSource.includes('继续拉取'), true)
+  assert.equal(createDownwardSource.includes('未检索到患者资料，请手工填写患者信息，并在下方补充转出资料。'), true)
+  assert.equal(createDownwardSource.includes('重新检索'), true)
+  assert.equal(createDownwardSource.includes('拉取状态'), true)
+  assert.equal(createDownwardSource.includes('未拉取'), true)
+  assert.equal(createDownwardSource.includes('拉取成功'), true)
+  assert.equal(createDownwardSource.includes('拉取失败'), true)
+  assert.equal(createDownwardSource.includes('患者基础信息'), true)
+  assert.equal(createDownwardSource.includes('转出资料确认'), true)
+  assert.equal(createDownwardSource.includes('药物交接'), true)
+  assert.equal(createDownwardSource.includes('其他执行建议'), true)
+  assert.equal(createDownwardSource.includes('推荐必带'), true)
+  assert.equal(createDownwardSource.includes('补充资料'), true)
+  assert.equal(createDownwardSource.includes('已带出'), true)
+  assert.equal(createDownwardSource.includes('可编辑补充'), true)
+  assert.equal(createDownwardSource.includes('基层执行方案'), true)
+  assert.equal(createDownwardSource.includes('接收安排'), true)
+  assert.equal(createDownwardSource.includes('目标基层机构'), true)
+  assert.equal(createDownwardSource.includes('自动匹配承接科室'), true)
+  assert.equal(createDownwardSource.includes('接收方式'), true)
+  assert.equal(createDownwardSource.includes('指定接收医生'), true)
+  assert.equal(createDownwardSource.includes('随访监测指标'), true)
+  assert.equal(createDownwardSource.includes('请选择基层随访时需要重点观察的指标，可勾选推荐项，也可补充自定义指标。'), true)
+  assert.equal(createDownwardSource.includes('血压'), true)
+  assert.equal(createDownwardSource.includes('用药依从性'), true)
+  assert.equal(createDownwardSource.includes('肢体活动情况'), true)
+  assert.equal(createDownwardSource.includes('已选指标'), true)
+  assert.equal(createDownwardSource.includes('补充其他需要随访观察的指标'), true)
+  assert.equal(createDownwardSource.includes('签署说明'), true)
+  assert.equal(createDownwardSource.includes('下载模板'), true)
+  assert.equal(createDownwardSource.includes('上传签字文件'), true)
+  assert.equal(createDownwardSource.includes('签署人类型'), true)
+  assert.equal(createDownwardSource.includes('代签关系'), true)
+  assert.equal(createDownwardSource.includes('代签原因'), true)
+  assert.equal(createDownwardSource.includes('上传状态'), true)
+  assert.equal(createDownwardSource.includes('本次转出信息确认'), false)
+  assert.equal(createDownwardSource.includes('转出资料摘要'), true)
+  assert.equal(createDownwardSource.includes('基层执行方案摘要'), true)
+  assert.equal(createDownwardSource.includes('接收安排摘要'), true)
+  assert.equal(createDownwardSource.includes('知情同意状态'), true)
+  assert.equal(createDownwardSource.includes('张桂芳'), true)
+  assert.equal(createDownwardSource.includes('刘建国'), true)
+  assert.equal(createDownwardSource.includes('510623********1248'), true)
+  assert.equal(createDownwardSource.includes('510623********5621'), true)
+  assert.equal(createDownwardSource.includes('13800138000'), true)
+  assert.equal(createDownwardSource.includes('13900139000'), true)
+  assert.equal(createDownwardSource.includes('xx市人民医院心内科住院，2026/04/10 出院'), true)
+  assert.equal(createDownwardSource.includes('xx市人民医院神经内科住院，2026/04/12 出院'), true)
+  assert.equal(createDownwardSource.includes('冠状动脉粥样硬化性心脏病'), true)
+  assert.equal(createDownwardSource.includes('I25.1'), true)
+  assert.equal(createDownwardSource.includes('患者因反复胸闷胸痛住院治疗'), true)
+  assert.equal(createDownwardSource.includes('阿司匹林肠溶片 100mg qd'), true)
+  assert.equal(createDownwardSource.includes('阿托伐他汀钙片 20mg qn'), true)
+  assert.equal(createDownwardSource.includes('单硝酸异山梨酯缓释片 40mg qd'), true)
+  assert.equal(createDownwardSource.includes('继续监测血压、心率'), true)
+  assert.equal(createDownwardSource.includes('规律服药，避免擅自停药'), true)
+  assert.equal(createDownwardSource.includes('建议低盐低脂饮食，适量活动'), true)
+  assert.equal(createDownwardSource.includes('出院小结.pdf'), true)
+  assert.equal(createDownwardSource.includes('心电图报告.pdf'), true)
+  assert.equal(createDownwardSource.includes('血脂检验报告.pdf'), true)
+  assert.equal(createDownwardSource.includes('冠脉CTA报告.pdf'), true)
 })
 
 test('keeps county internal review and shared role pages aligned with transfer-in and transfer-out wording', () => {
@@ -485,7 +631,7 @@ test('keeps county internal review and shared role pages aligned with transfer-i
   assert.equal(referralDetailSource.includes("const upwardDisplayLabel = isPrimaryScopedRole ? '转出' : isCountyScopedRole ? '转入' : '上转'"), true)
   assert.equal(referralDetailSource.includes("const downwardDisplayLabel = isPrimaryScopedRole ? '转入' : isCountyScopedRole ? '转出' : '下转'"), true)
   assert.equal(referralDetailSource.includes('currentTransferLabel}申请 ·'), true)
-  assert.equal(referralDetailSource.includes('`${upwardDisplayLabel}信息`'), true)
+  assert.equal(referralDetailSource.includes('upwardDetailSections.map(summary => ('), true)
   assert.equal(referralDetailSource.includes('`${downwardDisplayLabel}信息`'), true)
   assert.equal(referralDetailSource.includes('`${downwardDisplayLabel}原因`'), true)
   assert.equal(referralDetailSource.includes('downwardDisplayLabel}分配方式'), true)
@@ -620,4 +766,38 @@ test('writes key system-admin configuration actions into shared operation logs',
   assert.equal(institutionManageSource.includes('appendSystemOperationLog'), true)
   assert.equal(formTemplateSource.includes('appendSystemOperationLog'), true)
   assert.equal(diseaseSource.includes('appendSystemOperationLog'), true)
+})
+
+test('removes demo and integration placeholder copy from consent and review pages', () => {
+  const files = [
+    path.join(rootDir, 'components/ConsentOfflinePanel.jsx'),
+    path.join(rootDir, 'utils/consentUpload.js'),
+    path.join(rootDir, 'pages/primary/CreateReferral.jsx'),
+    path.join(rootDir, 'pages/county/CreateDownward.jsx'),
+    path.join(rootDir, 'pages/county/InternalReview.jsx'),
+    path.join(rootDir, 'pages/shared/ReferralDetail.jsx'),
+  ]
+
+  const bannedPhrases = [
+    '演示版',
+    '待对接',
+    'TODO: 待对接数据',
+    '后续版本接入',
+    '后续接入',
+    '仅展示按钮',
+    '仅保留演示入口',
+    '入口位置用于演示',
+    '当前仅展示记录',
+  ]
+
+  files.forEach(file => {
+    const source = fs.readFileSync(file, 'utf8')
+    bannedPhrases.forEach(phrase => {
+      assert.equal(
+        source.includes(phrase),
+        false,
+        `${path.basename(file)} still contains "${phrase}"`,
+      )
+    })
+  })
 })

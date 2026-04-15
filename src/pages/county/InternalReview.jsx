@@ -504,7 +504,6 @@ export default function InternalReview() {
           <div>
             <label className="block text-xs text-gray-500 mb-1">
               申请科室
-              <span className="text-gray-300 ml-1">（TODO: 待对接数据）</span>
             </label>
             <select
               value={filters.dept}
