@@ -15,6 +15,7 @@ const NOTIF_ICONS = {
   upward_completed: '🎉',
   downward_new: '⬇️',
   downward_accepted: '✅',
+  downward_returned: '↩️',
   timeout_warning: '⚠️',
 }
 

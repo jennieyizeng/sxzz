@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 import { matchesDepartmentScope } from '../../utils/countyReferralAccess'
+import { getDownwardDisplayStatus, matchesDownwardDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -24,8 +25,9 @@ function getAllocationLabel(ref) {
 }
 
 function getCurrentOwner(ref) {
-  if (ref.status === DOWNWARD_STATUS.REJECTED) {
-    return ref.coordinatorRejectReason ? '机构级拒绝' : '待县级处理'
+  const displayStatus = getDownwardDisplayStatus(ref)
+  if (displayStatus === DOWNWARD_STATUS.RETURNED) {
+    return '机构已退回'
   }
   if (ref.downwardAssignedDoctorName) return ref.downwardAssignedDoctorName
   if (ref.designatedDoctorName) return ref.designatedDoctorName
@@ -48,8 +50,8 @@ function getFlowNote(ref) {
   if (ref.status === DOWNWARD_STATUS.IN_TRANSIT && ref.downwardAssignedDoctorName) {
     return `已由 ${ref.downwardAssignedDoctorName} 接收处理`
   }
-  if (ref.status === DOWNWARD_STATUS.REJECTED && ref.coordinatorRejectReason) {
-    return '基层负责人判定本机构无法承接'
+  if (getDownwardDisplayStatus(ref) === DOWNWARD_STATUS.RETURNED) {
+    return '基层负责人已退回该下转申请'
   }
   return ''
 }
@@ -63,13 +65,14 @@ export default function CountyDownwardRecords() {
   const isOrdinaryCountyDoctor = currentUser.role === ROLES.COUNTY
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
 
-  const allStatus = ['全部', '待接收', '待内审', '转诊中', '已完成', '已拒绝', '已撤销', '已关闭']
+  const viewer = { role: currentUser.role, userId: currentUser.id }
+  const allStatus = ['全部', '草稿', '待接收', '转诊中', '已完成', '已退回', '已撤销', '已关闭']
 
   const data = referrals.filter(r => {
     if (r.type !== 'downward') return false
     if (isOrdinaryCountyDoctor && r.fromDoctor !== currentUser.name) return false
     if (isCountyDepartmentHead && !matchesDepartmentScope(r.toDept, currentUser.dept)) return false
-    if (applied.status !== '全部' && r.status !== applied.status) return false
+    if (!matchesDownwardDisplayStatus(r, applied.status, viewer)) return false
     if (applied.keyword && !r.patient.name.includes(applied.keyword) && !r.diagnosis.name.includes(applied.keyword)) return false
     return true
   }).sort((a, b) => new Date(b.updatedAt) - new Date(a.updatedAt))
@@ -156,7 +159,7 @@ export default function CountyDownwardRecords() {
                   )}
                 </td>
                 <td className={TD + ' text-xs text-gray-600'}>{getFlowNote(ref) || '—'}</td>
-                <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                <td className={TD}><StatusBadge status={getDownwardDisplayStatus(ref, viewer)} size="sm" /></td>
                 <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.createdAt)}</td>
                 <td className={TD} onClick={e => e.stopPropagation()}>
                   <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>详情</button>

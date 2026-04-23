@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { UPWARD_STATUS, INSTITUTIONS } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 import ArrangementModal from '../../components/ArrangementModal'
+import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 // P0-6：指派用的县级医生候选列表
 const COUNTY_DOCTORS = [
@@ -561,7 +562,7 @@ export default function AdminDashboard() {
                     </div>
                     <div className="text-xs text-gray-400">{ref.fromInstitution} · {note} · {formatRelativeTime(ref.updatedAt)}</div>
                   </div>
-                  <StatusBadge status={ref.status} size="sm" />
+                  <StatusBadge status={getReferralDisplayStatus(ref)} size="sm" />
                 </div>
               ))}
             </div>

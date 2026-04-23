@@ -203,7 +203,10 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     referral,
     sourceHospital: resolvedTask.fromInstitution,
     responsibilityDoctor: resolvedTask.assignedDoctor,
-    downwardReason: referral.reason || referral.chiefComplaint || '—',
+    downwardReason: referral.reason
+      || (Array.isArray(referral.rehabGoals) && referral.rehabGoals.length > 0 ? referral.rehabGoals.join('、') : null)
+      || referral.chiefComplaint
+      || '—',
     chiefDiagnosis: referral.diagnosis?.name || '—',
     fromInstitution: referral.fromInstitution || resolvedTask.fromInstitution || '—',
     toInstitution: referral.toInstitution || resolvedTask.toInstitution || currentUser?.institution || '—',

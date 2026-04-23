@@ -1,7 +1,9 @@
 import { useState, useMemo } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
+import { UPWARD_STATUS } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
+import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -37,13 +39,15 @@ export default function AdminLedger() {
   const [page, setPage] = useState(1)
   const PAGE_SIZE = 10
 
-  const allStatuses = ['all', '待受理', '待接收', '转诊中', '已完成', '已拒绝', '已撤销']
+  const allStatuses = ['all', '待受理', '待接收', '转诊中', '已完成', '已退回', '已拒绝', '已撤销']
   const institutions = ['all', ...new Set(referrals.flatMap(r => [r.fromInstitution, r.toInstitution]).filter(Boolean))]
 
   const filtered = useMemo(() => {
     return referrals.filter(r => {
+      if ([UPWARD_STATUS.DRAFT, UPWARD_STATUS.PENDING_INTERNAL_REVIEW].includes(r.status)) return false
+      const displayStatus = getReferralDisplayStatus(r)
       if (applied.type !== 'all' && r.type !== applied.type) return false
-      if (applied.status !== 'all' && !(applied.status === '待受理' ? ['待受理', '待审核'].includes(r.status) : r.status === applied.status)) return false
+      if (applied.status !== 'all' && !(applied.status === '待受理' ? ['待受理', '待审核'].includes(r.status) : displayStatus === applied.status)) return false
       if (applied.institution !== 'all' && r.fromInstitution !== applied.institution && r.toInstitution !== applied.institution) return false
       if (applied.keyword) {
         const kw = applied.keyword.toLowerCase()
@@ -67,10 +71,10 @@ export default function AdminLedger() {
 
   const stats = {
     pendingAccept: filtered.filter(r => ['待受理', '待审核'].includes(r.status)).length,
-    pendingReceive: filtered.filter(r => r.status === '待接收').length,
-    inTransit: filtered.filter(r => r.status === '转诊中').length,
+    pendingReceive: filtered.filter(r => getReferralDisplayStatus(r) === '待接收').length,
+    inTransit: filtered.filter(r => getReferralDisplayStatus(r) === '转诊中').length,
     emergencyOrGreen: filtered.filter(r => r.is_emergency || r.referral_type === 'green_channel').length,
-    completed: filtered.filter(r => r.status === '已完成').length,
+    completed: filtered.filter(r => getReferralDisplayStatus(r) === '已完成').length,
   }
 
   return (
@@ -210,7 +214,7 @@ export default function AdminLedger() {
                   <td className={TD + ' text-xs text-gray-600'}>
                     {getProcessingLabel(ref)}
                   </td>
-                  <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                  <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref)} size="sm" /></td>
                   <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.createdAt)}</td>
                   <td className={TD} onClick={e => e.stopPropagation()}>
                     <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>详情</button>

@@ -68,15 +68,28 @@ export function downloadConsentTemplate(format) {
 export function getConsentInfo(referral) {
   const consentMethod = referral?.consentMethod
     || (referral?.consentDeferred ? 'pending_upload' : referral?.consentSigned ? 'offline_upload' : null)
-  const consentFileUrl = referral?.consentFileUrl || null
+  const consentFileUrls = Array.isArray(referral?.consentFileUrls)
+    ? referral.consentFileUrls.filter(Boolean)
+    : []
+  const consentFileUrl = referral?.consentFileUrl || consentFileUrls[0] || null
   const consentUploadedAt = referral?.consentUploadedAt || referral?.consentTime || null
   const consentSignedBy = referral?.consentSignedBy || 'patient'
   const isPendingUpload = consentMethod === 'pending_upload'
-  const isUploaded = consentMethod === 'offline_upload' || (!!consentFileUrl && !isPendingUpload)
+  const consentFileNames = Array.isArray(referral?.consentFileNames)
+    ? referral.consentFileNames.filter(Boolean)
+    : []
+  const isUploaded = consentMethod === 'offline_upload'
+    || ((!!consentFileUrl || consentFileNames.length > 0) && !isPendingUpload)
+  const fileName = referral?.consentFileName
+    || consentFileNames[0]
+    || (isUploaded ? '已上传知情同意书' : null)
 
   return {
     consentMethod,
     consentFileUrl,
+    consentFileUrls,
+    fileName,
+    fileNames: consentFileNames.length > 0 ? consentFileNames : (fileName ? [fileName] : []),
     consentUploadedAt,
     consentSignedBy,
     isPendingUpload,

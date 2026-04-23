@@ -24,7 +24,6 @@ import AdminExamReport from './pages/admin/ExamReport'
 import AdminDoctorPerf from './pages/admin/DoctorPerf'
 import AdminInstitutionManage from './pages/admin/InstitutionManage'
 import AdminRoleManage from './pages/admin/RoleManage'
-import AdminFormTemplate from './pages/admin/FormTemplate'
 import AdminDiseaseDir from './pages/admin/DiseaseDir'
 import AdminTimeoutConfig from './pages/admin/TimeoutConfig'
 import AdminNotifyTemplate from './pages/admin/NotifyTemplate'
@@ -116,12 +115,11 @@ function AppRoutes() {
         <Route path="/system/operation-log" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminOperationLog /></RoleRoute>} />
         <Route path="/admin/institution-manage" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminInstitutionManage /></RoleRoute>} />
         <Route path="/admin/role-manage" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminRoleManage /></RoleRoute>} />
-        <Route path="/admin/form-template" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminFormTemplate /></RoleRoute>} />
         <Route path="/admin/disease-dir" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminDiseaseDir /></RoleRoute>} />
         <Route path="/admin/timeout-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminTimeoutConfig /></RoleRoute>} />
         <Route path="/admin/notify-template" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminNotifyTemplate /></RoleRoute>} />
         <Route path="/admin/audit-rule-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminAuditRuleConfig /></RoleRoute>} />
-        <Route path="/admin/settings" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><Placeholder title="系统管理" description="机构信息、角色权限、模板配置等。" /></RoleRoute>} />
+        <Route path="/admin/settings" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><Placeholder title="系统管理" description="机构信息、角色权限、规则配置等。" /></RoleRoute>} />
 
         {/* ── 院长 ── */}
         <Route path="/director/dashboard" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorDashboard /></RoleRoute>} />

@@ -10,6 +10,7 @@ const STATUS_STYLES = {
   '已逾期': { dot: '#ef4444', bg: '#fef2f2', text: '#b91c1c', border: '#fecaca' },
   '已完成': { dot: '#10b981', bg: '#ecfdf5', text: '#047857', border: '#a7f3d0' },
   '已失访': { dot: '#6b7280', bg: '#f3f4f6', text: '#4b5563', border: '#d1d5db' },
+  '已退回': { dot: '#f97316', bg: '#fff7ed', text: '#c2410c', border: '#fdba74' },
   '已拒绝': { dot: '#9ca3af', bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
   '已撤销': { dot: '#9ca3af', bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },
   '已关闭': { dot: '#9ca3af', bg: '#f3f4f6', text: '#6b7280', border: '#e5e7eb' },

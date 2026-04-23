@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
+import { getDownwardDisplayStatus, matchesDownwardDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -26,8 +27,9 @@ function getAllocationLabel(ref) {
 }
 
 function getCurrentOwner(ref) {
-  if (ref.status === DOWNWARD_STATUS.REJECTED) {
-    return ref.coordinatorRejectReason ? '机构级拒绝' : '待县级处理'
+  const displayStatus = getDownwardDisplayStatus(ref)
+  if (displayStatus === DOWNWARD_STATUS.RETURNED) {
+    return '机构已退回'
   }
   if (ref.downwardAssignedDoctorName) return ref.downwardAssignedDoctorName
   if (ref.designatedDoctorName) return ref.designatedDoctorName
@@ -47,7 +49,8 @@ export default function PrimaryDownwardRecords() {
   const [applied, setApplied] = useState({ keyword: '', status: '全部' })
 
   const isCoordinator = currentUser.role === ROLES.PRIMARY_HEAD
-  const allStatus = ['全部', '待接收', '待内审', '转诊中', '已完成', '已拒绝', '已撤销', '已关闭']
+  const viewer = { role: currentUser.role, userId: currentUser.id }
+  const allStatus = ['全部', '待接收', '转诊中', '已完成', '已拒绝', '已退回', '已撤销', '已关闭']
 
   const scopedRecords = useMemo(() => referrals.filter(ref => {
     if (ref.type !== 'downward' || ref.toInstitution !== currentUser.institution) return false
@@ -61,7 +64,7 @@ export default function PrimaryDownwardRecords() {
   }), [currentUser.id, currentUser.institution, currentUser.name, isCoordinator, referrals])
 
   const data = scopedRecords.filter(ref => {
-    if (applied.status !== '全部' && ref.status !== applied.status) return false
+    if (!matchesDownwardDisplayStatus(ref, applied.status, viewer)) return false
     if (applied.keyword && !ref.patient.name.includes(applied.keyword) && !ref.diagnosis.name.includes(applied.keyword)) return false
     return true
   }).sort((a, b) => new Date(b.updatedAt || b.createdAt) - new Date(a.updatedAt || a.createdAt))
@@ -159,7 +162,7 @@ export default function PrimaryDownwardRecords() {
                     <div className="text-[11px] text-amber-600 mt-0.5">已拒绝 {ref.rejectedDoctorIds.length} 次</div>
                   )}
                 </td>
-                <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                <td className={TD}><StatusBadge status={getDownwardDisplayStatus(ref, viewer)} size="sm" /></td>
                 <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.createdAt)}</td>
                 <td className={TD} onClick={e => e.stopPropagation()}>
                   <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>详情</button>

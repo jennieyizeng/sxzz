@@ -1,0 +1,264 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "← 返回" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]: ›
+          - generic [ref=e65]: 转诊单详情
+          - generic [ref=e66]: ›
+          - generic [ref=e67]: REF2026021
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - generic [ref=e72]: ⬇️
+              - heading "转入申请 · 何玉兰" [level=1] [ref=e73]
+              - generic [ref=e74]: 已退回
+            - generic [ref=e76]:
+              - generic [ref=e77]: 患者：何玉兰 · 女 · 74岁
+              - generic [ref=e78]: "|"
+              - generic [ref=e79]: 诊断：J44.1 慢性阻塞性肺疾病急性加重
+            - generic [ref=e80]:
+              - generic [ref=e81]: xx市人民医院 (李志远)
+              - generic [ref=e82]: →
+              - generic [ref=e83]: xx市拱星镇卫生院 · 全科
+              - generic [ref=e84]: "|"
+              - generic [ref=e85]: 创建于 2026/04/19 15:18
+          - button "📄 导出PDF" [ref=e87] [cursor=pointer]
+        - generic [ref=e89]:
+          - generic [ref=e91]:
+            - generic [ref=e92]:
+              - generic [ref=e93]:
+                - generic [ref=e95]: 下转闭环信息
+                - generic [ref=e96]: 关键事件 5 步
+              - generic [ref=e97]: 从发起到闭环，用关键事件展示本次转诊的主流程进展。
+            - generic [ref=e98]:
+              - generic [ref=e99]:
+                - generic [ref=e100]: 完成进度
+                - generic [ref=e101]: 2/5
+              - generic [ref=e104]: 当前节点
+              - generic [ref=e105]: 患者转入基层
+          - generic [ref=e107]:
+            - generic [ref=e111]:
+              - generic [ref=e112]:
+                - generic [ref=e113]: STEP 1
+                - generic [ref=e114]: 已完成
+              - generic [ref=e115]:
+                - generic [ref=e116]: ✓
+                - generic [ref=e117]:
+                  - generic [ref=e118]: 发起下转
+                  - generic [ref=e119]: 2026/04/19 15:18
+              - generic [ref=e120]:
+                - generic [ref=e121]: 关键说明
+                - generic [ref=e122]: 接收方式：仅指定机构，由基层负责人分配
+            - generic [ref=e126]:
+              - generic [ref=e127]:
+                - generic [ref=e128]: STEP 2
+                - generic [ref=e129]: 已完成
+              - generic [ref=e130]:
+                - generic [ref=e131]: ✓
+                - generic [ref=e132]:
+                  - generic [ref=e133]: 下转接收
+                  - generic [ref=e134]: 2026/04/19 16:18
+            - generic [ref=e138]:
+              - generic [ref=e139]:
+                - generic [ref=e140]: STEP 3
+                - generic [ref=e141]: 已终止
+              - generic [ref=e142]:
+                - generic [ref=e143]: "!"
+                - generic [ref=e144]:
+                  - generic [ref=e145]: 患者转入基层
+                  - generic [ref=e146]: 待更新
+              - generic [ref=e147]:
+                - generic [ref=e148]: 关键说明
+                - generic [ref=e149]: 当前无对应接收能力
+            - generic [ref=e153]:
+              - generic [ref=e154]:
+                - generic [ref=e155]: STEP 4
+                - generic [ref=e156]: 待发生
+              - generic [ref=e157]:
+                - generic [ref=e158]: "4"
+                - generic [ref=e159]:
+                  - generic [ref=e160]: 接收完成
+                  - generic [ref=e161]: 待更新
+            - generic [ref=e163]:
+              - generic [ref=e164]:
+                - generic [ref=e165]: STEP 5
+                - generic [ref=e166]: 待发生
+              - generic [ref=e167]:
+                - generic [ref=e168]: "5"
+                - generic [ref=e169]:
+                  - generic [ref=e170]: 闭环完成
+                  - generic [ref=e171]: 待更新
+        - generic [ref=e172]:
+          - generic [ref=e173]: ↩️
+          - generic [ref=e174]: 退回原因：当前无对应接收能力
+        - generic [ref=e175]:
+          - generic [ref=e176]:
+            - button "申请详情" [ref=e177] [cursor=pointer]
+            - button "转诊资料" [ref=e178] [cursor=pointer]
+            - button "操作日志 (5)" [ref=e179] [cursor=pointer]
+            - button "患者历史转诊" [ref=e180] [cursor=pointer]
+          - generic [ref=e182]:
+            - generic [ref=e183]:
+              - heading "患者信息" [level=3] [ref=e184]
+              - generic [ref=e186]:
+                - generic [ref=e187]:
+                  - generic [ref=e188]: 姓名
+                  - generic [ref=e189]: 何玉兰
+                - generic [ref=e190]:
+                  - generic [ref=e191]: 性别
+                  - generic [ref=e192]: 女
+                - generic [ref=e193]:
+                  - generic [ref=e194]: 年龄
+                  - generic [ref=e195]: 74岁
+                - generic [ref=e196]:
+                  - generic [ref=e197]: 身份证号
+                  - generic [ref=e198]: 510****1616
+                - generic [ref=e199]:
+                  - generic [ref=e200]: 联系电话
+                  - generic [ref=e201]: 138****0009
+            - generic [ref=e202]:
+              - heading "转出资料" [level=3] [ref=e203]
+              - generic [ref=e205]:
+                - generic [ref=e206]:
+                  - generic [ref=e207]: 当前诊断
+                  - generic [ref=e208]: 慢性阻塞性肺疾病急性加重
+                - generic [ref=e209]:
+                  - generic [ref=e210]: ICD-10
+                  - generic [ref=e211]: J44.1
+                - generic [ref=e212]:
+                  - generic [ref=e213]: 诊疗摘要
+                  - generic [ref=e214]: 慢阻肺急性加重住院治疗后，病情平稳，拟下转基层继续管理
+                - generic [ref=e215]:
+                  - generic [ref=e216]: 药物交接
+                  - generic [ref=e217]:
+                    - generic [ref=e218]: 噻托溴铵吸入粉雾剂 18μg 吸入，每日1次
+                    - generic [ref=e219]: 布地奈德福莫特罗粉吸入剂 160/4.5μg 吸入，每日2次
+                - generic [ref=e220]:
+                  - generic [ref=e221]: 其他执行建议
+                  - generic [ref=e222]: —
+                - generic [ref=e223]:
+                  - generic [ref=e224]: 推荐必带
+                  - generic [ref=e225]: —
+                - generic [ref=e226]:
+                  - generic [ref=e227]: 补充资料
+                  - generic [ref=e228]: —
+            - generic [ref=e229]:
+              - heading "基层执行方案" [level=3] [ref=e230]
+              - generic [ref=e232]:
+                - generic [ref=e233]:
+                  - generic [ref=e234]: 转出原因
+                  - generic [ref=e235]: 急性期治疗结束，建议基层继续吸入治疗、康复训练与慢病随访
+                - generic [ref=e236]:
+                  - generic [ref=e237]: 护理要点
+                  - generic [ref=e238]: 戒烟；坚持呼吸康复训练；观察咳痰及呼吸困难变化；如出现发热或明显气促及时复诊
+                - generic [ref=e239]:
+                  - generic [ref=e240]: 康复建议
+                  - generic [ref=e241]: —
+                - generic [ref=e242]:
+                  - generic [ref=e243]: 首次随访时间
+                  - generic [ref=e244]: 2026-04-26
+                - generic [ref=e245]:
+                  - generic [ref=e246]: 随访监测指标
+                  - generic [ref=e247]:
+                    - generic [ref=e248]: 呼吸情况
+                    - generic [ref=e249]: 血氧饱和度
+                    - generic [ref=e250]: 用药依从性
+                - generic [ref=e251]:
+                  - generic [ref=e252]: 预警事项
+                  - generic [ref=e253]: —
+                - generic [ref=e254]:
+                  - generic [ref=e255]: 补充说明
+                  - generic [ref=e256]: —
+            - generic [ref=e257]:
+              - heading "接收安排" [level=3] [ref=e258]
+              - generic [ref=e260]:
+                - generic [ref=e261]:
+                  - generic [ref=e262]: 目标基层机构
+                  - generic [ref=e263]: xx市拱星镇卫生院
+                - generic [ref=e264]:
+                  - generic [ref=e265]: 自动匹配承接科室
+                  - generic [ref=e266]: 全科
+                - generic [ref=e267]:
+                  - generic [ref=e268]: 接收方式
+                  - generic [ref=e269]: 仅指定机构
+                - generic [ref=e270]:
+                  - generic [ref=e271]: 指定接收医生
+                  - generic [ref=e272]: —
+            - generic [ref=e273]:
+              - heading "知情同意" [level=3] [ref=e274]
+              - generic [ref=e276]:
+                - generic [ref=e277]:
+                  - generic [ref=e278]: 签署方式
+                  - generic [ref=e279]: 线下签字后上传
+                - generic [ref=e280]:
+                  - generic [ref=e281]: 签署人
+                  - generic [ref=e282]: 患者本人
+                - generic [ref=e283]:
+                  - generic [ref=e284]: 已上传文件名
+                  - generic [ref=e285]: 未上传
+                - generic [ref=e286]:
+                  - generic [ref=e287]: 状态
+                  - generic [ref=e288]: 已完成

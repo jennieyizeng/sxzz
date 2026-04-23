@@ -29,6 +29,7 @@ const LANDLINE_PHONE_REGEX = /^0\d{2,3}-?\d{7,8}$/
 const EMPTY_FORM = {
   name: '', code: '', type: '', contact: '', phone: '', address: '',
   emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
+  patientNoticeTemplate: '',
   canUp: true, canDown: true, enabled: true,
 }
 
@@ -291,6 +292,17 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                   <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
                 </DrawerField>
               </div>
+
+              <DrawerField label="患者须知模板">
+                <textarea
+                  value={form.patientNoticeTemplate || ''}
+                  onChange={e => set('patientNoticeTemplate', e.target.value)}
+                  className={inputCls('patientNoticeTemplate') + ' resize-none'}
+                  rows={5}
+                  placeholder="支持占位符：[接诊科室] [预约码] [病区] [床位号] [护士站电话]；留空时短信预览使用系统默认模板"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">用于接诊安排完成后的患者短信末尾须知内容，仅做原型展示。</p>
+              </DrawerField>
             </>
           )}
 

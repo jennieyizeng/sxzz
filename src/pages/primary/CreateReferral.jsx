@@ -11,6 +11,10 @@ import {
   isValidChineseMainlandMobile,
 } from '../../utils/emergencyReferral'
 import { buildConsentFileRecord, validateConsentFile } from '../../utils/consentUpload'
+import {
+  UPWARD_REFERRAL_PURPOSE_OPTIONS,
+  getReasonOptionLabel,
+} from '../../constants/reasonCodes'
 
 const URGENCY_LEVELS = [
   { level: 1, label: 'I级·急危', shortLabel: 'I级·急危', color: '#ef4444', bg: '#fef2f2' },
@@ -53,15 +57,6 @@ const ICD10_DEPT_MAPPING = {
   M16: ['骨科'],
   S72: ['骨科'],
 }
-
-const OUTPATIENT_TRANSFER_PURPOSE_OPTIONS = [
-  '上级医院进一步明确诊断',
-  '需要专科进一步评估',
-  '基层缺乏检查条件',
-  '基层缺乏治疗条件',
-  '建议住院评估',
-  '患者主动要求',
-]
 
 const OUTPATIENT_CONDITION_ASSESSMENT_OPTIONS = [
   '病情稳定',
@@ -306,6 +301,7 @@ export default function CreateReferral() {
   const [signerRelation, setSignerRelation] = useState('')
   const [signerReason, setSignerReason] = useState('')
   const [outpatientTransferPurpose, setOutpatientTransferPurpose] = useState([])
+  const [outpatientTransferPurposeOther, setOutpatientTransferPurposeOther] = useState('')
   const [outpatientConditionAssessment, setOutpatientConditionAssessment] = useState('')
   const [patientLinkMode, setPatientLinkMode] = useState(null)
   const [linkedPatient, setLinkedPatient] = useState(null)
@@ -354,22 +350,32 @@ export default function CreateReferral() {
   const visitTypeLabel = form.sourceVisitType === 'inpatient' ? '住院' : form.sourceVisitType === 'outpatient' ? '门诊' : '—'
   const isRetroEntry = selectedFlow === 'emergency' && emergencyEntryMode === 'retro'
   const admissionTypePrefLabel = ADMISSION_TYPE_PREFERENCE_OPTIONS.find(option => option.value === admissionTypePref)?.label || '—'
-  const outpatientTransferPurposeSummary = outpatientTransferPurpose.length > 0 ? outpatientTransferPurpose.join('、') : '—'
+  const outpatientTransferPurposeSummary = outpatientTransferPurpose.length > 0
+    ? outpatientTransferPurpose.map((code) => {
+      if (code === 'other') {
+        return outpatientTransferPurposeOther ? `其他：${outpatientTransferPurposeOther}` : '其他'
+      }
+      return getReasonOptionLabel(UPWARD_REFERRAL_PURPOSE_OPTIONS, code) || code
+    }).join('、')
+    : '—'
   const outpatientReasonSummary = [
-    outpatientTransferPurpose.length > 0 ? `转诊目的：${outpatientTransferPurpose.join('、')}` : '',
+    outpatientTransferPurpose.length > 0 ? `转诊目的：${outpatientTransferPurposeSummary}` : '',
     outpatientConditionAssessment ? `当前病情评估：${outpatientConditionAssessment}` : '',
     form.reason ? `补充说明：${form.reason}` : '',
   ].filter(Boolean).join('；')
 
   const normalCanNext = [
     form.sourceVisitType && form.patientName && form.patientGender && form.patientAge && form.patientPhone
-      && (!isInpatientSource || (form.inpatientWardNo && form.inpatientWard && form.inpatientDoctor && form.inpatientAdmissionDate && form.inpatientDiagnosis)),
+      && (isInpatientSource
+        ? (form.inpatientWard && form.inpatientAdmissionDate && form.inpatientDiagnosis)
+        : form.outpatientDoctor),
     form.chiefComplaint
       && form.diagnosis
       && (isInpatientSource
         ? (inpatientTransferPurpose && conditionAssessment && transportSuitability && form.medicationSummary
           && (inpatientTransferPurpose !== '其他' || inpatientTransferPurposeOther))
-        : outpatientTransferPurpose.length > 0),
+        : (outpatientTransferPurpose.length > 0
+          && (!outpatientTransferPurpose.includes('other') || outpatientTransferPurposeOther.trim()))),
     form.toInstitutionId && form.toDept,
     !!consentFile && (signerType !== 'family' || (signerRelation && signerReason)),
     true,
@@ -448,6 +454,7 @@ export default function CreateReferral() {
     setNursingAttachments([])
     setDeptSuggestion(null)
     setOutpatientTransferPurpose([])
+    setOutpatientTransferPurposeOther('')
     setOutpatientConditionAssessment('')
   }
 
@@ -466,6 +473,7 @@ export default function CreateReferral() {
       || form.outpatientDept
       || form.outpatientDoctor
       || outpatientTransferPurpose.length > 0
+      || outpatientTransferPurposeOther
       || attachments.length > 0
       || nursingAttachments.length > 0
     )
@@ -546,6 +554,33 @@ export default function CreateReferral() {
     }
   }
 
+  const applyPatientLink = (patient) => {
+    setLinkedPatient(patient)
+    setForm(prev => ({
+      ...prev,
+      patientId: patient.id,
+      patientName: patient.name,
+      patientGender: patient.gender,
+      patientAge: String(patient.age),
+      patientIdCard: patient.idCard,
+      patientPhone: patient.phone,
+    }))
+    setPatientSearchQuery('')
+  }
+
+  const clearLinkedPatientFields = () => {
+    setLinkedPatient(null)
+    setForm(prev => ({
+      ...prev,
+      patientId: '',
+      patientName: '',
+      patientGender: '',
+      patientAge: '',
+      patientIdCard: '',
+      patientPhone: '',
+    }))
+  }
+
   const handleEmergencyEntryModeChange = (nextMode) => {
     if (nextMode === emergencyEntryMode) return
     if (nextMode === 'retro') {
@@ -592,6 +627,10 @@ export default function CreateReferral() {
       outpatientDept: form.outpatientDept || '',
       outpatientDoctor: form.outpatientDoctor || '',
       outpatientTransferPurpose,
+      referralPurposeCodes: outpatientTransferPurpose,
+      outpatientTransferPurposeOther: outpatientTransferPurpose.includes('other') ? outpatientTransferPurposeOther.trim() : '',
+      referralPurposeText: outpatientTransferPurpose.includes('other') ? outpatientTransferPurposeOther.trim() || null : null,
+      outpatientSupplementNote: form.reason || '',
       outpatientConditionAssessment: outpatientConditionAssessment || '',
       fromInstitution: currentUser.institution,
       fromDoctor: currentUser.name,
@@ -783,6 +822,40 @@ export default function CreateReferral() {
       </div>
     </div>
   )
+
+  const openUploadedFiles = (files) => {
+    files
+      .map(file => file?.url || file?.fileUrl)
+      .filter(Boolean)
+      .forEach((url) => window.open(url, '_blank', 'noopener,noreferrer'))
+  }
+
+  const renderUploadedSummaryRow = (label, files, fallback = '未上传') => {
+    const fileList = Array.isArray(files) ? files.filter(Boolean) : []
+    const fileNames = fileList.length > 0
+      ? fileList.map(file => file?.name || file?.label || '未命名文件').join('、')
+      : fallback
+
+    return (
+      <div key={label} className="px-4 py-2.5 border-t border-gray-100">
+        <div className="flex items-start justify-between gap-3">
+          <div className="min-w-0">
+            <div className="text-xs text-gray-400">{label}</div>
+            <div className="text-sm text-gray-800 mt-0.5 break-all">{fileNames}</div>
+          </div>
+          {fileList.length > 0 && (
+            <button
+              type="button"
+              onClick={() => openUploadedFiles(fileList)}
+              className="shrink-0 text-xs font-medium px-2.5 py-1 rounded-lg border border-[#B6EDF2] text-[#0F766E] bg-white hover:bg-[#F0FBFC]"
+            >
+              查看
+            </button>
+          )}
+        </div>
+      </div>
+    )
+  }
 
   const renderSourceVisitTypeSelector = ({ required }) => (
     <div>
@@ -1078,7 +1151,7 @@ export default function CreateReferral() {
                           />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前接诊医生</label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前接诊医生 <span className="text-red-500">*</span></label>
                           <input
                             type="text"
                             value={form.outpatientDoctor}
@@ -1150,7 +1223,7 @@ export default function CreateReferral() {
                       <div className="text-xs text-gray-400 mb-3">以下住院信息请根据病历手工填写，系统暂未对接住院系统。</div>
                       <div className="grid grid-cols-2 gap-4">
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">住院号 <span className="text-red-500">*</span></label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">住院号</label>
                           <input type="text" value={form.inpatientWardNo}
                             onChange={e => setForm(prev => ({ ...prev, inpatientWardNo: e.target.value }))}
                             placeholder="请输入住院号"
@@ -1170,7 +1243,7 @@ export default function CreateReferral() {
                             className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
                         </div>
                         <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前主管医生 / 经治医生 <span className="text-red-500">*</span></label>
+                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前主管医生 / 经治医生</label>
                           <input type="text" value={form.inpatientDoctor}
                             onChange={e => setForm(prev => ({ ...prev, inpatientDoctor: e.target.value }))}
                             placeholder="请输入医生姓名"
@@ -1210,7 +1283,7 @@ export default function CreateReferral() {
 
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-2">转院目的 <span className="text-red-500">*</span></label>
-                      <div className="space-y-2">
+                      <div className="grid grid-cols-2 gap-x-6 gap-y-3">
                         {['需上级医院进一步明确诊断', '需专科进一步评估', '需进一步治疗', '需手术 / 介入 / 特殊处置', '当前医院资源或能力不足', '患者 / 家属主动要求', '其他'].map(opt => (
                           <label key={opt} className="flex items-center gap-2 cursor-pointer text-sm">
                             <input type="radio" name="transferPurpose" value={opt}
@@ -1220,13 +1293,13 @@ export default function CreateReferral() {
                             <span className="text-gray-700">{opt}</span>
                           </label>
                         ))}
-                        {inpatientTransferPurpose === '其他' && (
-                          <input type="text" value={inpatientTransferPurposeOther}
-                            onChange={e => setInpatientTransferPurposeOther(e.target.value)}
-                            placeholder="请说明其他原因（必填）"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none mt-1 ml-5" />
-                        )}
                       </div>
+                      {inpatientTransferPurpose === '其他' && (
+                        <input type="text" value={inpatientTransferPurposeOther}
+                          onChange={e => setInpatientTransferPurposeOther(e.target.value)}
+                          placeholder="请说明其他原因（必填）"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none mt-3" />
+                      )}
                     </div>
 
                     <div>
@@ -1366,27 +1439,43 @@ export default function CreateReferral() {
                     )}
                   </div>
                   <div className="rounded-xl border p-4 space-y-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
-                    <div className="text-sm font-semibold text-gray-700">转诊目的</div>
+                    <div className="text-sm font-semibold text-gray-700">转诊目的 <span className="text-red-500">*</span></div>
                     <div className="grid grid-cols-2 gap-3">
-                      {OUTPATIENT_TRANSFER_PURPOSE_OPTIONS.map(option => (
-                        <label key={option} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer text-sm">
+                      {UPWARD_REFERRAL_PURPOSE_OPTIONS.map(option => (
+                        <label key={option.code} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer text-sm">
                           <input
                             type="checkbox"
-                            checked={outpatientTransferPurpose.includes(option)}
-                            onChange={() => setOutpatientTransferPurpose(prev =>
-                              prev.includes(option)
-                                ? prev.filter(item => item !== option)
-                                : [...prev, option]
-                            )}
+                            checked={outpatientTransferPurpose.includes(option.code)}
+                            onChange={() => setOutpatientTransferPurpose((prev) => {
+                              const nextPurposes = prev.includes(option.code)
+                                ? prev.filter(item => item !== option.code)
+                                : [...prev, option.code]
+                              if (!nextPurposes.includes('other')) {
+                                setOutpatientTransferPurposeOther('')
+                              }
+                              return nextPurposes
+                            })}
                             className="mt-0.5"
                           />
-                          <span className="text-gray-700">{option}</span>
+                          <span className="text-gray-700">{option.label}</span>
                         </label>
                       ))}
                     </div>
+                    {outpatientTransferPurpose.includes('other') && (
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">其他转诊目的 <span className="text-red-500">*</span></label>
+                        <textarea
+                          value={outpatientTransferPurposeOther}
+                          onChange={event => setOutpatientTransferPurposeOther(event.target.value)}
+                          rows={2}
+                          placeholder="请填写其他转诊目的"
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                        />
+                      </div>
+                    )}
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-2">当前病情评估 <span className="text-gray-400 text-xs">（非必填）</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-2">当前病情评估</label>
                     <div className="flex flex-wrap gap-3">
                       {OUTPATIENT_CONDITION_ASSESSMENT_OPTIONS.map(option => (
                         <label key={option} className="flex items-center gap-2 cursor-pointer text-sm">
@@ -1412,7 +1501,7 @@ export default function CreateReferral() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">补充说明 <span className="text-gray-400 text-xs">（选填）</span></label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">补充说明</label>
                     <textarea value={form.reason}
                       onChange={event => setForm(prev => ({ ...prev, reason: event.target.value }))}
                       rows={2} placeholder="如需补充说明当前判断依据、已沟通情况，可填写"
@@ -1460,6 +1549,10 @@ export default function CreateReferral() {
                 <div className="grid grid-cols-2 gap-2">
                   {selectedInstitution.departments.map(dept => {
                     const isSelected = form.toDept === dept
+                    const deptInfo = selectedInstitution.departmentInfo?.[dept]
+                    const totalQuota = deptInfo?.dailyQuota ?? 0
+                    const remainingQuota = Math.max(totalQuota - (deptInfo?.todayReserved ?? 0), 0)
+                    const isQuotaEmpty = totalQuota > 0 && remainingQuota <= 0
                     return (
                       <button key={dept} type="button"
                         onClick={() => setForm(prev => ({ ...prev, toDept: dept }))}
@@ -1470,14 +1563,24 @@ export default function CreateReferral() {
                         <div className="px-3 py-2">
                           <div className="flex items-center justify-between">
                             <span className="text-sm font-medium" style={isSelected ? { color: '#0892a0' } : { color: '#374151' }}>{dept}</span>
+                            <span
+                              className="text-xs font-semibold px-2 py-0.5 rounded-full"
+                              style={isQuotaEmpty
+                                ? { background: '#FEF2F2', color: '#DC2626' }
+                                : { background: '#F3F4F6', color: '#4B5563' }}
+                            >
+                              {`${remainingQuota}/${totalQuota}`}
+                            </span>
                           </div>
-                          <div className="text-xs text-gray-400 mt-1">按医院已维护的转诊科室范围提交申请</div>
+                          <div className="text-xs mt-1" style={isQuotaEmpty ? { color: '#DC2626' } : { color: '#6B7280' }}>
+                            {isQuotaEmpty ? '当前无可用号源' : '可提交转诊申请'}
+                          </div>
                         </div>
                       </button>
                     )
                   })}
                 </div>
-                <div className="mt-2 text-xs text-gray-400">科室信息仅用于提交转诊申请，不代表实时号源、床位或已确认接收。</div>
+                <div className="mt-2 text-xs text-gray-400">若号源已满仍可提交申请，是否接诊以院方实际安排为准。</div>
 
                 {form.toDept && (
                   <div className="mt-4 pt-4 border-t border-gray-100">
@@ -1554,6 +1657,9 @@ export default function CreateReferral() {
                 onRemoveFile={clearConsentFile}
                 error={consentError}
                 showSignerSelector={false}
+                showIntroTitle={false}
+                showIntroDescription={false}
+                templateButtonVariant="uniform"
                 uploadLabel="上传已签署的转院知情同意书"
               />
               {!consentFile && (
@@ -1660,6 +1766,7 @@ export default function CreateReferral() {
                       ['主诉', form.chiefComplaint],
                       ['转诊目的', outpatientTransferPurposeSummary],
                       ['当前病情评估', outpatientConditionAssessment || '未填写'],
+                      ...(outpatientTransferPurpose.includes('other') && outpatientTransferPurposeOther ? [['其他转诊目的', outpatientTransferPurposeOther]] : []),
                       ...(form.reason ? [['补充说明', form.reason]] : []),
                       ['用药情况', form.medicationSummary || '—'],
                     ].map(([key, value]) => (
@@ -1695,26 +1802,9 @@ export default function CreateReferral() {
                   <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>已上传资料清单</span>
                 </div>
                 <div>
-                  <div className="px-4 py-2.5 border-t border-gray-100">
-                    <div className="text-xs text-gray-400">已上传检查 / 检验资料</div>
-                    <div className="text-sm text-gray-800 mt-0.5">
-                      {attachments.length > 0 ? attachments.map(f => f.name).join('、') : '未上传'}
-                    </div>
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-gray-100">
-                    <div className="text-xs text-gray-400">已上传护理记录</div>
-                    <div className="text-sm text-gray-800 mt-0.5">
-                      {nursingAttachments.length > 0 ? nursingAttachments.map(f => f.name).join('、') : '未上传'}
-                    </div>
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-gray-100">
-                    <div className="text-xs text-gray-400">知情同意状态</div>
-                    <div className="text-sm text-green-600 font-medium mt-0.5">已完成</div>
-                  </div>
-                  <div className="px-4 py-2.5 border-t border-gray-100">
-                    <div className="text-xs text-gray-400">已上传知情同意书</div>
-                    <div className="text-sm text-gray-800 mt-0.5">{consentFile?.name || '—'}</div>
-                  </div>
+                  {renderUploadedSummaryRow('上传检查/检验资料', attachments)}
+                  {renderUploadedSummaryRow('上传护理记录', nursingAttachments)}
+                  {renderUploadedSummaryRow('上传知情同意', consentFile ? [consentFile] : [])}
                   <div className="px-4 py-2.5 border-t border-gray-100">
                     <div className="text-xs text-gray-400">签署人类型</div>
                     <div className="text-sm text-gray-800 mt-0.5">
@@ -1814,6 +1904,99 @@ export default function CreateReferral() {
               )}
             </div>
 
+            <div className="rounded-xl border p-4" style={{ background: '#FAFCFE', borderColor: '#FAD1D1' }}>
+              <div className="text-sm font-semibold text-gray-800">患者资料获取</div>
+              <div className="text-xs text-gray-500 mt-1">急诊发起可先检索患者主索引自动带出基本信息，也可新增患者后手工填写。</div>
+
+              <div className="grid grid-cols-2 gap-3 mt-4">
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePatientLink('search')
+                    setPatientSearchQuery('')
+                  }}
+                  className="rounded-xl border px-4 py-3 text-left transition-colors"
+                  style={patientLinkMode === 'search' || patientLinkMode === null
+                    ? { borderColor: '#ef4444', background: '#FEF2F2' }
+                    : { borderColor: '#E5E7EB', background: '#fff' }}
+                >
+                  <div className="text-sm font-semibold text-gray-800">🔍 搜索患者</div>
+                  <div className="text-xs text-gray-500 mt-1">在医共体平台患者主索引中按姓名或身份证号搜索</div>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => {
+                    handlePatientLink('manual')
+                    setPatientSearchQuery('')
+                    clearLinkedPatientFields()
+                  }}
+                  className="rounded-xl border px-4 py-3 text-left transition-colors"
+                  style={patientLinkMode === 'manual'
+                    ? { borderColor: '#ef4444', background: '#FEF2F2' }
+                    : { borderColor: '#E5E7EB', background: '#fff' }}
+                >
+                  <div className="text-sm font-semibold text-gray-800">✏️ 新增患者</div>
+                  <div className="text-xs text-gray-500 mt-1">直接手工填写患者基本信息，再继续补充急诊转诊资料</div>
+                </button>
+              </div>
+
+              {(patientLinkMode === 'search' || patientLinkMode === null) && !linkedPatient && (
+                <div className="relative mt-4">
+                  <input
+                    type="text"
+                    value={patientSearchQuery}
+                    onChange={event => setPatientSearchQuery(event.target.value)}
+                    placeholder="输入姓名或身份证号"
+                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                  />
+                  {patientSearchQuery && (
+                    <div className="mt-1 border border-gray-200 rounded-lg shadow-sm bg-white">
+                      {MOCK_INPATIENT_PATIENTS.filter(patient =>
+                        patient.name.includes(patientSearchQuery) || patient.idCard.includes(patientSearchQuery)
+                      ).map(patient => (
+                        <button
+                          key={patient.id}
+                          type="button"
+                          onClick={() => applyPatientLink(patient)}
+                          className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0"
+                        >
+                          <div className="font-medium text-sm text-gray-800">{patient.name}</div>
+                          <div className="text-xs text-gray-500 mt-0.5">{patient.gender} · {patient.age}岁 · {patient.idCard.slice(0, 6)}****{patient.idCard.slice(-4)} · {patient.phone}</div>
+                        </button>
+                      ))}
+                      {MOCK_INPATIENT_PATIENTS.filter(patient =>
+                        patient.name.includes(patientSearchQuery) || patient.idCard.includes(patientSearchQuery)
+                      ).length === 0 && (
+                        <div className="px-4 py-3 text-sm text-gray-400">未找到匹配患者，请切换至新增患者</div>
+                      )}
+                    </div>
+                  )}
+                </div>
+              )}
+
+              {linkedPatient && (
+                <div className="flex items-center justify-between mt-4">
+                  <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#FEE2E2', color: '#B91C1C' }}>✅ 已关联患者主索引</span>
+                  <button
+                    type="button"
+                    onClick={() => {
+                      clearLinkedPatientFields()
+                      setPatientSearchQuery('')
+                    }}
+                    className="text-xs text-gray-400 hover:text-gray-600"
+                  >
+                    重新搜索
+                  </button>
+                </div>
+              )}
+
+              {patientLinkMode === 'manual' && !linkedPatient && (
+                <div className="mt-4 rounded-xl border border-red-100 bg-red-50 px-4 py-3 text-sm text-red-700">
+                  已切换为新增患者，请在下方手工填写患者基本信息后继续完成急诊转诊。
+                </div>
+              )}
+            </div>
+
             <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">基本信息</h3>
               <div className="space-y-4">
@@ -1837,7 +2020,8 @@ export default function CreateReferral() {
                     value={form.patientName}
                     onChange={event => setForm(prev => ({ ...prev, patientName: event.target.value }))}
                     placeholder="患者姓名"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    readOnly={!!linkedPatient}
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
                   />
                 </div>
                 <div>
@@ -1847,7 +2031,8 @@ export default function CreateReferral() {
                     value={form.patientPhone}
                     onChange={event => setForm(prev => ({ ...prev, patientPhone: event.target.value }))}
                     placeholder="13800138000"
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    readOnly={!!linkedPatient}
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
                   />
                   <div className="text-xs mt-1" style={{ color: phoneIsValid || !form.patientPhone ? '#9ca3af' : '#ef4444' }}>
                     {phoneIsValid || !form.patientPhone
@@ -1873,7 +2058,12 @@ export default function CreateReferral() {
                       <button
                         key={gender}
                         type="button"
-                        onClick={() => setForm(prev => ({ ...prev, patientGender: gender }))}
+                        onClick={() => {
+                          if (!linkedPatient) {
+                            setForm(prev => ({ ...prev, patientGender: gender }))
+                          }
+                        }}
+                        disabled={!!linkedPatient}
                         className="flex-1 py-2 rounded-lg text-sm border transition-colors"
                         style={form.patientGender === gender
                           ? { background: '#FEF2F2', color: '#B91C1C', borderColor: '#FCA5A5' }
@@ -1893,7 +2083,19 @@ export default function CreateReferral() {
                     placeholder="选填"
                     min={0}
                     max={150}
-                    className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none"
+                    readOnly={!!linkedPatient}
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
+                  />
+                </div>
+                <div>
+                  <label className="block text-sm font-medium text-gray-700 mb-1.5">身份证号</label>
+                  <input
+                    type="text"
+                    value={form.patientIdCard}
+                    onChange={event => setForm(prev => ({ ...prev, patientIdCard: event.target.value }))}
+                    placeholder="510623********1234"
+                    readOnly={!!linkedPatient}
+                    className={`w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none ${linkedPatient ? 'bg-gray-50' : ''}`}
                   />
                 </div>
                 <div className="col-span-2">
@@ -2208,17 +2410,9 @@ export default function CreateReferral() {
                     <span className="text-xs font-semibold text-red-700">已上传资料清单</span>
                   </div>
                   <div>
-                    {[
-                      ['已上传检查 / 检验资料', attachments.length > 0 ? attachments.map(file => file.name).join('、') : '未上传'],
-                      ['已上传护理记录', nursingAttachments.length > 0 ? nursingAttachments.map(file => file.name).join('、') : '未上传'],
-                      ['知情同意状态', consentMethod === 'offline_upload' ? '已上传' : '待补传'],
-                      ['已上传知情同意书', consentMethod === 'offline_upload' && consentFile ? consentFile.name : '未上传'],
-                    ].map(([key, value]) => (
-                      <div key={key} className="px-4 py-2.5 border-t border-gray-100">
-                        <div className="text-xs text-gray-400">{key}</div>
-                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
-                      </div>
-                    ))}
+                    {renderUploadedSummaryRow('上传检查/检验资料', attachments)}
+                    {renderUploadedSummaryRow('上传护理记录', nursingAttachments)}
+                    {renderUploadedSummaryRow('上传知情同意', consentMethod === 'offline_upload' && consentFile ? [consentFile] : [], consentMethod === 'offline_upload' ? '未上传' : '待补传')}
                   </div>
                 </div>
 

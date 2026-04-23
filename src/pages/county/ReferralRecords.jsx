@@ -26,7 +26,7 @@ export default function CountyReferralRecords() {
   const isOrdinaryCountyDoctor = currentUser.role === ROLES.COUNTY
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
 
-  const allStatus = ['全部', '待受理', '转诊中', '已完成', '已拒绝']
+  const allStatus = ['全部', '待受理', '转诊中', '已完成', '已拒绝', '已撤销', '已关闭']
 
    const data = referrals.filter(r => {
      if (r.type !== 'upward') return false

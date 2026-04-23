@@ -1,0 +1,239 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "← 返回" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]: ›
+          - generic [ref=e65]: 转诊单详情
+          - generic [ref=e66]: ›
+          - generic [ref=e67]: REF2026017
+        - generic [ref=e69]:
+          - generic [ref=e70]:
+            - generic [ref=e71]:
+              - generic [ref=e72]: ⬇️
+              - heading "转入申请 · 赵丽华" [level=1] [ref=e73]
+              - generic [ref=e74]: 待接收
+            - generic [ref=e76]:
+              - generic [ref=e77]: 患者：赵丽华 · 女 · 65岁
+              - generic [ref=e78]: "|"
+              - generic [ref=e79]: 诊断：I50.9 心力衰竭
+            - generic [ref=e80]:
+              - generic [ref=e81]: xx市人民医院 (李志远)
+              - generic [ref=e82]: →
+              - generic [ref=e83]: xx市拱星镇卫生院 · 全科
+              - generic [ref=e84]: "|"
+              - generic [ref=e85]: 创建于 2026/04/20 06:13
+          - button "📄 导出PDF" [ref=e87] [cursor=pointer]
+        - generic [ref=e89]:
+          - generic [ref=e91]:
+            - generic [ref=e94]: 流程进度
+            - generic [ref=e95]: 2/5
+          - generic [ref=e97]:
+            - generic [ref=e99]:
+              - generic [ref=e100]: ✓
+              - generic [ref=e101]:
+                - generic [ref=e102]: 发起下转
+                - generic [ref=e103]: 2026/04/20 06:13
+            - generic [ref=e105]:
+              - generic [ref=e106]: "2"
+              - generic [ref=e107]:
+                - generic [ref=e108]: 下转接收
+                - generic [ref=e109]: 2026/04/20 06:13
+            - generic [ref=e111]:
+              - generic [ref=e112]: "3"
+              - generic [ref=e113]:
+                - generic [ref=e114]: 患者转入基层
+                - generic [ref=e115]: 待推进
+            - generic [ref=e117]:
+              - generic [ref=e118]: "4"
+              - generic [ref=e119]:
+                - generic [ref=e120]: 接收完成
+                - generic [ref=e121]: 待推进
+            - generic [ref=e123]:
+              - generic [ref=e124]: "5"
+              - generic [ref=e125]:
+                - generic [ref=e126]: 闭环完成
+                - generic [ref=e127]: 待推进
+        - generic [ref=e128]:
+          - generic [ref=e129]:
+            - button "申请详情" [ref=e130] [cursor=pointer]
+            - button "操作日志 (3)" [ref=e131] [cursor=pointer]
+            - button "患者历史转诊" [ref=e132] [cursor=pointer]
+          - generic [ref=e134]:
+            - generic [ref=e135]:
+              - heading "患者信息" [level=3] [ref=e136]
+              - generic [ref=e138]:
+                - generic [ref=e139]:
+                  - generic [ref=e140]: 姓名
+                  - generic [ref=e141]: 赵丽华
+                - generic [ref=e142]:
+                  - generic [ref=e143]: 性别
+                  - generic [ref=e144]: 女
+                - generic [ref=e145]:
+                  - generic [ref=e146]: 年龄
+                  - generic [ref=e147]: 65岁
+                - generic [ref=e148]:
+                  - generic [ref=e149]: 身份证号
+                  - generic [ref=e150]: 510****1313
+                - generic [ref=e151]:
+                  - generic [ref=e152]: 联系电话
+                  - generic [ref=e153]: 138****0006
+                - generic [ref=e154]:
+                  - generic [ref=e155]: 签约家庭医生
+                  - generic [ref=e156]: —
+                - generic [ref=e157]:
+                  - generic [ref=e158]: 数据来源
+                  - generic [ref=e159]: —
+            - generic [ref=e160]:
+              - heading "转出资料" [level=3] [ref=e161]
+              - generic [ref=e163]:
+                - generic [ref=e164]:
+                  - generic [ref=e165]: 当前诊断
+                  - generic [ref=e166]: 心力衰竭
+                - generic [ref=e167]:
+                  - generic [ref=e168]: ICD-10
+                  - generic [ref=e169]: I50.9
+                - generic [ref=e170]:
+                  - generic [ref=e171]: 诊疗摘要
+                  - generic [ref=e172]: 心衰住院治疗后病情稳定，转基层继续康复管理
+                - generic [ref=e173]:
+                  - generic [ref=e174]: 出院医嘱
+                  - generic [ref=e175]:
+                    - generic [ref=e176]: 呋塞米片 20mg 口服，每日1次
+                    - generic [ref=e177]: 螺内酯片 20mg 口服，每日1次
+                    - generic [ref=e178]: 培哚普利片 4mg 口服，每日1次
+                - generic [ref=e179]:
+                  - generic [ref=e180]: 推荐必带
+                  - generic [ref=e181]: —
+                - generic [ref=e182]:
+                  - generic [ref=e183]: 补充资料
+                  - generic [ref=e184]: —
+            - generic [ref=e185]:
+              - heading "基层执行方案" [level=3] [ref=e186]
+              - generic [ref=e188]:
+                - generic [ref=e189]:
+                  - generic [ref=e190]: 下转原因
+                  - generic [ref=e191]: 急性期治疗完成，转至基层机构继续康复，建议首次随访时间：入院后7天
+                - generic [ref=e192]:
+                  - generic [ref=e193]: 康复目标
+                  - generic [ref=e194]: —
+                - generic [ref=e195]:
+                  - generic [ref=e196]: 首次随访时间
+                  - generic [ref=e197]: 2026-04-27
+                - generic [ref=e198]:
+                  - generic [ref=e199]: 监测指标
+                  - generic [ref=e200]:
+                    - generic [ref=e201]: 体重
+                    - generic [ref=e202]: 血压
+                    - generic [ref=e203]: 心率
+                    - generic [ref=e204]: 水肿情况
+                - generic [ref=e205]:
+                  - generic [ref=e206]: 护理要点
+                  - generic [ref=e207]: 低盐饮食；每日监测体重，3日内增加超过2kg立即就诊；避免剧烈活动
+                - generic [ref=e208]:
+                  - generic [ref=e209]: 预警症状
+                  - generic [ref=e210]: —
+                - generic [ref=e211]:
+                  - generic [ref=e212]: 医生备注
+                  - generic [ref=e213]: —
+            - generic [ref=e214]:
+              - heading "接收安排" [level=3] [ref=e215]
+              - generic [ref=e217]:
+                - generic [ref=e218]:
+                  - generic [ref=e219]: 目标基层机构
+                  - generic [ref=e220]: xx市拱星镇卫生院
+                - generic [ref=e221]:
+                  - generic [ref=e222]: 基层承接科室
+                  - generic [ref=e223]: 全科
+                - generic [ref=e224]:
+                  - generic [ref=e225]: 接收方式
+                  - generic [ref=e226]: 仅指定机构
+                - generic [ref=e227]:
+                  - generic [ref=e228]: 指定接收医生
+                  - generic [ref=e229]: —
+            - generic [ref=e230]:
+              - heading "知情同意" [level=3] [ref=e231]
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - generic [ref=e235]: 签署方式
+                  - generic [ref=e236]: 线下签字后上传
+                - generic [ref=e237]:
+                  - generic [ref=e238]: 签署人
+                  - generic [ref=e239]: 患者本人
+                - generic [ref=e240]:
+                  - generic [ref=e241]: 家属姓名
+                  - generic [ref=e242]: —
+                - generic [ref=e243]:
+                  - generic [ref=e244]: 与患者关系
+                  - generic [ref=e245]: —
+                - generic [ref=e246]:
+                  - generic [ref=e247]: 代签原因
+                  - generic [ref=e248]: —
+                - generic [ref=e249]:
+                  - generic [ref=e250]: 已上传文件名
+                  - generic [ref=e251]: 已上传知情同意书
+                - generic [ref=e252]:
+                  - generic [ref=e253]: 状态
+                  - generic [ref=e254]: 已完成

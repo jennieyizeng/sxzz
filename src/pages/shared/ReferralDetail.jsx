@@ -3,18 +3,41 @@ import { useParams, useNavigate, useLocation } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ROLES, UPWARD_STATUS, DOWNWARD_STATUS, INSTITUTIONS } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
-import SwimlaneDiagram from '../../components/SwimlaneDiagram'
+import ReferralClosureTimeline from '../../components/ReferralClosureTimeline'
+import MinimalArrangementStatusCard from '../../components/MinimalArrangementStatusCard'
 import ArrangementModal from '../../components/ArrangementModal'
 import ReferralSummaryCard from '../../components/ReferralSummaryCard'
 import ClinicalStructuredSection from '../../components/ClinicalStructuredSection'
 import RehabPlanSection from '../../components/RehabPlanSection'
 import AttachmentSection from '../../components/AttachmentSection'
+import StructuredReasonSelector from '../../components/StructuredReasonSelector'
 import { buildClinicalPackage } from '../../utils/clinicalPackage'
+import { getReferralClosureEvents } from '../../utils/referralClosureEvents'
 import { getConsentInfo } from '../../utils/consentUpload'
 import { canViewEmergencyModifyWindowInfo, canViewEmergencyReferralDetail, getEmergencyHospitalConfig } from '../../utils/emergencyReferral'
 import { canCurrentCountyDoctorHandleOrdinaryUpward, canViewCountyUpwardReferralDetail } from '../../utils/countyReferralAccess'
 import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
 import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
+import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
+import {
+  DEFAULT_PATIENT_NOTICE_TEMPLATE,
+  buildMinimalArrangementStatusText,
+  getAdmissionArrangementVisibility,
+  getAppointmentCodeVisibility,
+  renderPatientNoticeTemplate,
+  shouldShowPatientNotice,
+  shouldShowUpwardLogsTab,
+} from '../../utils/upwardDetailPresentation'
+import {
+  buildStructuredReasonText,
+  CANCEL_REASON_OPTIONS,
+  DOWNWARD_CLOSE_REASON_OPTIONS,
+  DOWNWARD_DOCTOR_REJECT_REASON_OPTIONS,
+  DOWNWARD_INSTITUTION_RETURN_REASON_OPTIONS,
+  INTERNAL_REJECT_REASON_OPTIONS,
+  UPWARD_CLOSE_REASON_OPTIONS,
+  UPWARD_REJECT_REASON_OPTIONS,
+} from '../../constants/reasonCodes'
 
 function formatTime(isoStr) {
   if (!isoStr) return '—'
@@ -57,6 +80,10 @@ function renderDetailValue(item) {
   }
 
   return <div className="text-sm text-gray-800 font-medium mt-0.5 whitespace-pre-line">{item?.value || '—'}</div>
+}
+
+function formatStructuredReasonDisplay(options, code, text, fallback = '—') {
+  return buildStructuredReasonText(options, code, text) || fallback
 }
 
 const DOWNWARD_RECEIVER_OPTIONS = {
@@ -128,6 +155,69 @@ function ConfirmDialog({ title, description, inputLabel, inputRequired, onConfir
   )
 }
 
+function StructuredReasonDialog({
+  title,
+  description,
+  options,
+  onConfirm,
+  onCancel,
+  confirmText,
+  confirmColor = 'red',
+  confirmLabel = '原因',
+  canTransferUpToHigherLevel = true,
+}) {
+  const filteredOptions = options.filter(option => option.code !== 'need_higher_level' || canTransferUpToHigherLevel)
+  const [reasonCode, setReasonCode] = useState('')
+  const [reasonText, setReasonText] = useState('')
+  const isOther = reasonCode === 'other'
+  const canConfirm = !!reasonCode && (!isOther || !!reasonText.trim())
+
+  function handleChange(next) {
+    setReasonCode(next.reasonCode)
+    setReasonText(next.reasonText)
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[460px] overflow-hidden">
+        <div className="px-6 py-4 border-b border-gray-100">
+          <h3 className="font-semibold text-gray-800 text-lg">{title}</h3>
+          {description && <p className="text-sm text-gray-500 mt-1">{description}</p>}
+        </div>
+        <div className="p-6 space-y-4">
+          <div className="text-sm font-medium text-gray-700">{confirmLabel}（必填）</div>
+          <StructuredReasonSelector
+            options={filteredOptions}
+            value={reasonCode}
+            textValue={reasonText}
+            onChange={handleChange}
+            placeholder="如选择“其他”，请补充说明"
+          />
+          <div className="flex gap-3 pt-2">
+            <button
+              onClick={onCancel}
+              className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
+            >
+              取消
+            </button>
+            <button
+              disabled={!canConfirm}
+              onClick={() => onConfirm({ reasonCode, reasonText: reasonText.trim() || null })}
+              className={`flex-1 py-2 rounded-lg text-sm font-medium text-white ${!canConfirm ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
+              style={canConfirm ? {
+                background: confirmColor === 'green' ? '#10b981' : confirmColor === 'blue' ? '#0BBECF' : '#ef4444',
+              } : {}}
+            >
+              {confirmText}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 function NoticeDialog({ title, description, onClose, closeText = '知道了' }) {
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
@@ -155,82 +245,30 @@ function NoticeDialog({ title, description, onClose, closeText = '知道了' }) 
   )
 }
 
-function CollaborativeCloseDialog({ onConfirm, onCancel }) {
-  const [reason, setReason] = useState('')
-  const [otherText, setOtherText] = useState('')
-
-  const options = [
-    { value: '患者自行放弃就诊', label: '患者自行放弃就诊' },
-    { value: '患者另择就医', label: '患者另择就医' },
-    { value: '病情变化无需就诊', label: '病情变化无需就诊' },
-    { value: 'other', label: '其他' },
-  ]
-
-  const canConfirm = reason && (reason !== 'other' || otherText.trim())
-
+function DownwardReturnDialog({ onConfirm, onCancel }) {
   return (
-    <div className="fixed inset-0 z-50 flex items-center justify-center">
-      <div className="absolute inset-0 bg-black/50" onClick={onCancel} />
-      <div className="relative bg-white rounded-2xl shadow-2xl w-[420px] overflow-hidden">
-        <div className="px-6 py-4 border-b border-gray-100">
-          <h3 className="font-semibold text-gray-800 text-lg">协商关闭转诊单</h3>
-        </div>
-        <div className="p-6 space-y-4">
-          <div>
-            <div className="text-sm font-medium text-gray-700 mb-3">关闭原因（必填，单选）</div>
-            <div className="space-y-2">
-              {options.map(option => (
-                <label
-                  key={option.value}
-                  className="flex items-center gap-2.5 px-3 py-2 rounded-lg border cursor-pointer transition-colors"
-                  style={reason === option.value ? { borderColor: '#ef4444', background: '#fef2f2' } : { borderColor: '#e5e7eb' }}
-                >
-                  <input
-                    type="radio"
-                    name="collaborativeCloseReason"
-                    value={option.value}
-                    checked={reason === option.value}
-                    onChange={() => setReason(option.value)}
-                    className="accent-red-500"
-                  />
-                  <span className="text-sm text-gray-700">{option.label}</span>
-                </label>
-              ))}
-            </div>
-          </div>
+    <StructuredReasonDialog
+      title="退回下转申请"
+      description="请选择退回理由，系统将通知县级发起医生做后续处理。"
+      options={DOWNWARD_INSTITUTION_RETURN_REASON_OPTIONS}
+      confirmText="确认退回"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
+  )
+}
 
-          {reason === 'other' && (
-            <div>
-              <label className="block text-sm font-medium text-gray-700 mb-2">其他原因说明</label>
-              <textarea
-                value={otherText}
-                onChange={e => setOtherText(e.target.value)}
-                rows={3}
-                placeholder="请说明原因"
-                className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-red-200 resize-none"
-              />
-            </div>
-          )}
-
-          <div className="flex gap-3 pt-2">
-            <button
-              onClick={onCancel}
-              className="flex-1 py-2 border border-gray-200 rounded-lg text-sm text-gray-600 hover:bg-gray-50"
-            >
-              取消
-            </button>
-            <button
-              disabled={!canConfirm}
-              onClick={() => onConfirm(reason === 'other' ? otherText.trim() : reason)}
-              className={`flex-1 py-2 rounded-lg text-sm font-medium text-white ${!canConfirm ? 'bg-gray-200 text-gray-400 cursor-not-allowed' : ''}`}
-              style={canConfirm ? { background: '#ef4444' } : {}}
-            >
-              确认关闭
-            </button>
-          </div>
-        </div>
-      </div>
-    </div>
+function CollaborativeCloseDialog({ onConfirm, onCancel, isUpward = false, canTransferUpToHigherLevel = true }) {
+  return (
+    <StructuredReasonDialog
+      title="协商关闭转诊单"
+      description="请选择协商关闭原因。"
+      options={isUpward ? UPWARD_CLOSE_REASON_OPTIONS : DOWNWARD_CLOSE_REASON_OPTIONS}
+      canTransferUpToHigherLevel={canTransferUpToHigherLevel}
+      confirmText="确认关闭"
+      onConfirm={onConfirm}
+      onCancel={onCancel}
+    />
   )
 }
 
@@ -533,7 +571,7 @@ function DownwardReassignDialog({ referral, mode = 'reassign', onConfirm, onCanc
         </div>
         <div className="p-6 space-y-3">
           {doctorOptions.length === 0 ? (
-            <div className="text-sm text-gray-400">当前机构暂无可改派医生，请选择“本人直接接收”或“本机构无法承接”。</div>
+            <div className="text-sm text-gray-400">当前机构暂无可改派医生，请选择“本人直接接收”或“退回申请”。</div>
           ) : doctorOptions.map(doctor => {
             const disabled = rejectedDoctorIds.has(doctor.id)
             return (
@@ -617,6 +655,9 @@ export default function ReferralDetail() {
     }
   }, [currentRole, id, markEmergencyFirstViewed, ref?.firstViewedAt, ref?.is_emergency])
 
+  const isUpward = ref?.type === 'upward'
+  const isDownward = ref?.type === 'downward'
+
   if (!ref) {
     return (
       <div className="p-6 text-center">
@@ -625,9 +666,6 @@ export default function ReferralDetail() {
       </div>
     )
   }
-
-  const isUpward = ref.type === 'upward'
-  const isDownward = ref.type === 'downward'
   const isAdmin = currentRole === ROLES.ADMIN
   const downwardAllocationMode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
   const isEmergencyReferral = !!ref.is_emergency
@@ -653,12 +691,25 @@ export default function ReferralDetail() {
     UPWARD_STATUS.CANCELLED,
     UPWARD_STATUS.CLOSED,
     DOWNWARD_STATUS.COMPLETED,
+    DOWNWARD_STATUS.RETURNED,
     DOWNWARD_STATUS.CANCELLED,
     DOWNWARD_STATUS.CLOSED,
   ].includes(ref.status)
   const canShowConsentUploadPlaceholder = consentInfo.isPendingUpload && currentUser?.name === ref.fromDoctor && !isTerminalReferralStatus
   const upwardDetailSections = isUpward ? getUpwardDetailSections(ref, consentInfo) : []
   const downwardDetailSections = isDownward ? getDownwardDetailSections(ref, consentInfo) : []
+  const closureEvents = getReferralClosureEvents(ref)
+  const arrangementVisibility = getAdmissionArrangementVisibility({ currentRole, isUpward })
+  const appointmentCodeVisibility = getAppointmentCodeVisibility({ currentRole, isUpward, isEmergencyReferral })
+  const showLogsTab = shouldShowUpwardLogsTab({ currentRole, isUpward })
+  const patientNoticeTemplate = INSTITUTIONS.find(item => item.name === ref.toInstitution)?.patientNoticeTemplate || DEFAULT_PATIENT_NOTICE_TEMPLATE
+  const detailTabs = [
+    { key: 'detail', label: '申请详情' },
+    !isDownward ? { key: 'clinical', label: '转诊资料' } : null,
+    showLogsTab ? { key: 'logs', label: `操作日志 (${ref.logs?.length || 0})` } : null,
+    { key: 'history', label: '患者历史转诊' },
+  ].filter(Boolean)
+  const currentTab = isDownward && activeTab === 'clinical' ? 'detail' : activeTab
 
   // ── 角色操作权限判断 ──
   const isCountyAttendingDoctor = currentRole === ROLES.COUNTY
@@ -671,9 +722,11 @@ export default function ReferralDetail() {
   const upwardDisplayLabel = isPrimaryScopedRole ? '转出' : isCountyScopedRole ? '转入' : '上转'
   const downwardDisplayLabel = isPrimaryScopedRole ? '转入' : isCountyScopedRole ? '转出' : '下转'
   const currentTransferLabel = isUpward ? upwardDisplayLabel : downwardDisplayLabel
+  const displayedStatus = getReferralDisplayStatus(ref, { role: currentRole, userId: currentUser?.id })
   const isCountyInitiator = isCountyDoctor && currentUser?.name === ref.fromDoctor
   const isDownwardAssignedDoctor = ref.downwardAssignedDoctorId === currentUser?.id
   const isDesignatedDoctor = ref.designatedDoctorId === currentUser?.id
+  const canTransferUpToHigherLevel = isUpward && isCountyAttendingDoctor
   const canViewEmergencyModifyInfo = canViewEmergencyModifyWindowInfo({
     currentRole,
     currentUserName: currentUser?.name,
@@ -722,7 +775,7 @@ export default function ReferralDetail() {
   // 注意：PRIMARY_HEAD 是审核人，不应有撤销权限，故此处只允许 ROLES.PRIMARY
   const canCancelUpward = currentRole === ROLES.PRIMARY && (ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.PENDING_INTERNAL_REVIEW)
   const canCollaborativeCloseUpward = isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
-    currentRole === ROLES.PRIMARY || (isAdmin && (isEmergencyReferral || !!ref.admissionArrangement))
+    currentRole === ROLES.PRIMARY || isCountyAttendingDoctor || (isAdmin && (isEmergencyReferral || !!ref.admissionArrangement))
   )
   const canCollaborativeCloseDownward = isDownward && ref.status === DOWNWARD_STATUS.IN_TRANSIT && (
     isCountyInitiator || isDownwardAssignedDoctor
@@ -746,7 +799,7 @@ export default function ReferralDetail() {
   const canAcceptDownward = isPrimaryDoctor && isDownward && ref.status === DOWNWARD_STATUS.PENDING && isDesignatedDoctor
   const canCompleteDownward = isPrimaryDoctor && isDownward && ref.status === DOWNWARD_STATUS.IN_TRANSIT && isDownwardAssignedDoctor
   const canRejectDownward = isPrimaryDoctor && isDownward && ref.status === DOWNWARD_STATUS.PENDING && isDesignatedDoctor
-  const canCancelDownward = isCountyInitiator && isDownward && [DOWNWARD_STATUS.PENDING, DOWNWARD_STATUS.PENDING_INTERNAL_REVIEW].includes(ref.status)
+  const canCancelDownward = isCountyInitiator && isDownward && [DOWNWARD_STATUS.PENDING].includes(ref.status)
   const canCoordinatorManageDownward = isPrimaryCoordinator && isDownward && ref.status === DOWNWARD_STATUS.PENDING && ['coordinator', 'coordinator_reassign'].includes(downwardAllocationMode)
   const canCoordinatorReassignDownward = canCoordinatorManageDownward
   const canCoordinatorSelfAcceptDownward = canCoordinatorManageDownward
@@ -766,7 +819,7 @@ export default function ReferralDetail() {
   )
   const canResubmitAfterInternalReject = currentRole === ROLES.PRIMARY && isUpward &&
     ref.status === UPWARD_STATUS.DRAFT && hasInternalRejection
-  const canRejectedFollowUpDownward = isCountyDoctor && isDownward && ref.status === DOWNWARD_STATUS.REJECTED
+  const canRejectedFollowUpDownward = isCountyDoctor && isDownward && displayedStatus === DOWNWARD_STATUS.RETURNED
 
   // 修复 C：管理员介入按钮
   // TODO: 生产环境替换为真实超时判断（pending_review > 24h、in_transfer > 48h、pending_accept > 24h）
@@ -891,10 +944,12 @@ export default function ReferralDetail() {
         setDialog({ type: 'changeInstitution' })
         break
       case 'changeInstitutionConfirm':
-        // 换机构重新申请：关闭当前单（已关闭），跳转到新建上转页并携带患者基本信息预填
+        // 换机构重新申请：关闭当前单（已关闭），跳转到对应发起页并携带患者基本信息预填
         closeReferral(id, '患者换机构重新申请，当前转诊单关闭')
         setDialog(null)
-        navigate('/primary/create-referral', { state: { prefill: { patient: ref.patient, diagnosis: ref.diagnosis } } })
+        navigate(isDownward ? '/county/create-downward' : '/primary/create-referral', {
+          state: { prefill: { patient: ref.patient, diagnosis: ref.diagnosis } },
+        })
         break
       case 'resubmit':
         setDialog({ type: 'resubmit' })
@@ -970,9 +1025,37 @@ export default function ReferralDetail() {
         ? '紧急修改短信'
         : item.kind === 'completion'
           ? '就诊确认短信'
-          : '短信记录',
+      : '短信记录',
     status: item.status || '已送达',
   }))
+  const rejectReasonLabel = isDownward && displayedStatus === DOWNWARD_STATUS.RETURNED
+    ? formatStructuredReasonDisplay(
+        DOWNWARD_INSTITUTION_RETURN_REASON_OPTIONS,
+        ref.institutionRejectReasonCode || ref.rejectReasonCode,
+        ref.institutionRejectReasonText || ref.returnReason || ref.rejectReason,
+        ref.rejectReason || ref.returnReason || '—',
+      )
+    : formatStructuredReasonDisplay(
+        UPWARD_REJECT_REASON_OPTIONS,
+        ref.rejectReasonCode,
+        ref.rejectReasonText || ref.rejectReason,
+        ref.rejectReason || '—',
+      )
+  const cancelReasonLabel = formatStructuredReasonDisplay(
+    CANCEL_REASON_OPTIONS,
+    ref.cancelReasonCode,
+    ref.cancelReasonText || ref.closeReason,
+    ref.closeReason || '—',
+  )
+  const closeReasonLabel = formatStructuredReasonDisplay(
+    isDownward ? DOWNWARD_CLOSE_REASON_OPTIONS : UPWARD_CLOSE_REASON_OPTIONS,
+    ref.closeReasonCode,
+    ref.closeReasonText || ref.closeReason,
+    ref.closeReason || '—',
+  )
+  const showTransferUpCloseActions = isUpward
+    && ref.status === UPWARD_STATUS.CLOSED
+    && ((ref.closeReasonCode === 'need_higher_level') || ref.closeReason === '需转诊至上级机构')
   const completionSmsPreview = isEmergencyReferral
     ? `【就诊确认】您在${ref.toInstitution || '目标医院'}的急诊
 转诊已完成接诊确认。
@@ -1132,7 +1215,7 @@ export default function ReferralDetail() {
               <h1 className="text-lg font-semibold text-gray-800">
                 {currentTransferLabel}申请 · {ref.patient.name}
               </h1>
-              <StatusBadge status={ref.status} />
+              <StatusBadge status={displayedStatus} />
               {/* CHG-30：绿色通道标识 */}
               {isEmergencyReferral && (
                 <span className="bg-red-100 text-red-700 text-xs font-bold px-2 py-0.5 rounded border border-red-300">
@@ -1322,7 +1405,7 @@ export default function ReferralDetail() {
                 onClick={() => handleAction('rejectDownwardByCoordinator')}
                 className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm transition-colors"
               >
-                本机构无法承接
+                退回
               </button>
             )}
 
@@ -1418,29 +1501,20 @@ export default function ReferralDetail() {
         </div>
       </div>
 
-      {/* 状态泳道图 */}
-      <div className="mb-4">
-        <SwimlaneDiagram
-          type={ref.type}
-          status={ref.status}
-          isEmergency={isEmergencyReferral}
-          hasEmergencyAdmissionArrangement={!!ref.admissionArrangement?.department}
-          internalAuditEnabled={
-            ref.type === 'upward' && (
-              ref.status === '待内审' ||
-              ((ref.internalAuditLog || []).length > 0)
-            )
-          }
-        />
-      </div>
+      {/* 转诊闭环信息 */}
+      {!(isEmergencyReferral && isRetroEntry) && (
+        <div className="mb-4">
+          <ReferralClosureTimeline type={ref.type} events={closureEvents} />
+        </div>
+      )}
 
       {/* 拒绝/撤销原因提示 */}
-      {(ref.status === UPWARD_STATUS.REJECTED || ref.status === DOWNWARD_STATUS.REJECTED) && ref.rejectReason && (
-        <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
-          <span className="text-lg flex-shrink-0">❌</span>
+      {(ref.status === UPWARD_STATUS.REJECTED || displayedStatus === DOWNWARD_STATUS.RETURNED) && rejectReasonLabel !== '—' && (
+        <div className={`mb-4 flex items-start gap-3 px-4 py-3 rounded-xl text-sm ${displayedStatus === DOWNWARD_STATUS.RETURNED ? 'bg-orange-50 border border-orange-200 text-orange-700' : 'bg-red-50 border border-red-200 text-red-700'}`}>
+          <span className="text-lg flex-shrink-0">{displayedStatus === DOWNWARD_STATUS.RETURNED ? '↩️' : '❌'}</span>
           <div>
-            <span className="font-medium">拒绝原因：</span>
-            {ref.rejectReason}
+            <span className="font-medium">{displayedStatus === DOWNWARD_STATUS.RETURNED ? '退回原因：' : '拒绝原因：'}</span>
+            {rejectReasonLabel}
           </div>
         </div>
       )}
@@ -1449,7 +1523,7 @@ export default function ReferralDetail() {
       {(canRejectedFollowUpUpward || canRejectedFollowUpDownward) && (
         <div className="mb-4 bg-gray-50 border border-gray-200 rounded-lg p-4">
           <div className="text-sm font-medium text-gray-700 mb-3">
-            申请已被拒绝，请选择后续处理方式：
+            {displayedStatus === DOWNWARD_STATUS.RETURNED ? '申请已被退回，请选择后续处理方式：' : '申请已被拒绝，请选择后续处理方式：'}
           </div>
           <div className="flex flex-wrap gap-3">
             <button
@@ -1480,16 +1554,41 @@ export default function ReferralDetail() {
           </div>
         </div>
       )}
-      {ref.status === UPWARD_STATUS.CANCELLED && ref.closeReason && (
+      {ref.status === UPWARD_STATUS.CANCELLED && cancelReasonLabel !== '—' && (
         <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-gray-50 border border-gray-200 rounded-xl text-sm text-gray-600">
           <span className="text-lg flex-shrink-0">ℹ️</span>
-          <div><span className="font-medium">撤销原因：</span>{ref.closeReason}</div>
+          <div><span className="font-medium">撤销原因：</span>{cancelReasonLabel}</div>
         </div>
       )}
-      {ref.status === UPWARD_STATUS.CLOSED && ref.closeReason && (
+      {ref.status === UPWARD_STATUS.CLOSED && closeReasonLabel !== '—' && (
         <div className="mb-4 flex items-start gap-3 px-4 py-3 bg-red-50 border border-red-200 rounded-xl text-sm text-red-700">
           <span className="text-lg flex-shrink-0">⛔</span>
-          <div><span className="font-medium">关闭原因：</span>{ref.closeReason}</div>
+          <div className="flex-1">
+            <div><span className="font-medium">关闭原因：</span>{closeReasonLabel}</div>
+            {showTransferUpCloseActions && (
+              <div className="mt-3">
+                <div className="text-xs text-red-600 mb-2">协商关闭后如需继续转诊至上级机构，可打印或导出当前转诊单。</div>
+                <div className="flex flex-wrap gap-2">
+                  <button
+                    onClick={() => window.print()}
+                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
+                  >
+                    打印转诊单
+                  </button>
+                  <button
+                    onClick={() => setDialog({
+                      type: 'notice',
+                      title: '导出任务已创建',
+                      description: '转诊单导出任务已创建，请稍后下载 PDF。',
+                    })}
+                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
+                  >
+                    导出PDF
+                  </button>
+                </div>
+              </div>
+            )}
+          </div>
         </div>
       )}
 
@@ -1549,23 +1648,37 @@ export default function ReferralDetail() {
       )}
 
       {/* P1-03：转诊预约码展示（转诊中状态，有预约码时显示）*/}
-      {ref.appointmentCode && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
+      {(ref.appointmentCode || ref.admissionArrangement?.appointmentCode) && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && appointmentCodeVisibility === 'full' && (
         <div className="mb-4 px-5 py-4 rounded-xl" style={{ background: '#f0fdfe', border: '1px solid #a5f3fc' }}>
           <div className="text-xs font-medium mb-2" style={{ color: '#0e7490' }}>转诊预约码</div>
           <div className="flex items-center gap-5">
-            <span className="font-mono text-2xl font-bold tracking-widest" style={{ color: '#0BBECF' }}>{ref.appointmentCode}</span>
+            <span className="font-mono text-2xl font-bold tracking-widest" style={{ color: '#0BBECF' }}>{ref.appointmentCode || ref.admissionArrangement?.appointmentCode}</span>
             <div className="text-xs leading-relaxed" style={{ color: '#0891b2' }}>
               <div>有效期至：{new Date(ref.appointmentCodeExpireAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-              <div>凭此码到 <span className="font-medium">{ref.toDept}</span> 挂号窗口出示，优先排队就诊</div>
+              <div>凭此码到 <span className="font-medium">{ref.admissionArrangement?.department || ref.toDept}</span> 挂号窗口出示，优先排队就诊</div>
+              {currentRole !== ROLES.ADMIN && (
+                <div>患者就诊时需出示此码，短信中已同步发送至患者手机</div>
+              )}
             </div>
           </div>
         </div>
       )}
 
       {/* CHG-30：到院安排卡（转诊中状态，管理员已填写时显示蓝色卡，未填写时显示灰色占位） */}
-      {isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
+      {isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && arrangementVisibility !== 'hidden' && (
         <div className="mb-4">
-          {isEmergencyReferral && !ref.admissionArrangement?.department ? (
+          {arrangementVisibility === 'minimal' ? (
+            <MinimalArrangementStatusCard
+              text={buildMinimalArrangementStatusText(
+                ref.admissionArrangement
+                  ? {
+                    visitTime: formatTime(ref.admissionArrangement.visitTime),
+                    department: ref.admissionArrangement.department,
+                  }
+                  : null
+              )}
+            />
+          ) : isEmergencyReferral && !ref.admissionArrangement?.department ? (
             <div className="px-5 py-4 rounded-xl" style={{ background: '#fff7ed', border: '1px solid #fdba74' }}>
               <div className="flex items-center justify-between mb-3">
                 <span className="text-sm font-semibold text-orange-700">{isRetroEntry ? '📝 急诊补录待确认' : '⚡ 急诊待补录'}</span>
@@ -1610,6 +1723,9 @@ export default function ReferralDetail() {
                   由 {ref.admissionArrangement.arrangedBy || '转诊中心'} 安排 · {formatTime(ref.admissionArrangement.arrangedAt)}
                 </span>
               </div>
+              {[ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(currentRole) && (
+                <div className="text-xs text-cyan-700 mb-3 font-medium">请告知患者按以下信息到院就诊</div>
+              )}
               {isEmergencyReferral && (
                 <div className="text-xs text-blue-500 mb-3">
                   {isRetroEntry
@@ -1716,6 +1832,11 @@ export default function ReferralDetail() {
                   </button>
                 </div>
               )}
+              {[ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(currentRole) && (
+                <div className="mt-3 pt-3 border-t border-blue-200 text-xs text-blue-500">
+                  实际接诊医生以到院现场安排为准
+                </div>
+              )}
             </div>
           ) : (
             <div className="px-5 py-4 rounded-xl bg-gray-50 border border-gray-200">
@@ -1737,7 +1858,7 @@ export default function ReferralDetail() {
       )}
 
       {/* P0-5：就诊须知区块（转诊中状态） */}
-      {isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && !isEmergencyReferral && !isGreenChannel && (
+      {isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && !isEmergencyReferral && !isGreenChannel && shouldShowPatientNotice() && (
         <div className="mb-4 bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
           <div className="px-5 py-3 text-sm font-semibold text-gray-700" style={{ borderBottom: '1px solid #E0F6F9', background: '#f9fefe' }}>
             就诊须知
@@ -1835,13 +1956,13 @@ export default function ReferralDetail() {
       {isDownward && ref.status === DOWNWARD_STATUS.PENDING && downwardAllocationMode === 'coordinator' && isPrimaryCoordinator && (
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-blue-50 border border-blue-200 text-sm text-blue-700">
           <span>📌</span>
-          <span>该{downwardDisplayLabel}申请当前处于 <span className="font-medium">待分配</span> 状态。请执行首次分配、本人接收，或判定本机构无法承接。</span>
+          <span>该{downwardDisplayLabel}申请当前处于 <span className="font-medium">待分配</span> 状态。请执行首次分配、本人接收，或直接退回申请。</span>
         </div>
       )}
       {isDownward && ref.status === DOWNWARD_STATUS.PENDING && downwardAllocationMode === 'coordinator_reassign' && isPrimaryCoordinator && (
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
           <span>↺</span>
-          <span>该{downwardDisplayLabel}申请已进入 <span className="font-medium">负责人改派窗口</span>。请改派其他医生、本人直接接收，或判定本机构无法承接。</span>
+          <span>该{downwardDisplayLabel}申请已进入 <span className="font-medium">负责人改派窗口</span>。请改派其他医生、本人直接接收，或直接退回申请。</span>
         </div>
       )}
 
@@ -1849,17 +1970,12 @@ export default function ReferralDetail() {
       <div className="bg-white rounded" style={{ border: '1px solid #DDF0F3', boxShadow: '0 1px 4px rgba(11,190,207,0.06)' }}>
         {/* Tab 切换 */}
         <div className="flex" style={{ borderBottom: '1px solid #E0F6F9' }}>
-          {[
-            { key: 'detail', label: '申请详情' },
-            { key: 'clinical', label: '转诊资料' },
-            { key: 'logs', label: `操作日志 (${ref.logs?.length || 0})` },
-            { key: 'history', label: '患者历史转诊' },
-          ].filter(Boolean).map(tab => (
+          {detailTabs.map(tab => (
             <button
               key={tab.key}
               onClick={() => setActiveTab(tab.key)}
               className="px-5 py-3 text-sm font-medium border-b-2 transition-colors"
-              style={activeTab === tab.key
+              style={currentTab === tab.key
                 ? { borderBottomColor: '#0BBECF', color: '#0BBECF' }
                 : { borderBottomColor: 'transparent', color: '#6b7280' }}
             >
@@ -1870,7 +1986,7 @@ export default function ReferralDetail() {
 
         <div className="p-6">
           {/* 申请详情 Tab */}
-          {activeTab === 'detail' && (
+          {currentTab === 'detail' && (
             <div className="space-y-5">
               {isUpward ? (
                 <>
@@ -2000,7 +2116,7 @@ export default function ReferralDetail() {
             </div>
           )}
 
-          {activeTab === 'clinical' && (
+          {currentTab === 'clinical' && (
             <div className="space-y-5">
               {!isUpward && <ReferralSummaryCard summary={clinicalPackage.summary} />}
               {!isUpward && clinicalPackage.displayMode === 'structured' && (
@@ -2017,7 +2133,7 @@ export default function ReferralDetail() {
           )}
 
           {/* 操作日志 Tab */}
-          {activeTab === 'logs' && (
+          {currentTab === 'logs' && (
             <div>
               <div className="relative">
                 <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
@@ -2167,7 +2283,7 @@ export default function ReferralDetail() {
           )}
 
           {/* S-03：患者历史转诊 Tab */}
-          {activeTab === 'history' && (
+          {currentTab === 'history' && (
             <div className="p-4">
               <p className="text-xs text-gray-400 mb-3">
                 以下为患者 <span className="font-medium text-gray-700">{ref.patient?.name}</span> 的历史转诊记录（含本次）
@@ -2205,15 +2321,21 @@ export default function ReferralDetail() {
                           <span className="text-gray-400 text-xs">
                             {r.createdAt ? new Date(r.createdAt).toLocaleDateString('zh-CN') : '—'}
                           </span>
-                          <span className={`text-xs px-2 py-0.5 rounded ${
-                            r.status === '已完成' ? 'bg-green-100 text-green-700' :
-                            r.status === '已拒绝' ? 'bg-gray-100 text-gray-500' :
-                            r.status === '已撤销' ? 'bg-gray-100 text-gray-500' :
-                            r.status === '转诊中' ? 'bg-blue-50 text-blue-700' :
-                            ['待受理', '待审核'].includes(r.status) ? 'bg-orange-50 text-orange-600' :
-                            r.status === '待接收' ? 'bg-orange-50 text-orange-600' :
-                            'bg-gray-100 text-gray-600'
-                          }`}>{r.status === '待审核' ? '待受理' : r.status}</span>
+                          {(() => {
+                            const historyStatus = getReferralDisplayStatus(r, { role: currentRole, userId: currentUser?.id })
+                            return (
+                              <span className={`text-xs px-2 py-0.5 rounded ${
+                                historyStatus === '已完成' ? 'bg-green-100 text-green-700' :
+                                historyStatus === '已退回' ? 'bg-orange-50 text-orange-700' :
+                                historyStatus === '已拒绝' ? 'bg-gray-100 text-gray-500' :
+                                historyStatus === '已撤销' ? 'bg-gray-100 text-gray-500' :
+                                historyStatus === '转诊中' ? 'bg-blue-50 text-blue-700' :
+                                ['待受理', '待审核'].includes(historyStatus) ? 'bg-orange-50 text-orange-600' :
+                                historyStatus === '待接收' ? 'bg-orange-50 text-orange-600' :
+                                'bg-gray-100 text-gray-600'
+                              }`}>{historyStatus === '待审核' ? '待受理' : historyStatus}</span>
+                            )
+                          })()}
                           {r.id !== ref.id && (
                             <button
                               onClick={() => navigate(`/referral/${r.id}`)}
@@ -2286,11 +2408,10 @@ export default function ReferralDetail() {
 
       {/* 确认对话框 */}
       {dialog?.type === 'rejectUpward' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title="拒绝转诊申请"
           description="请填写拒绝原因，系统将通知基层医生"
-          inputLabel="拒绝原因（必填）"
-          inputRequired={true}
+          options={UPWARD_REJECT_REASON_OPTIONS}
           confirmText="确认拒绝"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'rejectUpward', reason }); handleAction('rejectUpwardConfirm') }}
@@ -2298,11 +2419,10 @@ export default function ReferralDetail() {
         />
       )}
       {dialog?.type === 'cancelUpward' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title={`撤销${upwardDisplayLabel}申请`}
           description="申请将变更为已撤销状态，县级医生将收到通知"
-          inputLabel="撤销原因（必填）"
-          inputRequired={true}
+          options={CANCEL_REASON_OPTIONS}
           confirmText="确认撤销"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'cancelUpward', reason }); handleAction('cancelUpwardConfirm') }}
@@ -2360,6 +2480,8 @@ export default function ReferralDetail() {
       )}
       {dialog?.type === 'collaborativeClose' && (
         <CollaborativeCloseDialog
+          isUpward={isUpward}
+          canTransferUpToHigherLevel={canTransferUpToHigherLevel}
           onConfirm={(reason) => { setDialog({ type: 'collaborativeClose', reason }); handleAction('collaborativeCloseConfirm') }}
           onCancel={() => setDialog(null)}
         />
@@ -2376,11 +2498,10 @@ export default function ReferralDetail() {
         />
       )}
       {dialog?.type === 'rejectDownward' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title={`拒绝接收${downwardDisplayLabel}`}
           description="请填写拒绝原因。提交后不会直接终局拒绝，而是进入基层负责人的改派窗口。"
-          inputLabel="拒绝原因（必填）"
-          inputRequired={true}
+          options={DOWNWARD_DOCTOR_REJECT_REASON_OPTIONS}
           confirmText="确认拒绝"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'rejectDownward', reason }); handleAction('rejectDownwardConfirm') }}
@@ -2388,11 +2509,10 @@ export default function ReferralDetail() {
         />
       )}
       {dialog?.type === 'cancelDownward' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title={`撤销${downwardDisplayLabel}申请`}
-          description={`当前${downwardDisplayLabel}单仍处于待接收/待内审阶段，撤销后将变为只读存档。`}
-          inputLabel="撤销原因（必填）"
-          inputRequired={true}
+          description={`当前${downwardDisplayLabel}单仍处于待接收阶段，撤销后将变为只读存档。`}
+          options={CANCEL_REASON_OPTIONS}
           confirmText="确认撤销"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'cancelDownward', reason }); handleAction('cancelDownwardConfirm') }}
@@ -2412,13 +2532,7 @@ export default function ReferralDetail() {
         />
       )}
       {dialog?.type === 'rejectDownwardByCoordinator' && (
-        <ConfirmDialog
-          title="本机构无法承接"
-          description="这会触发 E3 机构级拒绝，系统将通知县级发起医生做后续处理。"
-          inputLabel="无法承接原因（必填）"
-          inputRequired={true}
-          confirmText="确认退回"
-          confirmColor="red"
+        <DownwardReturnDialog
           onConfirm={(reason) => { setDialog({ type: 'rejectDownwardByCoordinator', reason }); handleAction('rejectDownwardByCoordinatorConfirm') }}
           onCancel={() => setDialog(null)}
         />
@@ -2428,7 +2542,7 @@ export default function ReferralDetail() {
       {dialog?.type === 'changeInstitution' && (
         <ConfirmDialog
           title="换机构重新申请"
-          description="将基于当前申请信息创建新转诊单，接收机构需重新选择。原申请单将保持已拒绝状态。"
+          description="将基于当前申请信息创建新转诊单，接收机构需重新选择。原申请单将保持已退回状态。"
           inputRequired={false}
           confirmText="确认创建新申请"
           confirmColor="blue"
@@ -2441,7 +2555,7 @@ export default function ReferralDetail() {
       {dialog?.type === 'resubmit' && (
         <ConfirmDialog
           title="修改重提"
-          description="将在原申请基础上修改后重新提交审核，原申请单将保持已拒绝状态。"
+          description="将在原申请基础上修改后重新提交审核，原申请单将保持已退回状态。"
           inputRequired={false}
           confirmText="确认修改重提"
           confirmColor="blue"
@@ -2452,11 +2566,11 @@ export default function ReferralDetail() {
 
       {/* 修复 B：终止申请确认框（需填写原因） */}
       {dialog?.type === 'terminateRejected' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title="终止申请"
           description="申请将变更为已关闭状态，本次转诊流程结束。"
-          inputLabel="终止原因（必填）"
-          inputRequired={true}
+          options={isUpward ? UPWARD_CLOSE_REASON_OPTIONS : DOWNWARD_CLOSE_REASON_OPTIONS}
+          canTransferUpToHigherLevel={canTransferUpToHigherLevel}
           confirmText="确认终止"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'terminateRejected', reason }); handleAction('terminateRejectedConfirm') }}
@@ -2482,11 +2596,10 @@ export default function ReferralDetail() {
 
       {/* CHG-32：院内审核拒绝确认框 */}
       {dialog?.type === 'rejectInternal' && (
-        <ConfirmDialog
+        <StructuredReasonDialog
           title="院内审核拒绝"
           description="申请将退回草稿，基层医生可在原单修改后重新提交"
-          inputLabel="拒绝原因（必填）"
-          inputRequired={true}
+          options={INTERNAL_REJECT_REASON_OPTIONS}
           confirmText="确认拒绝"
           confirmColor="red"
           onConfirm={(reason) => { setDialog({ type: 'rejectInternal', reason }); handleAction('rejectInternalConfirm') }}
@@ -2512,6 +2625,14 @@ export default function ReferralDetail() {
         let smsBody = ''
         let smsHint = '以上为短信内容预览，实际短信由系统推送平台发送'
         let smsSubtitle = isInpatient ? (ref.bedStatus === 'bed_reserved' ? '住院转诊·已预占床位' : '住院转诊·床位协调中') : '门诊转诊'
+        const renderedNotice = renderPatientNoticeTemplate(patientNoticeTemplate, {
+          department: arr.department || ref.toDept || '',
+          appointmentCode: arr.appointmentCode || ref.appointmentCode || '',
+          admissionType: isInpatient ? 'inpatient' : 'outpatient',
+          ward: arr.ward || '',
+          bedNumber: arr.bedNumber || '',
+          nurseStationPhone: arr.nurseStationPhone || '',
+        })
 
         if (isEmergencyReferral && emergencySmsHistory.length > 0) {
           smsSubtitle = `${isGreenChannel ? '绿通' : '急诊'}转诊短信记录`
@@ -2523,7 +2644,10 @@ export default function ReferralDetail() {
 就诊时间：${arr.visitTime ? new Date(arr.visitTime).toLocaleString('zh-CN', { month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit' }) : '—'}
 联系电话：${arr.departmentPhone || '—'}
 预约码：${arr.appointmentCode || '—'}
-凭本短信优先就诊`
+凭本短信优先就诊
+
+——就诊须知——
+${renderedNotice}`
         } else if (ref.bedStatus === 'bed_reserved') {
           smsBody = `您的转诊已确认
 就诊科室：${arr.department || '—'}
@@ -2534,7 +2658,10 @@ export default function ReferralDetail() {
 病区：${arr.ward || '—'}
 床位：${arr.bedNumber || '入院时由护士站安排'}
 护士站电话：${arr.nurseStationPhone || '—'}
-请持本短信至护士站办理入院`
+请持本短信至护士站办理入院
+
+——就诊须知——
+${renderedNotice}`
         } else {
           // bedFull / not_applicable（住院但床位未锁定）
           smsBody = `您的转诊已确认
@@ -2543,7 +2670,10 @@ export default function ReferralDetail() {
 预约码：${arr.appointmentCode || '—'}
 ━━━━━━━━━━━
 住院安排：床位正在协调中，
-请至${arr.ward || '护士站'}联系：${arr.nurseStationPhone || arr.departmentPhone || '—'}`
+请至${arr.ward || '护士站'}联系：${arr.nurseStationPhone || arr.departmentPhone || '—'}
+
+——就诊须知——
+${renderedNotice}`
         }
         return (
           <div className="fixed inset-0 z-50 flex items-center justify-center">

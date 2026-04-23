@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { UPWARD_STATUS, DOWNWARD_STATUS, ROLES } from '../../data/mockData'
+import { getDownwardDisplayStatus, getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 import StatusBadge from '../../components/StatusBadge'
 
 function fromNow(isoStr) {
@@ -192,6 +193,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
     r.type === 'upward' && r.fromDoctor === currentUser.name && r.status === UPWARD_STATUS.COMPLETED
   )
   const unreadNotifs = myNotifications.filter(n => !n.read).slice(0, 3)
+  const returnedDownward = scopedDownward.filter(r => getDownwardDisplayStatus(r, { role: currentUser.role, userId: currentUser.id }) === DOWNWARD_STATUS.RETURNED)
 
   return (
     <div className="p-5">
@@ -233,6 +235,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
                 { label: '待处理', value: pendingDownward.length, color: '#f59e0b' },
                 { label: '转诊中', value: scopedDownward.filter(r => r.status === DOWNWARD_STATUS.IN_TRANSIT).length },
                 { label: '已完成', value: scopedDownward.filter(r => r.status === DOWNWARD_STATUS.COMPLETED).length, color: '#10b981' },
+                { label: '已退回', value: returnedDownward.length, color: '#f97316' },
               ]}
               onClick={() => navigate('/primary/downward-list')}
             />
@@ -277,7 +280,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
                       <td className={TD + ' text-gray-600'}>{ref.diagnosis.name}</td>
                       <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
                       <td className={TD}>{ref.rehabPlan && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#E0F6F9', color: '#0892a0' }}>含康复方案</span>}</td>
-                      <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                      <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref, { role: currentUser.role, userId: currentUser.id })} size="sm" /></td>
                       <td className={TD}><button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>查看处理</button></td>
                     </tr>
                   ))}

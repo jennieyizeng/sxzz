@@ -70,13 +70,11 @@ const NAV_CONFIG = {
     { path: '/messages', label: '消息中心', icon: '🔔' },
   ],
   [ROLES.SYSTEM_ADMIN]: [
-    { path: '/admin/institution-manage', label: '工作台', icon: '📊' },
     {
       label: '系统管理', icon: '⚙️', children: [
         { path: '/admin/institution-manage', label: '机构管理' },
         { path: '/admin/role-manage', label: '角色权限' },
-        { path: '/admin/form-template', label: '转诊单模板' },
-        { path: '/admin/disease-dir', label: '病种目录' },
+        { path: '/admin/disease-dir', label: '专病规则配置' },
         { path: '/admin/timeout-config', label: '超时规则' },
         { path: '/admin/notify-template', label: '通知模板' },
         { path: '/admin/audit-rule-config', label: '审核规则' },

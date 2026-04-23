@@ -1,3 +1,5 @@
+import { getReasonOptionLabel, UPWARD_REFERRAL_PURPOSE_OPTIONS } from '../constants/reasonCodes'
+
 export const UPWARD_HANDLING_PREFERENCE_OPTIONS = [
   { value: 'outpatient', label: '门诊专科就诊' },
   { value: 'inpatient', label: '建议住院评估' },
@@ -17,7 +19,23 @@ function buildPurposeText(ref, sourceVisitType) {
   }
 
   if (Array.isArray(ref.outpatientTransferPurpose) && ref.outpatientTransferPurpose.length > 0) {
-    return ref.outpatientTransferPurpose.join('、')
+    return ref.outpatientTransferPurpose.map((code) => {
+      if (code === 'other') {
+        return ref?.outpatientTransferPurposeOther
+          ? `其他：${ref.outpatientTransferPurposeOther}`
+          : '其他'
+      }
+      return getReasonOptionLabel(UPWARD_REFERRAL_PURPOSE_OPTIONS, code) || code
+    }).join('、')
+  }
+
+  if (Array.isArray(ref.referralPurposeCodes) && ref.referralPurposeCodes.length > 0) {
+    return ref.referralPurposeCodes.map((code) => {
+      if (code === 'other') {
+        return ref?.referralPurposeText ? `其他：${ref.referralPurposeText}` : '其他'
+      }
+      return getReasonOptionLabel(UPWARD_REFERRAL_PURPOSE_OPTIONS, code) || code
+    }).join('、')
   }
 
   return asText(ref.reason)
@@ -175,7 +193,7 @@ export function getUpwardDetailSections(ref, consentInfo) {
         { label: '主诉', value: asText(ref?.chiefComplaint) },
         { label: '转诊目的', value: buildPurposeText(ref, sourceVisitType) },
         { label: '当前病情评估', value: asText(ref?.outpatientConditionAssessment) },
-        { label: '补充说明', value: Array.isArray(ref?.outpatientTransferPurpose) ? asText(ref?.reason) : '—' },
+        { label: '补充说明', value: asText(ref?.outpatientSupplementNote || ref?.reason) },
         { label: '用药情况', value: asText(ref?.medicationSummary) },
       ],
     },

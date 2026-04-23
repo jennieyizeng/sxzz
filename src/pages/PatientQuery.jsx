@@ -6,6 +6,7 @@
 import { useState } from 'react'
 import { useApp } from '../context/AppContext'
 import { UPWARD_STATUS, DOWNWARD_STATUS } from '../data/mockData'
+import { getReferralDisplayStatus } from '../utils/downwardStatusPresentation'
 
 const MOCK_CODE = '123456'
 
@@ -19,6 +20,7 @@ const STATUS_LABELS = {
   [DOWNWARD_STATUS.PENDING]:  { label: '待接收',   color: 'bg-yellow-100 text-yellow-700' },
   [DOWNWARD_STATUS.IN_TRANSIT]:{ label: '转诊中',  color: 'bg-blue-100 text-blue-700' },
   [DOWNWARD_STATUS.COMPLETED]:{ label: '已完成',   color: 'bg-green-100 text-green-700' },
+  [DOWNWARD_STATUS.RETURNED]: { label: '已退回',   color: 'bg-orange-100 text-orange-700' },
   [DOWNWARD_STATUS.REJECTED]: { label: '已拒绝',   color: 'bg-red-100 text-red-700' },
 }
 
@@ -211,7 +213,8 @@ export default function PatientQuery() {
               )}
 
               {results?.length > 0 && results.map(ref => {
-                const statusInfo = STATUS_LABELS[ref.status] || { label: ref.status, color: 'bg-gray-100 text-gray-500' }
+                const displayStatus = getReferralDisplayStatus(ref)
+                const statusInfo = STATUS_LABELS[displayStatus] || { label: displayStatus, color: 'bg-gray-100 text-gray-500' }
                 const isInTransit = ref.status === UPWARD_STATUS.IN_TRANSIT
                 return (
                   <div key={ref.id} className="bg-white rounded-xl border border-gray-200 shadow-sm overflow-hidden">

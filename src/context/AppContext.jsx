@@ -12,6 +12,20 @@ import {
   shouldShowNotificationToUser,
 } from '../utils/emergencyReferral'
 import { resolveFollowupTaskMeta } from '../utils/followupTasks'
+import {
+  buildDownwardReopenState,
+  buildDownwardSelfAcceptState,
+} from '../utils/downwardReferralTransitions'
+import {
+  buildStructuredReasonText,
+  CANCEL_REASON_OPTIONS,
+  DOWNWARD_CLOSE_REASON_OPTIONS,
+  DOWNWARD_DOCTOR_REJECT_REASON_OPTIONS,
+  DOWNWARD_INSTITUTION_RETURN_REASON_OPTIONS,
+  INTERNAL_REJECT_REASON_OPTIONS,
+  UPWARD_CLOSE_REASON_OPTIONS,
+  UPWARD_REJECT_REASON_OPTIONS,
+} from '../constants/reasonCodes'
 
 // F-09 操作日志事件类型枚举（P2-2：补充新增类型）
 // eslint-disable-next-line react-refresh/only-export-components
@@ -102,6 +116,25 @@ function normalizeConsentFields(referral) {
       ?? (consentMethod === 'offline_upload' && referral?.consentSigned ? `mock://consent/${referral.id || Date.now()}` : null),
     consentUploadedAt: referral?.consentUploadedAt ?? referral?.consentTime ?? null,
     consentSignedBy: referral?.consentSignedBy || 'patient',
+  }
+}
+
+function normalizeStructuredReasonSelection(value, options = []) {
+  if (value && typeof value === 'object' && !Array.isArray(value)) {
+    const reasonCode = value.reasonCode || 'other'
+    const reasonText = String(value.reasonText || '').trim() || null
+    return {
+      reasonCode,
+      reasonText,
+      label: buildStructuredReasonText(options, reasonCode, reasonText) || reasonText || '',
+    }
+  }
+
+  const legacyText = String(value || '').trim()
+  return {
+    reasonCode: legacyText ? 'other' : null,
+    reasonText: legacyText || null,
+    label: legacyText,
   }
 }
 
@@ -364,18 +397,21 @@ export function AppProvider({ children }) {
   // 县级拒绝上转（待审核→已拒绝）
   // J-4：拒绝时将 bed_reserved → bed_released
   const rejectReferral = useCallback((referralId, reason) => {
+    const normalizedReason = normalizeStructuredReasonSelection(reason, UPWARD_REJECT_REASON_OPTIONS)
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const newBedStatus = r.bedStatus === 'bed_reserved' ? 'bed_released' : r.bedStatus
       return {
         ...r,
         status: UPWARD_STATUS.REJECTED,
-        rejectReason: reason,
+        rejectReason: normalizedReason.label,
+        rejectReasonCode: normalizedReason.reasonCode,
+        rejectReasonText: normalizedReason.reasonText,
         updatedAt: new Date().toISOString(),
         bedStatus: newBedStatus,
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '拒绝转诊申请', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: '拒绝转诊申请', note: normalizedReason.label },
           { time: new Date().toISOString(), actor: '系统', action: '通知基层医生：申请被拒绝' },
           ...(newBedStatus === 'bed_released' ? [{ time: new Date().toISOString(), actor: '系统', action: '床位已释放（申请被拒绝）' }] : []),
         ],
@@ -386,7 +422,7 @@ export function AppProvider({ children }) {
     addNotification({
       type: 'upward_rejected',
       title: '转诊申请被拒绝',
-      content: `患者${ref?.patient?.name}的转诊申请被拒绝，原因：${reason}`,
+      content: `患者${ref?.patient?.name}的转诊申请被拒绝，原因：${normalizedReason.label}`,
       targetRole: ROLES.PRIMARY,
       referralId,
     })
@@ -395,18 +431,21 @@ export function AppProvider({ children }) {
   // 撤销上转（待审核→已撤销）
   // J-4：撤销时将 bed_reserved → bed_released（主动释放床位）
   const cancelReferral = useCallback((referralId, reason) => {
+    const normalizedReason = normalizeStructuredReasonSelection(reason, CANCEL_REASON_OPTIONS)
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const newBedStatus = r.bedStatus === 'bed_reserved' ? 'bed_released' : r.bedStatus
       return {
         ...r,
         status: UPWARD_STATUS.CANCELLED,
-        closeReason: reason,
+        closeReason: normalizedReason.label,
+        cancelReasonCode: normalizedReason.reasonCode,
+        cancelReasonText: normalizedReason.reasonText,
         updatedAt: new Date().toISOString(),
         bedStatus: newBedStatus,
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '撤销转诊申请', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: '撤销转诊申请', note: normalizedReason.label },
           ...(newBedStatus === 'bed_released' ? [{ time: new Date().toISOString(), actor: '系统', action: '床位已释放（申请撤销）' }] : []),
         ],
       }
@@ -771,16 +810,19 @@ export function AppProvider({ children }) {
   }, [addNotification, currentUser])
 
   const cancelDownwardReferral = useCallback((referralId, reason) => {
+    const normalizedReason = normalizeStructuredReasonSelection(reason, CANCEL_REASON_OPTIONS)
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       return {
         ...r,
         status: DOWNWARD_STATUS.CANCELLED,
-        closeReason: reason,
+        closeReason: normalizedReason.label,
+        cancelReasonCode: normalizedReason.reasonCode,
+        cancelReasonText: normalizedReason.reasonText,
         updatedAt: new Date().toISOString(),
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '撤销下转申请', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: '撤销下转申请', note: normalizedReason.label },
         ],
       }
     }))
@@ -788,14 +830,14 @@ export function AppProvider({ children }) {
     addNotification({
       type: 'downward_cancelled',
       title: '下转申请已撤销',
-      content: `下转申请已撤销，原因：${reason}`,
+      content: `下转申请已撤销，原因：${normalizedReason.label}`,
       targetRole: ROLES.PRIMARY,
       referralId,
     })
     addNotification({
       type: 'downward_cancelled',
       title: '下转申请已撤销',
-      content: `下转申请已撤销，原因：${reason}`,
+      content: `下转申请已撤销，原因：${normalizedReason.label}`,
       targetRole: ROLES.PRIMARY_HEAD,
       referralId,
     })
@@ -806,10 +848,17 @@ export function AppProvider({ children }) {
   const reopenReferral = useCallback((referralId) => {
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
+      const isDownward = r.type === 'downward'
+      if (isDownward) {
+        return buildDownwardReopenState(r, currentUser, new Date().toISOString())
+      }
       return {
         ...r,
-        status: UPWARD_STATUS.PENDING,
+        status: isDownward ? DOWNWARD_STATUS.PENDING : UPWARD_STATUS.PENDING,
         rejectReason: null,
+        returnReason: null,
+        coordinatorRejectReason: null,
+        coordinatorReturnReason: null,
         assignedDoctor: null,
         assignedDoctorId: null,
         assignedDoctorName: null,
@@ -817,8 +866,16 @@ export function AppProvider({ children }) {
         updatedAt: new Date().toISOString(),
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '修改重提：申请重置为待审核，经办医生已清空' },
-          { time: new Date().toISOString(), actor: '系统', action: '通知推送至县级接诊科室（重提）' },
+          {
+            time: new Date().toISOString(),
+            actor: currentUser.name,
+            action: isDownward ? '修改重提：申请重置为待接收' : '修改重提：申请重置为待审核，经办医生已清空',
+          },
+          {
+            time: new Date().toISOString(),
+            actor: '系统',
+            action: isDownward ? '通知推送至基层接收机构（重提）' : '通知推送至县级接诊科室（重提）',
+          },
         ],
       }
     }))
@@ -826,6 +883,11 @@ export function AppProvider({ children }) {
 
   // 终止申请 / 关闭申请（通用）
   const closeReferral = useCallback((referralId, reason) => {
+    const ref = referrals.find(r => r.id === referralId)
+    const normalizedReason = normalizeStructuredReasonSelection(
+      reason,
+      ref?.type === 'downward' ? DOWNWARD_CLOSE_REASON_OPTIONS : UPWARD_CLOSE_REASON_OPTIONS,
+    )
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const closedStatus = r.type === 'downward' ? DOWNWARD_STATUS.CLOSED : UPWARD_STATUS.CLOSED
@@ -834,7 +896,9 @@ export function AppProvider({ children }) {
       return {
         ...r,
         status: closedStatus,
-        closeReason: reason,
+        closeReason: normalizedReason.label,
+        closeReasonCode: normalizedReason.reasonCode,
+        closeReasonText: normalizedReason.reasonText,
         closedAt: new Date().toISOString(),
         closedBy: currentUser.id,
         updatedAt: new Date().toISOString(),
@@ -845,16 +909,21 @@ export function AppProvider({ children }) {
         bedStatus: newBedStatus,
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '终止/关闭转诊申请', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: '终止/关闭转诊申请', note: normalizedReason.label },
           { time: new Date().toISOString(), actor: '系统', action: '状态变更为已关闭，已通知双方医生' },
           ...(newBedStatus === 'bed_released' ? [{ time: new Date().toISOString(), actor: '系统', action: '床位已释放（申请关闭）' }] : []),
         ],
       }
     }))
-  }, [currentUser])
+  }, [currentUser, referrals])
 
   // CHG-35 / CHG-39：协商关闭（上下转转诊中阶段）
   const collaborativeCloseReferral = useCallback((referralId, reason) => {
+    const ref = referrals.find(r => r.id === referralId)
+    const normalizedReason = normalizeStructuredReasonSelection(
+      reason,
+      ref?.type === 'downward' ? DOWNWARD_CLOSE_REASON_OPTIONS : UPWARD_CLOSE_REASON_OPTIONS,
+    )
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const newBedStatus = r.bedStatus === 'bed_reserved' ? 'bed_released' : r.bedStatus
@@ -862,7 +931,9 @@ export function AppProvider({ children }) {
       return {
         ...r,
         status: r.type === 'downward' ? DOWNWARD_STATUS.CLOSED : UPWARD_STATUS.CLOSED,
-        closeReason: reason,
+        closeReason: normalizedReason.label,
+        closeReasonCode: normalizedReason.reasonCode,
+        closeReasonText: normalizedReason.reasonText,
         closedAt: new Date().toISOString(),
         closedBy: currentUser.id,
         updatedAt: new Date().toISOString(),
@@ -873,16 +944,15 @@ export function AppProvider({ children }) {
         bedStatus: newBedStatus,
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: 'COLLABORATIVE_CLOSE', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: 'COLLABORATIVE_CLOSE', note: normalizedReason.label },
           ...(nextAppointmentStatus === 'released' ? [{ time: new Date().toISOString(), actor: '系统', action: '预约码已释放（协商关闭）' }] : []),
           ...(newBedStatus === 'bed_released' ? [{ time: new Date().toISOString(), actor: '系统', action: '床位已释放（协商关闭）' }] : []),
-          { time: new Date().toISOString(), actor: '系统', action: `转诊单已协商关闭：${reason}` },
+          { time: new Date().toISOString(), actor: '系统', action: `转诊单已协商关闭：${normalizedReason.label}` },
         ],
       }
     }))
 
-    const ref = referrals.find(r => r.id === referralId)
-    const content = `转诊单已协商关闭：${reason}`
+    const content = `转诊单已协商关闭：${normalizedReason.label}`
     if (ref?.type === 'downward') {
       addNotification({ type: 'collaborative_closed', title: '下转单已协商关闭', content, targetRole: ROLES.COUNTY, referralId })
       addNotification({ type: 'collaborative_closed', title: '下转单已协商关闭', content, targetRole: ROLES.PRIMARY, referralId })
@@ -1063,6 +1133,7 @@ export function AppProvider({ children }) {
   const rejectDownwardReferral = useCallback((referralId, reason) => {
     const target = referrals.find(r => r.id === referralId)
     if (!target) return
+    const normalizedReason = normalizeStructuredReasonSelection(reason, DOWNWARD_DOCTOR_REJECT_REASON_OPTIONS)
     const rejectedAt = new Date().toISOString()
     const shouldRouteToCoordinator = ['designated', 'coordinator', 'coordinator_reassign'].includes(target.allocationMode || '')
     setReferrals(prev => prev.map(r => {
@@ -1071,11 +1142,13 @@ export function AppProvider({ children }) {
         return {
           ...r,
           status: DOWNWARD_STATUS.REJECTED,
-          rejectReason: reason,
+          rejectReason: normalizedReason.label,
+          doctorRejectReasonCode: normalizedReason.reasonCode,
+          doctorRejectReasonText: normalizedReason.reasonText,
           updatedAt: rejectedAt,
           logs: [
             ...r.logs,
-            { time: rejectedAt, actor: currentUser.name, action: '拒绝下转申请', note: reason },
+            { time: rejectedAt, actor: currentUser.name, action: '拒绝下转申请', note: normalizedReason.label },
           ],
         }
       }
@@ -1093,7 +1166,7 @@ export function AppProvider({ children }) {
         rejectedDoctorIds: Array.from(new Set([...(r.rejectedDoctorIds || []), currentUser.id])),
         designatedDoctorRejectLog: [
           ...(r.designatedDoctorRejectLog || []),
-          { time: rejectedAt, doctorId: currentUser.id, doctorName: currentUser.name, reason },
+          { time: rejectedAt, doctorId: currentUser.id, doctorName: currentUser.name, reason: normalizedReason.label, reasonCode: normalizedReason.reasonCode, reasonText: normalizedReason.reasonText },
         ],
         coordinatorActionLog: [
           ...(r.coordinatorActionLog || []),
@@ -1106,7 +1179,7 @@ export function AppProvider({ children }) {
             time: rejectedAt,
             actor: currentUser.name,
             action: target.allocationMode === 'designated' ? 'DESIGNATED_DOCTOR_REJECT' : 'COORDINATOR_ASSIGNED_DOCTOR_REJECT',
-            note: reason,
+            note: normalizedReason.label,
           },
           { time: rejectedAt, actor: '系统', action: '已转交基层转诊负责人改派处理' },
         ],
@@ -1162,51 +1235,58 @@ export function AppProvider({ children }) {
     const acceptedAt = new Date().toISOString()
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
-      return {
-        ...r,
-        status: DOWNWARD_STATUS.IN_TRANSIT,
-        allocationMode: r.allocationMode === 'coordinator' ? 'coordinator' : 'coordinator_reassign',
-        designatedDoctorId: currentUser.id,
-        designatedDoctorName: currentUser.name,
-        downwardAssignedDoctorId: currentUser.id,
-        downwardAssignedDoctorName: currentUser.name,
-        coordinatorActionAt: acceptedAt,
-        coordinatorActionLog: [
-          ...(r.coordinatorActionLog || []),
-          { time: acceptedAt, actorId: currentUser.id, actorName: currentUser.name, action: '负责人本人接收' },
-        ],
-        updatedAt: acceptedAt,
-        logs: [
-          ...r.logs,
-          { time: acceptedAt, actor: currentUser.name, action: 'COORDINATOR_SELF_ACCEPT', note: '基层转诊负责人本人直接接收' },
-          { time: acceptedAt, actor: '系统', action: '自动创建随访任务' },
-        ],
-      }
+      return buildDownwardSelfAcceptState(r, currentUser, acceptedAt)
     }))
   }, [currentUser])
 
   const rejectDownwardByCoordinator = useCallback((referralId, reason) => {
     const rejectedAt = new Date().toISOString()
+    const target = referrals.find(r => r.id === referralId)
+    const normalizedReason = normalizeStructuredReasonSelection(reason, DOWNWARD_INSTITUTION_RETURN_REASON_OPTIONS)
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       return {
         ...r,
-        status: DOWNWARD_STATUS.REJECTED,
-        rejectReason: reason,
-        coordinatorRejectReason: reason,
+        status: DOWNWARD_STATUS.RETURNED,
+        rejectReason: normalizedReason.label,
+        rejectReasonCode: normalizedReason.reasonCode,
+        rejectReasonText: normalizedReason.reasonText,
+        returnReason: normalizedReason.label,
+        institutionRejectReasonCode: normalizedReason.reasonCode,
+        institutionRejectReasonText: normalizedReason.reasonText,
+        coordinatorRejectReason: normalizedReason.label,
+        coordinatorReturnReason: normalizedReason.label,
         coordinatorActionAt: rejectedAt,
         coordinatorActionLog: [
           ...(r.coordinatorActionLog || []),
-          { time: rejectedAt, actorId: currentUser.id, actorName: currentUser.name, action: '本机构无法承接', reason },
+          { time: rejectedAt, actorId: currentUser.id, actorName: currentUser.name, action: '退回下转申请', reason: normalizedReason.label, reasonCode: normalizedReason.reasonCode, reasonText: normalizedReason.reasonText },
         ],
         updatedAt: rejectedAt,
         logs: [
           ...r.logs,
-          { time: rejectedAt, actor: currentUser.name, action: 'COORDINATOR_INSTITUTION_REJECT', note: reason },
+          { time: rejectedAt, actor: currentUser.name, action: 'COORDINATOR_INSTITUTION_RETURN', note: normalizedReason.label },
+          { time: rejectedAt, actor: '系统', action: '通知县级发起医生：下转申请已退回', note: normalizedReason.label },
         ],
       }
     }))
-  }, [currentUser])
+
+    if (target) {
+      addNotification({
+        type: 'downward_returned',
+        title: '下转申请已退回',
+        content: `患者${target.patient?.name}的下转申请已被基层机构退回，原因：${normalizedReason.label}`,
+        targetRole: ROLES.COUNTY,
+        referralId,
+      })
+      addNotification({
+        type: 'downward_returned',
+        title: '下转申请已退回',
+        content: `患者${target.patient?.name}的下转申请已被基层机构退回，原因：${normalizedReason.label}`,
+        targetRole: ROLES.COUNTY2,
+        referralId,
+      })
+    }
+  }, [addNotification, currentUser, referrals])
 
   // 下转超时7天自动关闭（G1决策，state-machine.md 2026-03-25确认）
   const closeDownwardByTimeout = useCallback((referralId) => {
@@ -1560,13 +1640,16 @@ export function AppProvider({ children }) {
 
   // CHG-32：科主任拒绝院内审核 → DRAFT（在原单修改重提）
   const rejectInternalReview = useCallback((referralId, reason) => {
+    const normalizedReason = normalizeStructuredReasonSelection(reason, INTERNAL_REJECT_REASON_OPTIONS)
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const auditEntry = {
         time: new Date().toISOString(),
         actor: currentUser.name,
         action: '院内审核拒绝',
-        comment: reason,
+        comment: null,
+        rejectReasonCode: normalizedReason.reasonCode,
+        rejectReasonText: normalizedReason.reasonText,
         result: 'rejected',
       }
       return {
@@ -1576,7 +1659,7 @@ export function AppProvider({ children }) {
         updatedAt: new Date().toISOString(),
         logs: [
           ...r.logs,
-          { time: new Date().toISOString(), actor: currentUser.name, action: '院内审核拒绝，退回修改', note: reason },
+          { time: new Date().toISOString(), actor: currentUser.name, action: '院内审核拒绝，退回修改', note: normalizedReason.label },
           { time: new Date().toISOString(), actor: '系统', action: '申请退回为草稿，请在原单上修改后重提' },
         ],
       }
@@ -1585,7 +1668,7 @@ export function AppProvider({ children }) {
     addNotification({
       type: 'internal_review_rejected',
       title: '❌ 院内审核未通过，请修改重提',
-      content: `患者${ref?.patient?.name}的上转申请院内审核未通过，原因：${reason}。请修改后重新提交。`,
+      content: `患者${ref?.patient?.name}的上转申请院内审核未通过，原因：${normalizedReason.label}。请修改后重新提交。`,
       targetRole: ROLES.PRIMARY,
       referralId,
     })

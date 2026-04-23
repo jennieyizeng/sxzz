@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
+import { getDownwardDisplayStatus, matchesDownwardDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 function RowNo({ n }) {
   return (
@@ -14,7 +15,7 @@ function RowNo({ n }) {
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
-const STATUS_FILTERS = ['全部', '待接收', '待内审', '转诊中', '已完成', '已拒绝', '已撤销', '已关闭']
+const STATUS_FILTERS = ['全部', '待接收', '转诊中', '已完成', '已退回', '已撤销', '已关闭']
 
 function getAllocationLabel(ref) {
   const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
@@ -24,6 +25,7 @@ function getAllocationLabel(ref) {
 }
 
 function getOwnerLabel(ref) {
+  if (getDownwardDisplayStatus(ref) === DOWNWARD_STATUS.RETURNED) return '机构已退回'
   if (ref.downwardAssignedDoctorName) return ref.downwardAssignedDoctorName
   if (ref.designatedDoctorName) return ref.designatedDoctorName
   if ((ref.allocationMode || 'coordinator') === 'coordinator_reassign') return '基层负责人改派中'
@@ -51,15 +53,21 @@ export default function DownwardList() {
   const [filter, setFilter] = useState('全部')
   const [search, setSearch] = useState('')
   const isCoordinator = currentUser.role === ROLES.PRIMARY_HEAD
+  const viewer = { role: currentUser.role, userId: currentUser.id }
 
   const scopedDownward = referrals.filter(r => {
     if (r.type !== 'downward' || r.toInstitution !== currentUser.institution) return false
     const mode = r.allocationMode || (r.designatedDoctorId ? 'designated' : 'coordinator')
+    const displayStatus = getDownwardDisplayStatus(r, viewer)
     if (isCoordinator) {
+      if (displayStatus === DOWNWARD_STATUS.RETURNED) return true
       if (r.status === DOWNWARD_STATUS.PENDING_INTERNAL_REVIEW || r.status === DOWNWARD_STATUS.PENDING) {
         return mode === 'coordinator' || mode === 'coordinator_reassign' || r.designatedDoctorId === currentUser.id
       }
       return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id || mode === 'coordinator_reassign'
+    }
+    if (displayStatus === DOWNWARD_STATUS.RETURNED) {
+      return r.designatedDoctorId === currentUser.id || r.downwardAssignedDoctorId === currentUser.id
     }
     if (r.status === DOWNWARD_STATUS.PENDING) {
       return r.designatedDoctorId === currentUser.id
@@ -67,7 +75,7 @@ export default function DownwardList() {
     return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id
   })
   const filtered = scopedDownward
-    .filter(r => filter === '全部' || r.status === filter)
+    .filter(r => matchesDownwardDisplayStatus(r, filter, viewer))
     .filter(r => !search || r.patient.name.includes(search) || r.diagnosis.name.includes(search))
   const pendingForMeCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && r.designatedDoctorId === currentUser.id).length
   const pendingAssignCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && (r.allocationMode || 'coordinator') === 'coordinator').length
@@ -174,7 +182,7 @@ export default function DownwardList() {
                     <div className="text-[11px] text-amber-600 mt-0.5">已拒绝 {ref.rejectedDoctorIds.length} 次</div>
                   )}
                 </td>
-                <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                <td className={TD}><StatusBadge status={getDownwardDisplayStatus(ref, viewer)} size="sm" /></td>
                 <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleDateString('zh-CN')}</td>
                 <td className={TD} onClick={e => e.stopPropagation()}>
                   <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>

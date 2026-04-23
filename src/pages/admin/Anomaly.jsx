@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { UPWARD_STATUS, DOWNWARD_STATUS, MOCK_USERS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
+import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 
 function hoursAgo(iso, nowTs) {
   const h = Math.floor((nowTs - new Date(iso)) / 3600000)
@@ -85,7 +86,7 @@ export default function AdminAnomaly() {
 
   // 被拒绝
   const rejectedRefs = referrals.filter(r =>
-    r.status === UPWARD_STATUS.REJECTED || r.status === DOWNWARD_STATUS.REJECTED
+    r.status === UPWARD_STATUS.REJECTED || getReferralDisplayStatus(r) === DOWNWARD_STATUS.RETURNED
   )
 
   const countyDoctors = useMemo(() => {

@@ -1,0 +1,195 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 李
+        - generic [ref=e13]:
+          - generic [ref=e14]: 李志远
+          - generic [ref=e15]: xx市人民医院
+      - generic [ref=e17]: 县级医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /county/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转入管理 ›" [ref=e294] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转入管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "待受理转入" [ref=e295] [cursor=pointer]:
+            - /url: /county/review-list
+          - link "转入记录" [ref=e296] [cursor=pointer]:
+            - /url: /county/referral-records
+      - generic [ref=e31]:
+        - button "⬇️ 转出管理 ›" [ref=e297] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转出管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "发起转出" [ref=e298] [cursor=pointer]:
+            - /url: /county/create-downward
+          - link "转出记录" [ref=e299] [cursor=pointer]:
+            - /url: /county/downward-records
+      - link "🔔 消息中心" [ref=e300] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e41]: 🔔
+        - generic [ref=e42]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link [ref=e301] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+        - link "李" [ref=e302] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e303]:
+        - generic [ref=e304]:
+          - heading "首页" [level=2] [ref=e305]
+          - generic [ref=e306]: 李志远 · xx市人民医院 · 内科
+        - generic [ref=e307]:
+          - generic [ref=e308] [cursor=pointer]:
+            - generic [ref=e309]: ⏳
+            - generic [ref=e310]:
+              - generic [ref=e311]: 待受理转入
+              - generic [ref=e312]:
+                - generic [ref=e313]: 待处理 1
+                - generic [ref=e314]: 今日 1
+          - generic [ref=e315] [cursor=pointer]:
+            - generic [ref=e316]: 🏥
+            - generic [ref=e317]:
+              - generic [ref=e318]: 进行中转入
+              - generic [ref=e319]:
+                - generic [ref=e320]: 我负责 3
+                - generic [ref=e321]: 今日更新 3
+          - generic [ref=e322] [cursor=pointer]:
+            - generic [ref=e323]: ⬇️
+            - generic [ref=e324]:
+              - generic [ref=e325]: 我发起的转出
+              - generic [ref=e326]:
+                - generic [ref=e327]: 待接收 1
+                - generic [ref=e328]: 转诊中 0
+                - generic [ref=e329]: 已完成 0
+                - generic [ref=e330]: 已退回 1
+          - generic [ref=e331] [cursor=pointer]:
+            - generic [ref=e332]: 🔔
+            - generic [ref=e333]:
+              - generic [ref=e334]: 消息通知
+              - generic [ref=e335]:
+                - generic [ref=e336]: 未读 0
+                - generic [ref=e337]: 总计 0
+        - generic [ref=e339]:
+          - generic [ref=e340]:
+            - generic [ref=e341]:
+              - generic [ref=e342]:
+                - generic [ref=e343]: ⏳ 待处理转入
+                - generic [ref=e344]: "1"
+              - button "查看全部 →" [ref=e345] [cursor=pointer]
+            - table [ref=e346]:
+              - rowgroup [ref=e347]:
+                - row "序号 患者姓名 性别/年龄 诊断 转出机构 经治医生 转入科室 状态 申请时间 操作" [ref=e348]:
+                  - columnheader "序号" [ref=e349]
+                  - columnheader "患者姓名" [ref=e350]
+                  - columnheader "性别/年龄" [ref=e351]
+                  - columnheader "诊断" [ref=e352]
+                  - columnheader "转出机构" [ref=e353]
+                  - columnheader "经治医生" [ref=e354]
+                  - columnheader "转入科室" [ref=e355]
+                  - columnheader "状态" [ref=e356]
+                  - columnheader "申请时间" [ref=e357]
+                  - columnheader "操作" [ref=e358]
+              - rowgroup [ref=e359]:
+                - row "1 陈大明52岁 男/52岁 单侧原发性髋关节炎 xx市永兴镇卫生院 刘医生 骨科 待受理 2026/04/20 04:59:43 详情 受理 拒绝" [ref=e360] [cursor=pointer]:
+                  - cell "1" [ref=e361]:
+                    - generic [ref=e362]: "1"
+                  - cell "陈大明52岁" [ref=e363]
+                  - cell "男/52岁" [ref=e364]
+                  - cell "单侧原发性髋关节炎" [ref=e365]
+                  - cell "xx市永兴镇卫生院" [ref=e366]
+                  - cell "刘医生" [ref=e367]
+                  - cell "骨科" [ref=e368]
+                  - cell "待受理" [ref=e369]:
+                    - generic [ref=e370]: 待受理
+                  - cell "2026/04/20 04:59:43" [ref=e372]
+                  - cell "详情 受理 拒绝" [ref=e373]:
+                    - button "详情" [ref=e374]
+                    - button "受理" [ref=e375]
+                    - button "拒绝" [ref=e376]
+          - generic [ref=e377]:
+            - generic [ref=e378]:
+              - generic [ref=e379]:
+                - generic [ref=e380]: 我负责的进行中转入
+                - generic [ref=e381]: "3"
+              - generic [ref=e382]:
+                - button "+ 发起转出" [ref=e383] [cursor=pointer]
+                - button "查看全部" [ref=e384] [cursor=pointer]
+            - table [ref=e385]:
+              - rowgroup [ref=e386]:
+                - row "序号 患者姓名 性别/年龄 诊断 转出机构 经治医生 转入科室 状态 申请时间 操作" [ref=e387]:
+                  - columnheader "序号" [ref=e388]
+                  - columnheader "患者姓名" [ref=e389]
+                  - columnheader "性别/年龄" [ref=e390]
+                  - columnheader "诊断" [ref=e391]
+                  - columnheader "转出机构" [ref=e392]
+                  - columnheader "经治医生" [ref=e393]
+                  - columnheader "转入科室" [ref=e394]
+                  - columnheader "状态" [ref=e395]
+                  - columnheader "申请时间" [ref=e396]
+                  - columnheader "操作" [ref=e397]
+              - rowgroup [ref=e398]:
+                - row "1 李四52岁 女/52岁 急性上呼吸道感染 xx市拱星镇卫生院 王医生 呼吸科 转诊中 2026/04/19 07:59:43 详情" [ref=e399] [cursor=pointer]:
+                  - cell "1" [ref=e400]:
+                    - generic [ref=e401]: "1"
+                  - cell "李四52岁" [ref=e402]
+                  - cell "女/52岁" [ref=e403]
+                  - cell "急性上呼吸道感染" [ref=e404]
+                  - cell "xx市拱星镇卫生院" [ref=e405]
+                  - cell "王医生" [ref=e406]
+                  - cell "呼吸科" [ref=e407]
+                  - cell "转诊中" [ref=e408]:
+                    - generic [ref=e409]: 转诊中
+                  - cell "2026/04/19 07:59:43" [ref=e411]
+                  - cell "详情" [ref=e412]:
+                    - button "详情" [ref=e413]
+                - row "2 刘淑芬61岁 女/61岁 脑梗死 xx市孝德镇卫生院 刘医生 神经内科 转诊中 2026/04/20 04:59:43 详情" [ref=e414] [cursor=pointer]:
+                  - cell "2" [ref=e415]:
+                    - generic [ref=e416]: "2"
+                  - cell "刘淑芬61岁" [ref=e417]
+                  - cell "女/61岁" [ref=e418]
+                  - cell "脑梗死" [ref=e419]
+                  - cell "xx市孝德镇卫生院" [ref=e420]
+                  - cell "刘医生" [ref=e421]
+                  - cell "神经内科" [ref=e422]
+                  - cell "转诊中" [ref=e423]:
+                    - generic [ref=e424]: 转诊中
+                  - cell "2026/04/20 04:59:43" [ref=e426]
+                  - cell "详情" [ref=e427]:
+                    - button "详情" [ref=e428]
+                - row "3 谢大勇74岁 男/74岁 陈旧性心肌梗死 xx市清平乡卫生院 吴医生 心血管科 转诊中 2026/04/19 03:59:43 详情" [ref=e429] [cursor=pointer]:
+                  - cell "3" [ref=e430]:
+                    - generic [ref=e431]: "3"
+                  - cell "谢大勇74岁" [ref=e432]
+                  - cell "男/74岁" [ref=e433]
+                  - cell "陈旧性心肌梗死" [ref=e434]
+                  - cell "xx市清平乡卫生院" [ref=e435]
+                  - cell "吴医生" [ref=e436]
+                  - cell "心血管科" [ref=e437]
+                  - cell "转诊中" [ref=e438]:
+                    - generic [ref=e439]: 转诊中
+                  - cell "2026/04/19 03:59:43" [ref=e441]
+                  - cell "详情" [ref=e442]:
+                    - button "详情" [ref=e443]

@@ -1,6 +1,7 @@
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ROLES, UPWARD_STATUS, DOWNWARD_STATUS } from '../../data/mockData'
+import { getDownwardDisplayStatus, getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 import StatusBadge from '../../components/StatusBadge'
 import { canCurrentCountyDoctorViewIncomingReferral, isAssignedToCurrentCountyDoctor, matchesDepartmentScope } from '../../utils/countyReferralAccess'
 
@@ -67,6 +68,7 @@ export default function CountyDashboard() {
             { label: '待接收', value: downwardRecords.filter(r => r.status === DOWNWARD_STATUS.PENDING).length, color: '#10b981' },
             { label: '转诊中', value: downwardRecords.filter(r => r.status === DOWNWARD_STATUS.IN_TRANSIT).length, color: '#f59e0b' },
             { label: '已完成', value: downwardRecords.filter(r => r.status === DOWNWARD_STATUS.COMPLETED).length, color: '#0892a0' },
+            { label: '已退回', value: downwardRecords.filter(r => getDownwardDisplayStatus(r) === DOWNWARD_STATUS.RETURNED).length, color: '#f97316' },
           ]}
           onClick={() => navigate('/county/downward-records')}
         />
@@ -140,7 +142,7 @@ export default function CountyDashboard() {
                        <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
                        <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
                        <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
-                       <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
+                       <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref, { role: currentUser.role, userId: currentUser.id })} size="sm" /></td>
                        <td className={TD + ' text-xs text-gray-400'}>{fmtDateTime(ref.createdAt)}</td>
                        <td className={TD} onClick={e => e.stopPropagation()}>
                          <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>

@@ -43,7 +43,7 @@ export const SYSTEM_INSTITUTION_OPTIONS = [
 ]
 
 export const SYSTEM_INSTITUTION_CONFIGS = [
-  { id: 'I001', name: 'xx市人民医院', code: '5106820001', type: '县级医院', contact: '张主任', phone: '0838-6201234', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: 'ed_duty_001', emergencyDutyContactName: '周主任', emergencyDeptPhone: '0838-6213200' },
+  { id: 'I001', name: 'xx市人民医院', code: '5106820001', type: '县级医院', contact: '张主任', phone: '0838-6201234', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: 'ed_duty_001', emergencyDutyContactName: '周主任', emergencyDeptPhone: '0838-6213200', patientNoticeTemplate: '1. 携带身份证、医保卡、本转诊短信及既往检查资料\n2. 到院后前往[接诊科室]挂号窗口，出示预约码[预约码]优先排队\n3. 住院患者请至[病区]办理，床位[床位号]，护士站电话[护士站电话]\n4. 到院后仍需正常挂号缴费，医保按分级诊疗政策执行' },
   { id: 'I002', name: 'xx市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', canUp: true, canDown: true, enabled: true },
   { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', canUp: true, canDown: false, enabled: true },
   { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', canUp: true, canDown: true, enabled: true },
@@ -210,7 +210,7 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
 ]
 
 export const SYSTEM_OPERATION_LOG_TYPES = ['全部', '角色权限变更', '机构信息变更', '系统配置变更']
-export const SYSTEM_OPERATION_LOG_DOMAINS = ['全部', '机构配置', '角色管理', '表单模板', '病种配置', '通知模板', '审核规则', '超时规则']
+export const SYSTEM_OPERATION_LOG_DOMAINS = ['全部', '机构配置', '角色管理', '专病规则配置', '通知模板', '审核规则', '超时规则']
 
 export let SYSTEM_OPERATION_LOGS = [
   {
@@ -264,20 +264,9 @@ export let SYSTEM_OPERATION_LOGS = [
     role: '系统管理员',
     domain: '超时规则',
     type: '系统配置变更',
-    target: '转入受理超时规则',
+    target: '普通上转无人受理',
     result: '成功',
-    detail: { 配置项: '超时规则', 环节: '县级医生受理', 原值: '24小时', 新值: '12小时', 变更原因: '缩短待受理超时阈值' },
-  },
-  {
-    id: 'LOG006',
-    time: '2026-03-15 08:30',
-    operator: SYSTEM_ADMIN_OPERATOR,
-    role: '系统管理员',
-    domain: '表单模板',
-    type: '系统配置变更',
-    target: '转诊单模板',
-    result: '失败',
-    detail: { 配置项: '转诊单模板', 变更字段: '主诉字段必填', 原值: '否', 新值: '是', 失败原因: '模板版本冲突，已回滚' },
+    detail: { 配置项: '关键业务时限', 环节: '普通上转无人受理', 原值: '2小时', 新值: '1小时', 变更原因: '缩短转诊中心接管前等待时长' },
   },
 ]
 
@@ -411,122 +400,152 @@ export const SYSTEM_NOTIFY_SMS_TEMPLATES = [
   },
 ]
 
-export const SYSTEM_TIMEOUT_UP_RULES = [
+export const SYSTEM_TIMEOUT_RULES = [
   {
-    id: 'u1',
-    stage: '县级医生受理',
-    stageNote: '待受理 → 转诊中',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['县级医生', '管理员'],
-    enabled: true,
+    id: 'timeout-upward-unclaimed',
+    businessStep: '普通上转无人受理',
+    defaultLimit: '2 小时',
+    timeoutAction: '超时后转诊中心接管',
+    adjustable: true,
+    threshold: { value: 2, unit: 'hour', min: 1, max: 4 },
+    readonlyHint: '普通上转发出后，若规定时间内无人受理，系统将提醒并转由转诊中心跟进。',
+    lastModified: '2026-04-23 10:00',
+    lastModifiedBy: SYSTEM_ADMIN_OPERATOR,
   },
   {
-    id: 'u2',
-    stage: '转诊中心完成接诊确认',
-    stageNote: '转诊中 → 已完成',
-    thresholdValue: 48,
-    thresholdUnit: '小时',
-    autoAction: '提醒转诊中心确认或协商关闭',
-    notifyTargets: ['管理员'],
-    enabled: true,
+    id: 'timeout-upward-arrangement',
+    businessStep: '接诊安排未完成',
+    defaultLimit: '2 小时',
+    timeoutAction: '超时后催办转诊中心',
+    adjustable: true,
+    threshold: { value: 2, unit: 'hour', min: 1, max: 4 },
+    readonlyHint: '接诊安排在规定时间内未完成时，系统将持续提醒转诊中心尽快补齐安排信息。',
+    lastModified: '2026-04-23 10:05',
+    lastModifiedBy: SYSTEM_ADMIN_OPERATOR,
   },
   {
-    id: 'u3',
-    stage: '基层机构响应转出接收',
-    stageNote: '待接收 → 转诊中',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['基层医生', '管理员'],
-    enabled: true,
-  },
-  {
-    id: 'u4',
-    stage: '患者取消冷静期',
-    stageNote: '',
-    thresholdValue: 2,
-    thresholdUnit: '小时',
-    autoAction: '自动解除冻结',
-    notifyTargets: ['患者（短信）'],
-    enabled: false,
+    id: 'timeout-downward-doctor',
+    businessStep: '下转指定医生未响应',
+    defaultLimit: '48 小时',
+    timeoutAction: '超时后转负责人改派',
+    adjustable: true,
+    threshold: { value: 48, unit: 'hour', min: 24, max: 72 },
+    readonlyHint: '指定医生超时未响应时，系统将提醒基层负责人接手并完成改派。',
+    lastModified: '2026-04-23 10:08',
+    lastModifiedBy: SYSTEM_ADMIN_OPERATOR,
   },
 ]
 
-export const SYSTEM_TIMEOUT_DOWN_RULES = [
+export const SYSTEM_TIMEOUT_BUILT_IN_RULES = [
   {
-    id: 'd1',
-    stage: '基层侧处理下转分配',
-    stageNote: '待接收/待分配/待改派 → 转诊中',
-    thresholdValue: 24,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['基层医生', '管理员'],
-    enabled: true,
+    id: 'built-in-downward-allocation',
+    businessStep: '下转负责人分配超时',
+    defaultLimit: '24h / 48h / 72h',
+    timeoutAction: '系统按三级提醒逐级催办负责人完成分配',
   },
   {
-    id: 'd2',
-    stage: '基层医生填报康复完成',
-    stageNote: '转诊中 → 已完成',
-    thresholdValue: 72,
-    thresholdUnit: '小时',
-    autoAction: '发送催办通知',
-    notifyTargets: ['基层医生'],
-    enabled: true,
+    id: 'built-in-transfer-closing',
+    businessStep: '转诊中 7 天自动关闭',
+    defaultLimit: '7 天',
+    timeoutAction: '无到院记录时系统自动关闭转诊单',
   },
   {
-    id: 'd3',
-    stage: '知情同意逾期',
-    stageNote: '',
-    thresholdValue: 1,
-    thresholdUnit: '小时',
-    autoAction: '撤回知情同意请求',
-    notifyTargets: ['患者（短信）'],
-    enabled: false,
+    id: 'built-in-emergency-window',
+    businessStep: '急诊 15 分钟紧急修改窗口',
+    defaultLimit: '15 分钟',
+    timeoutAction: '超时后系统自动关闭紧急修改入口',
+  },
+  {
+    id: 'built-in-reservation-expire',
+    businessStep: '预约码 48h 失效',
+    defaultLimit: '48 小时',
+    timeoutAction: '系统自动失效预约码并释放预约资源',
+  },
+  {
+    id: 'built-in-bed-release',
+    businessStep: '床位锁定 48h 释放',
+    defaultLimit: '48 小时',
+    timeoutAction: '系统自动释放锁定床位',
   },
 ]
 
-export const SYSTEM_FORM_UP_FIELDS = [
-  { id: 'f1', name: '患者姓名', section: '患者基础信息', type: '文本', visible: true, required: true, hint: '' },
-  { id: 'f2', name: '身份证号', section: '患者基础信息', type: '文本', visible: true, required: false, hint: '用于身份核验，建议填写' },
-  { id: 'f3', name: '联系电话', section: '患者基础信息', type: '文本', visible: true, required: true, hint: '' },
-  { id: 'f4', name: '初步诊断（ICD-10）', section: '临床信息', type: 'ICD搜索', visible: true, required: true, hint: '' },
-  { id: 'f5', name: '主诉与现病史', section: '临床信息', type: '多行文本', visible: true, required: true, hint: '建议不少于50字' },
-  { id: 'f6', name: '转诊原因', section: '补充信息', type: '多行文本', visible: true, required: true, hint: '' },
-  { id: 'f7', name: '病历附件', section: '补充信息', type: '文件上传', visible: true, required: false, hint: '支持 PDF、图片格式，单文件不超过 10MB' },
-  { id: 'f8', name: '急诊标记', section: '接诊安排', type: '勾选框', visible: true, required: false, hint: '仅限真实急诊情况勾选' },
+export const SYSTEM_DISEASE_CATEGORIES = ['循环系统', '神经系统', '呼吸系统', '内分泌系统', '消化系统', '其他']
+
+export const SYSTEM_DISEASE_SPECIALTY_OPTIONS = ['心内科', '神经内科', '呼吸科', '内分泌科', '消化内科', '急诊科']
+
+export const SYSTEM_DISEASE_POLICY_SCOPE_OPTIONS = [
+  '五大中心-胸痛中心',
+  '五大中心-卒中中心',
+  '五大中心-创伤中心',
+  '慢病管理',
+  '分级诊疗重点病种',
 ]
 
-export const SYSTEM_FORM_DOWN_FIELDS = [
-  { id: 'd1', name: '患者姓名', section: '患者基础信息', type: '文本', visible: true, required: true, hint: '' },
-  { id: 'd2', name: '身份证号', section: '患者基础信息', type: '文本', visible: true, required: false, hint: '用于身份核验，建议填写' },
-  { id: 'd3', name: '联系电话', section: '患者基础信息', type: '文本', visible: true, required: true, hint: '' },
-  { id: 'd4', name: '出院诊断', section: '临床信息', type: 'ICD搜索', visible: true, required: true, hint: '' },
-  { id: 'd5', name: '住院小结', section: '临床信息', type: '多行文本', visible: true, required: true, hint: '包含治疗经过、用药情况' },
-  { id: 'd6', name: '康复方案', section: '补充信息', type: '多行文本', visible: true, required: true, hint: '' },
-  { id: 'd7', name: '注意事项', section: '接诊安排', type: '多行文本', visible: false, required: false, hint: '建议填写用药禁忌、复查时间' },
-  { id: 'd8', name: '下转病历附件', section: '补充信息', type: '文件上传', visible: true, required: false, hint: '支持 PDF、图片格式，单文件不超过 10MB' },
+export const SYSTEM_TERMINOLOGY_ICD10_MASTER = [
+  { id: 'ICD001', code: 'I21', name: '急性心肌梗死', category: '循环系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD002', code: 'I63.9', name: '脑梗死', category: '神经系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD003', code: 'I50.9', name: '心力衰竭', category: '循环系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD004', code: 'I10', name: '原发性高血压', category: '循环系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD005', code: 'J18.9', name: '肺炎', category: '呼吸系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD006', code: 'E11.9', name: '2型糖尿病不伴并发症', category: '内分泌系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD007', code: 'I48.9', name: '心房颤动', category: '循环系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD008', code: 'K92.1', name: '黑粪', category: '消化系统', sourceSystem: '医共体术语信息管理系统' },
 ]
-
-export const SYSTEM_FORM_PHRASES = [
-  { id: 'p1', scene: '转入申请', content: '基层检查设备有限，需上级医院进一步检查明确诊断。' },
-  { id: 'p2', scene: '转入申请', content: '患者病情危重，需上级医院急诊处理。' },
-  { id: 'p3', scene: '退回说明', content: '资料不完整，请补充本次检查结果与转入原因后重新提交。' },
-  { id: 'p4', scene: '随访建议', content: '患者急性期治疗已完成，病情稳定，建议基层继续康复管理并定期复查。' },
-]
-
-export const SYSTEM_DISEASE_CATEGORIES = ['循环系统', '神经系统', '内分泌系统', '呼吸系统', '其他']
 
 export const SYSTEM_DISEASE_CONFIGS = [
-  { id: 'D001', code: 'I10', name: '原发性高血压', category: '循环系统', priority: true, emergencyLinked: false, priorityAccept: true, enabled: true },
-  { id: 'D002', code: 'I63.9', name: '脑梗死', category: '循环系统', priority: true, emergencyLinked: true, priorityAccept: true, enabled: true },
-  { id: 'D003', code: 'E11.9', name: '2型糖尿病不伴并发症', category: '内分泌系统', priority: true, emergencyLinked: false, priorityAccept: false, enabled: true },
-  { id: 'D004', code: 'J18.9', name: '肺炎', category: '呼吸系统', priority: false, emergencyLinked: false, priorityAccept: false, enabled: true },
-  { id: 'D005', code: 'I50.9', name: '心力衰竭', category: '循环系统', priority: true, emergencyLinked: true, priorityAccept: true, enabled: true },
-  { id: 'D006', code: 'G40.9', name: '癫痫', category: '神经系统', priority: false, emergencyLinked: true, priorityAccept: false, enabled: true },
-  { id: 'D007', code: 'K92.1', name: '黑粪', category: '其他', priority: false, emergencyLinked: true, priorityAccept: true, enabled: true },
-  { id: 'D008', code: 'I48.9', name: '心房颤动', category: '循环系统', priority: false, emergencyLinked: false, priorityAccept: false, enabled: true },
-  { id: 'D009', code: 'N18.9', name: '慢性肾脏病', category: '其他', priority: false, emergencyLinked: false, priorityAccept: false, enabled: false },
-  { id: 'D010', code: 'M54.5', name: '腰痛', category: '其他', priority: false, emergencyLinked: false, priorityAccept: false, enabled: false },
+  {
+    id: 'D001',
+    terminologyId: 'ICD001',
+    code: 'I21',
+    name: '急性心肌梗死',
+    category: '循环系统',
+    greenChannel: true,
+    specialty: '心内科',
+    policyScope: '五大中心-胸痛中心',
+    enabled: true,
+  },
+  {
+    id: 'D002',
+    terminologyId: 'ICD002',
+    code: 'I63.9',
+    name: '脑梗死',
+    category: '神经系统',
+    greenChannel: true,
+    specialty: '神经内科',
+    policyScope: '五大中心-卒中中心',
+    enabled: true,
+  },
+  {
+    id: 'D003',
+    terminologyId: 'ICD003',
+    code: 'I50.9',
+    name: '心力衰竭',
+    category: '循环系统',
+    greenChannel: false,
+    specialty: '心内科',
+    policyScope: '慢病管理',
+    enabled: true,
+  },
+  {
+    id: 'D004',
+    terminologyId: 'ICD005',
+    code: 'J18.9',
+    name: '肺炎',
+    category: '呼吸系统',
+    greenChannel: false,
+    specialty: '呼吸科',
+    policyScope: '分级诊疗重点病种',
+    enabled: true,
+  },
+  {
+    id: 'D005',
+    terminologyId: 'ICD006',
+    code: 'E11.9',
+    name: '2型糖尿病不伴并发症',
+    category: '内分泌系统',
+    greenChannel: false,
+    specialty: '内分泌科',
+    policyScope: '慢病管理',
+    enabled: false,
+  },
 ]
