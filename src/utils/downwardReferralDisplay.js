@@ -7,6 +7,11 @@ function asText(value, fallback = '—') {
   return text ? text : fallback
 }
 
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('zh-CN')
+}
+
 const REHAB_GOAL_LABELS = {
   blood_pressure: '血压控制',
   blood_glucose: '血糖监测',
@@ -80,13 +85,6 @@ function getMedicationList(ref) {
   return items.length > 0 ? items : '—'
 }
 
-function splitAttachments(list, category) {
-  const items = Array.isArray(list)
-    ? list.filter(item => (item?.category || 'recommended') === category).map(item => item?.name || item).filter(Boolean)
-    : []
-  return items.length > 0 ? items : '—'
-}
-
 export function formatDownwardAllocationMode(ref) {
   const mode = ref?.allocationMode || (ref?.designatedDoctorId ? 'designated' : 'coordinator')
   if (mode === 'designated') return '指定接收医生'
@@ -136,19 +134,8 @@ function getReviewSuggestions(ref) {
   return items.length > 0 ? items : '—'
 }
 
-function splitSelectedRecommendedAttachments(list) {
-  const items = Array.isArray(list)
-    ? list
-      .filter(item => (item?.category || 'recommended') === 'recommended' && item?.selected !== false)
-      .map(item => item?.name || item)
-      .filter(Boolean)
-    : []
-  return items.length > 0 ? items : '—'
-}
-
 export function getDownwardDetailSections(ref, consentInfo) {
   const monitorIndicators = getDownwardMonitorIndicators(ref)
-  const attachmentList = ref?.attachments || []
   const rehabGoals = formatOptionValues(ref?.rehabGoals, REHAB_GOAL_LABELS, ref?.rehabGoalsOther, ref?.rehabPlan?.rehabSuggestion)
   const nursingPoints = formatOptionValues(ref?.nursingPoints, NURSING_POINT_LABELS, ref?.nursingPointsOther, ref?.rehabPlan?.notes)
   const warningSymptoms = formatOptionValues(ref?.warningSymptoms, WARNING_SYMPTOM_LABELS, ref?.warningSymptomsOther, ref?.rehabPlan?.warningNotes)
@@ -188,8 +175,6 @@ export function getDownwardDetailSections(ref, consentInfo) {
         { label: '继续用药', value: getMedicationList(ref) },
         { label: '用药注意事项', value: getMedicationNotes(ref) },
         { label: '复查建议', value: getReviewSuggestions(ref) },
-        { label: '推荐资料包', value: splitSelectedRecommendedAttachments(attachmentList) },
-        { label: '补充资料', value: splitAttachments(attachmentList, 'supplemental') },
       ],
     },
     {
@@ -226,7 +211,7 @@ export function getDownwardDetailSections(ref, consentInfo) {
         { label: '家属姓名', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyName) : '—' },
         { label: '与患者关系', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyRelation) : '—' },
         { label: '代签原因', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyReason) : '—' },
-        { label: '已上传文件名', value: consentInfo?.fileNames || consentInfo?.fileName || '未上传' },
+        { label: '上传时间', value: formatDateTime(consentInfo?.consentUploadedAt) },
         { label: '状态', value: consentInfo?.isUploaded ? '已完成' : '待补充' },
       ],
     },

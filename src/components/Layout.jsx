@@ -77,6 +77,7 @@ const NAV_CONFIG = {
         { path: '/admin/disease-dir', label: '专病规则配置' },
         { path: '/admin/timeout-config', label: '超时规则' },
         { path: '/admin/notify-template', label: '通知模板' },
+        { path: '/admin/document-template-config', label: '转诊文书模板配置' },
         { path: '/admin/audit-rule-config', label: '审核规则' },
         { path: '/admin/operation-log', label: '操作日志' },
       ]

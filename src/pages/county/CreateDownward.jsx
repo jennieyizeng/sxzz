@@ -1714,6 +1714,7 @@ export default function CreateDownward() {
               confirmationLabel="确认已核对签字文件完整性，上传文件与本次下转申请一致"
               error={consentError}
               signerLabel="签署人类型"
+              signerSelectorVariant="radio"
               uploadLabel="上传签字文件"
               emptyHint="请上传一个或多个签字文件"
               showIntroTitle={false}

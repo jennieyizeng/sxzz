@@ -7,11 +7,7 @@ import ReferralClosureTimeline from '../../components/ReferralClosureTimeline'
 import MinimalArrangementStatusCard from '../../components/MinimalArrangementStatusCard'
 import ArrangementModal from '../../components/ArrangementModal'
 import ReferralSummaryCard from '../../components/ReferralSummaryCard'
-import ClinicalStructuredSection from '../../components/ClinicalStructuredSection'
-import RehabPlanSection from '../../components/RehabPlanSection'
-import AttachmentSection from '../../components/AttachmentSection'
 import StructuredReasonSelector from '../../components/StructuredReasonSelector'
-import { buildClinicalPackage } from '../../utils/clinicalPackage'
 import { getReferralClosureEvents } from '../../utils/referralClosureEvents'
 import { getConsentInfo } from '../../utils/consentUpload'
 import { canViewEmergencyModifyWindowInfo, canViewEmergencyReferralDetail, getEmergencyHospitalConfig } from '../../utils/emergencyReferral'
@@ -19,6 +15,7 @@ import { canCurrentCountyDoctorHandleOrdinaryUpward, canViewCountyUpwardReferral
 import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
 import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
 import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
+import { matchDocumentTemplate } from '../../data/documentTemplateConfig'
 import {
   DEFAULT_PATIENT_NOTICE_TEMPLATE,
   buildMinimalArrangementStatusText,
@@ -26,7 +23,6 @@ import {
   getAppointmentCodeVisibility,
   renderPatientNoticeTemplate,
   shouldShowPatientNotice,
-  shouldShowUpwardLogsTab,
 } from '../../utils/upwardDetailPresentation'
 import {
   buildStructuredReasonText,
@@ -50,6 +46,72 @@ function formatTime(isoStr) {
 function formatDate(dateStr) {
   if (!dateStr) return '—'
   return new Date(dateStr).toLocaleDateString('zh-CN')
+}
+
+function getAttachmentMeta(name = '') {
+  const lowerName = String(name).toLowerCase()
+
+  if (lowerName.endsWith('.pdf')) return { icon: '📄', type: 'PDF' }
+  if (lowerName.endsWith('.jpg') || lowerName.endsWith('.jpeg') || lowerName.endsWith('.png')) {
+    return { icon: '🖼️', type: '图片' }
+  }
+
+  return { icon: '📎', type: '附件' }
+}
+
+function normalizeAttachment(item, fallback = {}) {
+  const name = item?.name || item || fallback.name || '未命名附件'
+  return {
+    name,
+    size: item?.size || fallback.size || '—',
+    source: item?.source || fallback.source || '转诊附件',
+    tag: item?.tag || fallback.tag || '',
+    url: item?.fileUrl || item?.url || fallback.url || null,
+  }
+}
+
+function buildReferralAttachmentGroups(ref, consentInfo) {
+  const groups = []
+  const examAttachments = [
+    ...(Array.isArray(ref?.attachments) ? ref.attachments.map(item => normalizeAttachment(item, {
+      source: ref?.type === 'downward' ? '转出资料' : '检查 / 检验资料',
+      tag: item?.category === 'supplemental' ? '补充资料' : '检查检验',
+    })) : []),
+    ...(Array.isArray(ref?.nursingAttachments) ? ref.nursingAttachments.map(item => normalizeAttachment(item, {
+      source: '护理记录',
+      tag: '护理记录',
+    })) : []),
+  ]
+
+  groups.push({
+    key: 'exam',
+    title: '检查、检验信息',
+    emptyText: '暂无检查、检验附件',
+    items: examAttachments,
+  })
+
+  const consentNames = consentInfo?.fileNames?.length
+    ? consentInfo.fileNames
+    : (consentInfo?.isUploaded ? [consentInfo.fileName || '已上传知情同意书'] : [])
+  const consentUrls = consentInfo?.consentFileUrls?.length
+    ? consentInfo.consentFileUrls
+    : (consentInfo?.consentFileUrl ? [consentInfo.consentFileUrl] : [])
+  const consentItems = consentNames.map((name, index) => normalizeAttachment({
+    name,
+    size: '—',
+    source: `知情同意文件 · ${consentInfo?.signedByLabel || '签署人未记录'}`,
+    tag: consentInfo?.isUploaded ? '已上传' : '待补充',
+    fileUrl: consentUrls[index] || consentUrls[0] || null,
+  }))
+
+  groups.push({
+    key: 'consent',
+    title: '知情同意文件信息',
+    emptyText: consentInfo?.isPendingUpload ? '知情同意文件待补传' : '暂无知情同意文件',
+    items: consentItems,
+  })
+
+  return groups
 }
 
 function renderDetailValue(item) {
@@ -627,6 +689,7 @@ export default function ReferralDetail() {
     reassignDownwardReferral, selfAcceptDownwardReferral, rejectDownwardByCoordinator,
     approveInternalReview, rejectInternalReview, fillAdmissionArrangement, supplementEmergencyAdmission, emergencyModifyReferral,
     markEmergencyFirstViewed, confirmEmergencyPatientNotified,
+    recordReferralDocumentAction,
   } = useApp()
 
   const ref = referrals.find(r => r.id === id)
@@ -671,7 +734,10 @@ export default function ReferralDetail() {
   const isEmergencyReferral = !!ref.is_emergency
   const isRetroEntry = !!ref.isRetroEntry
   const isGreenChannel = ref.referral_type === 'green_channel'  // CHG-30
-  const clinicalPackage = buildClinicalPackage(ref)
+  const documentTemplate = matchDocumentTemplate(ref)
+  const canGenerateFormalDocument = isUpward
+    ? [UPWARD_STATUS.IN_TRANSIT, UPWARD_STATUS.COMPLETED, UPWARD_STATUS.CLOSED].includes(ref.status)
+    : [DOWNWARD_STATUS.IN_TRANSIT, DOWNWARD_STATUS.COMPLETED, DOWNWARD_STATUS.CLOSED].includes(ref.status)
   const emergencyModifiableUntilTs = isEmergencyReferral
     ? new Date(ref.emergencyModifiableUntil || (new Date(new Date(ref.createdAt).getTime() + 15 * 60 * 1000).toISOString())).getTime()
     : null
@@ -686,30 +752,21 @@ export default function ReferralDetail() {
   // CHG-39: 详情页统一使用新知情同意字段，旧字段作为兼容回退
   const consentInfo = getConsentInfo(ref)
   const consentPreviewAvailable = !!consentInfo.consentFileUrl
-  const isTerminalReferralStatus = [
-    UPWARD_STATUS.COMPLETED,
-    UPWARD_STATUS.CANCELLED,
-    UPWARD_STATUS.CLOSED,
-    DOWNWARD_STATUS.COMPLETED,
-    DOWNWARD_STATUS.RETURNED,
-    DOWNWARD_STATUS.CANCELLED,
-    DOWNWARD_STATUS.CLOSED,
-  ].includes(ref.status)
-  const canShowConsentUploadPlaceholder = consentInfo.isPendingUpload && currentUser?.name === ref.fromDoctor && !isTerminalReferralStatus
   const upwardDetailSections = isUpward ? getUpwardDetailSections(ref, consentInfo) : []
   const downwardDetailSections = isDownward ? getDownwardDetailSections(ref, consentInfo) : []
+  const attachmentGroups = buildReferralAttachmentGroups(ref, consentInfo)
   const closureEvents = getReferralClosureEvents(ref)
   const arrangementVisibility = getAdmissionArrangementVisibility({ currentRole, isUpward })
   const appointmentCodeVisibility = getAppointmentCodeVisibility({ currentRole, isUpward, isEmergencyReferral })
-  const showLogsTab = shouldShowUpwardLogsTab({ currentRole, isUpward })
+  const showLogsTab = true
   const patientNoticeTemplate = INSTITUTIONS.find(item => item.name === ref.toInstitution)?.patientNoticeTemplate || DEFAULT_PATIENT_NOTICE_TEMPLATE
   const detailTabs = [
     { key: 'detail', label: '申请详情' },
-    !isDownward ? { key: 'clinical', label: '转诊资料' } : null,
+    { key: 'attachments', label: '转诊附件资料' },
     showLogsTab ? { key: 'logs', label: `操作日志 (${ref.logs?.length || 0})` } : null,
     { key: 'history', label: '患者历史转诊' },
   ].filter(Boolean)
-  const currentTab = isDownward && activeTab === 'clinical' ? 'detail' : activeTab
+  const currentTab = activeTab
 
   // ── 角色操作权限判断 ──
   const isCountyAttendingDoctor = currentRole === ROLES.COUNTY
@@ -721,7 +778,7 @@ export default function ReferralDetail() {
   const isCountyScopedRole = [ROLES.COUNTY, ROLES.COUNTY2].includes(currentRole)
   const upwardDisplayLabel = isPrimaryScopedRole ? '转出' : isCountyScopedRole ? '转入' : '上转'
   const downwardDisplayLabel = isPrimaryScopedRole ? '转入' : isCountyScopedRole ? '转出' : '下转'
-  const currentTransferLabel = isUpward ? upwardDisplayLabel : downwardDisplayLabel
+  const currentTransferLabel = isUpward ? '上转' : '下转'
   const displayedStatus = getReferralDisplayStatus(ref, { role: currentRole, userId: currentUser?.id })
   const isCountyInitiator = isCountyDoctor && currentUser?.name === ref.fromDoctor
   const isDownwardAssignedDoctor = ref.downwardAssignedDoctorId === currentUser?.id
@@ -1067,6 +1124,58 @@ export default function ReferralDetail() {
         : '门诊就诊'}
 如有疑问请联系：${ref.admissionArrangement?.departmentPhone || '—'}`
     : null
+
+  function handleAttachmentAction(item, action) {
+    const actionLabel = action === 'download' ? '下载' : '查看'
+    if (!item.url || String(item.url).startsWith('mock://')) {
+      setDialog({
+        type: 'notice',
+        title: `暂无可${actionLabel}附件`,
+        description: `${item.name || '该附件'}当前只有归档记录，暂未挂载可${actionLabel}的原件。`,
+      })
+      return
+    }
+
+    if (action === 'download') {
+      const anchor = document.createElement('a')
+      anchor.href = item.url
+      anchor.download = item.name || '转诊附件'
+      anchor.click()
+      return
+    }
+
+    window.open(item.url, '_blank', 'noopener,noreferrer')
+  }
+
+  function handleDocumentAction(actionType) {
+    recordReferralDocumentAction(id, {
+      templateId: documentTemplate.id,
+      templateVersion: documentTemplate.version,
+      actionType,
+    })
+
+    if (actionType === '预览') {
+      setDialog({
+        type: 'notice',
+        title: canGenerateFormalDocument ? '双向转诊单预览' : '申请信息预览',
+        description: canGenerateFormalDocument
+          ? `当前使用模板：${documentTemplate.title}（${documentTemplate.id} ${documentTemplate.version}）。`
+          : '当前尚未完成接收确认，仅可预览申请信息，不能正式打印给患者使用。',
+      })
+      return
+    }
+
+    if (actionType === '下载') {
+      setDialog({
+        type: 'notice',
+        title: 'PDF 下载任务已创建',
+        description: `已按模板 ${documentTemplate.id} ${documentTemplate.version} 生成双向转诊单 PDF 下载任务。`,
+      })
+      return
+    }
+
+    window.print()
+  }
 
   return (
     <div className="p-6 max-w-5xl mx-auto">
@@ -1493,10 +1602,37 @@ export default function ReferralDetail() {
               </button>
             )}
 
-            {/* 导出PDF（占位） */}
-            <button className="px-4 py-1.5 text-xs text-gray-500 border border-gray-200 rounded-lg hover:bg-gray-50 transition-colors">
-              📄 导出PDF
-            </button>
+            {canGenerateFormalDocument ? (
+              <>
+                <button
+                  onClick={() => handleDocumentAction('预览')}
+                  className="px-4 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
+                  style={{ borderColor: '#B6EDF2', color: '#0892a0' }}
+                >
+                  预览双向转诊单
+                </button>
+                <button
+                  onClick={() => handleDocumentAction('下载')}
+                  className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  下载 PDF
+                </button>
+                <button
+                  onClick={() => handleDocumentAction('打印')}
+                  className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
+                >
+                  打印
+                </button>
+              </>
+            ) : (
+              <button
+                onClick={() => handleDocumentAction('预览')}
+                className="px-4 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
+                style={{ borderColor: '#B6EDF2', color: '#0892a0' }}
+              >
+                预览申请信息
+              </button>
+            )}
           </div>
         </div>
       </div>
@@ -1570,17 +1706,13 @@ export default function ReferralDetail() {
                 <div className="text-xs text-red-600 mb-2">协商关闭后如需继续转诊至上级机构，可打印或导出当前转诊单。</div>
                 <div className="flex flex-wrap gap-2">
                   <button
-                    onClick={() => window.print()}
+                    onClick={() => handleDocumentAction('打印')}
                     className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
                   >
                     打印转诊单
                   </button>
                   <button
-                    onClick={() => setDialog({
-                      type: 'notice',
-                      title: '导出任务已创建',
-                      description: '转诊单导出任务已创建，请稍后下载 PDF。',
-                    })}
+                    onClick={() => handleDocumentAction('下载')}
                     className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
                   >
                     导出PDF
@@ -2003,64 +2135,6 @@ export default function ReferralDetail() {
                     </div>
                   )}
 
-                  {(consentInfo.isUploaded || canShowConsentUploadPlaceholder) && (
-                    <div className={`px-4 py-4 rounded-xl text-sm ${consentInfo.isUploaded
-                      ? 'bg-green-50 border border-green-200 text-green-700'
-                      : 'bg-orange-50 border border-orange-200 text-orange-700'
-                    }`}>
-                      <div className="flex items-center justify-between gap-3 flex-wrap">
-                        <div className="space-y-1">
-                          <div className="font-medium">知情同意附件</div>
-                          <div>签署人：{consentInfo.signedByLabel}</div>
-                          <div>上传时间：{formatTime(consentInfo.consentUploadedAt)}</div>
-                          {!consentInfo.isUploaded && (
-                            <div className="text-orange-700">提示：急诊患者请于到院后24小时内上传签署文件</div>
-                          )}
-                        </div>
-                        <div className="flex items-center gap-2 flex-wrap">
-                          {consentInfo.isUploaded && (
-                            <>
-                              <button
-                                type="button"
-                                onClick={() => setDialog({
-                                  type: 'notice',
-                                  title: consentPreviewAvailable ? '附件预览' : '暂无原件预览',
-                                  description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接预览附件，请通过归档渠道查看原件。' : '当前记录未上传可预览的签署附件。'
-                                })}
-                                className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-white"
-                              >
-                                预览
-                              </button>
-                              <button
-                                type="button"
-                                onClick={() => setDialog({
-                                  type: 'notice',
-                                  title: consentPreviewAvailable ? '附件下载' : '暂无可下载附件',
-                                  description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接下载附件，请通过归档渠道获取原件。' : '当前记录未上传可下载的签署附件。'
-                                })}
-                                className="text-xs px-3 py-1.5 rounded-lg border border-green-200 hover:bg-white"
-                              >
-                                下载
-                              </button>
-                            </>
-                          )}
-                          {canShowConsentUploadPlaceholder && (
-                            <button
-                              type="button"
-                              onClick={() => setDialog({
-                                type: 'notice',
-                                title: '上传知情同意附件',
-                                description: '当前版本请由发起医生在对应流程中补传线下签署附件。'
-                              })}
-                              className="px-3 py-1.5 bg-orange-500 hover:bg-orange-600 text-white text-xs font-medium rounded-lg transition-colors"
-                            >
-                              上传附件
-                            </button>
-                          )}
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </>
               ) : (
                 <>
@@ -2116,19 +2190,63 @@ export default function ReferralDetail() {
             </div>
           )}
 
-          {currentTab === 'clinical' && (
-            <div className="space-y-5">
-              {!isUpward && <ReferralSummaryCard summary={clinicalPackage.summary} />}
-              {!isUpward && clinicalPackage.displayMode === 'structured' && (
-                <>
-                  <ClinicalStructuredSection data={clinicalPackage.structuredData} />
-                  <RehabPlanSection data={clinicalPackage.rehabPlan} />
-                </>
-              )}
-              <AttachmentSection
-                attachments={clinicalPackage.attachments}
-                emptyText={clinicalPackage.displayMode === 'attachment_only' ? '当前未上传附件资料' : '暂无补充附件资料'}
-              />
+          {currentTab === 'attachments' && (
+            <div className="space-y-6">
+              {attachmentGroups.map(group => (
+                <div key={group.key} className="space-y-3">
+                  <div className="flex items-center justify-between">
+                    <div className="text-sm font-semibold text-gray-800">{group.title}</div>
+                    <div className="text-xs text-gray-400">共 {group.items.length} 份材料</div>
+                  </div>
+                  {group.items.length === 0 ? (
+                    <div className="rounded-xl p-5 text-sm text-gray-400" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+                      {group.emptyText}
+                    </div>
+                  ) : (
+                    <div className="space-y-2">
+                      {group.items.map((item, index) => {
+                        const meta = getAttachmentMeta(item.name)
+                        return (
+                          <div key={`${group.key}-${item.name}-${index}`} className="flex items-center justify-between gap-3 bg-white border border-gray-200 rounded-xl px-4 py-3 text-sm">
+                            <div className="flex items-start gap-3 min-w-0">
+                              <div className="w-9 h-9 rounded-lg flex items-center justify-center flex-shrink-0" style={{ background: '#F3F4F6' }}>
+                                <span>{meta.icon}</span>
+                              </div>
+                              <div className="min-w-0">
+                                <div className="font-medium text-gray-800 truncate">{item.name}</div>
+                                <div className="text-xs text-gray-400 mt-1">
+                                  {item.source} · {item.size || '—'} · {meta.type}
+                                </div>
+                              </div>
+                            </div>
+                            <div className="flex items-center gap-2 flex-shrink-0">
+                              {item.tag && (
+                                <span className="text-[11px] px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+                                  {item.tag}
+                                </span>
+                              )}
+                              <button
+                                type="button"
+                                onClick={() => handleAttachmentAction(item, 'view')}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
+                              >
+                                查看
+                              </button>
+                              <button
+                                type="button"
+                                onClick={() => handleAttachmentAction(item, 'download')}
+                                className="text-xs px-3 py-1.5 rounded-lg border border-gray-200 hover:bg-gray-50"
+                              >
+                                下载
+                              </button>
+                            </div>
+                          </div>
+                        )
+                      })}
+                    </div>
+                  )}
+                </div>
+              ))}
             </div>
           )}
 
@@ -2230,7 +2348,7 @@ export default function ReferralDetail() {
                 {showConsentRecord && (
                   <div className="px-4 py-3">
                     {ref.consentRecord ? (
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="text-sm">
                         <div>
                           <span className="text-gray-600">签署人：</span>
                           <span className="font-medium text-gray-900">{ref.consentRecord.signerName}</span>
@@ -2238,20 +2356,9 @@ export default function ReferralDetail() {
                           <span className="text-gray-600">上传时间：</span>
                           <span className="text-gray-900">{ref.consentRecord.signedAt}</span>
                         </div>
-                        <button
-                            onClick={() => setDialog({
-                              type: 'notice',
-                              title: '签署原件查看',
-                              description: '当前版本暂不支持在详情页直接打开原件，请通过归档渠道查看签署附件。'
-                            })}
-                          className="text-sm hover:underline"
-                          style={{ color: '#0BBECF' }}
-                        >
-                          查看签署原件 →
-                        </button>
                       </div>
                     ) : (
-                      <div className="flex items-center justify-between text-sm">
+                      <div className="text-sm">
                         <div>
                           <span className="text-gray-600">签署人：</span>
                           <span className="font-medium text-gray-800">{consentInfo.signedByLabel}</span>
@@ -2262,17 +2369,6 @@ export default function ReferralDetail() {
                           </span>
                           {!consentPreviewAvailable && <span className="ml-2 text-xs text-orange-500">（当前未上传可查看原件）</span>}
                         </div>
-                        <button
-                            onClick={() => setDialog({
-                              type: 'notice',
-                              title: consentPreviewAvailable ? '签署原件查看' : '暂无可打开的原件',
-                              description: consentPreviewAvailable ? '当前版本暂不支持在详情页直接打开原件，请通过归档渠道查看签署附件。' : '当前记录未上传可查看的签署附件。'
-                            })}
-                          className="text-sm hover:underline"
-                          style={{ color: '#0BBECF' }}
-                        >
-                          查看签署原件 →
-                        </button>
                       </div>
                     )}
                   </div>
@@ -2312,7 +2408,7 @@ export default function ReferralDetail() {
                             {r.id === ref.id ? '📍 本次' : ''}
                           </span>
                           <span className="font-medium text-gray-800">
-                            {r.type === 'upward' ? `⬆️ ${upwardDisplayLabel}` : `⬇️ ${downwardDisplayLabel}`}
+                            {r.type === 'upward' ? '⬆️ 上转' : '⬇️ 下转'}
                           </span>
                           <span className="text-gray-500">{r.diagnosis?.name || '—'}</span>
                           <span className="text-xs text-gray-400">{r.fromInstitution}</span>

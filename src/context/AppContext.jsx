@@ -1443,6 +1443,36 @@ export function AppProvider({ children }) {
     return { success: true, referral }
   }, [referrals])
 
+  const recordReferralDocumentAction = useCallback((referralId, payload) => {
+    const nowIso = new Date().toISOString()
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const log = {
+        referralNo: r.referralNo || r.id,
+        templateId: payload.templateId,
+        templateVersion: payload.templateVersion,
+        actionType: payload.actionType,
+        operator: currentUser.name,
+        operatedAt: nowIso,
+        referralStatus: r.status,
+      }
+      return {
+        ...r,
+        updatedAt: nowIso,
+        documentPrintLogs: [...(r.documentPrintLogs || []), log],
+        logs: [
+          ...(r.logs || []),
+          {
+            time: nowIso,
+            actor: currentUser.name,
+            action: `转诊文书${payload.actionType}`,
+            note: `转诊单编号：${log.referralNo}；模板：${log.templateId} ${log.templateVersion}；状态：${log.referralStatus}`,
+          },
+        ],
+      }
+    }))
+  }, [currentUser.name])
+
   // CHG-32：基层医生提交院内审核（普通上转，F-02=ON时流程）→ PENDING_INTERNAL_REVIEW
   // 急诊/绿通仍走 submitReferral 直接到 PENDING
   // CHG-33：急诊无论开关状态直接跳过内审 → PENDING
@@ -2038,6 +2068,7 @@ export function AppProvider({ children }) {
       closeDownwardByTimeout,
       assignDoctorByAdmin,
       verifyAndConsumeAppointmentCode,
+      recordReferralDocumentAction,
       escalateEmergencyAlert,
       renotifyEmergency,
       // CHG-29/30/32 新增

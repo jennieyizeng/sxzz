@@ -34,6 +34,24 @@ export const SYSTEM_USER_ACCOUNTS = [
   { id: 'U009', name: SYSTEM_ADMIN_OPERATOR, empNo: 'S0001', institution: 'xx市医共体管理层', role: '系统管理员', enabled: true, updatedAt: '2026-03-10' },
 ]
 
+export const SYSTEM_SSO_USERS = [
+  { userId: 'county_doc_001', name: '王主任', empNo: 'C0001', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '内科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_002', name: '李主任', empNo: 'C0002', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '外科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_003', name: '陈主任', empNo: 'C0003', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '心血管科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_004', name: '张主任', empNo: 'C0004', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '神经内科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_005', name: '刘主任', empNo: 'C0005', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '呼吸科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_006', name: '孙主任', empNo: 'C0006', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '内分泌科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_007', name: '赵主任', empNo: 'C0007', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '骨科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_008', name: '周主任', empNo: 'C0008', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '急诊科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_009', name: '王晓敏', empNo: 'C0009', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '心内科', role: '县级科主任', enabled: true },
+  { userId: 'county_doc_010', name: '李志远', empNo: 'C0010', institutionId: 'I001', auditInstitutionId: 'inst001', institution: 'xx市人民医院', deptName: '内科', role: '县级医生', enabled: true },
+  { userId: 'primary_doc_001', name: '王医生', empNo: 'P0001', institutionId: 'I002', auditInstitutionId: 'inst002', institution: 'xx市拱星镇卫生院', deptName: '全科', role: '基层医生', enabled: true },
+  { userId: 'primary_doc_002', name: '赵负责人', empNo: 'P0002', institutionId: 'I002', auditInstitutionId: 'inst002', institution: 'xx市拱星镇卫生院', deptName: '全科', role: '基层负责人', enabled: true },
+  { userId: 'primary_doc_003', name: '李慧医生', empNo: 'P0003', institutionId: 'I003', auditInstitutionId: 'inst003', institution: 'xx市汉旺镇卫生院', deptName: '全科', role: '基层医生', enabled: true },
+  { userId: 'primary_doc_004', name: '刘院长', empNo: 'P0004', institutionId: 'I003', auditInstitutionId: 'inst003', institution: 'xx市汉旺镇卫生院', deptName: '全科', role: '基层负责人', enabled: true },
+  { userId: 'primary_doc_005', name: '孙医生', empNo: 'P0005', institutionId: 'I004', auditInstitutionId: 'inst004', institution: 'xx市清平乡卫生院', deptName: '全科', role: '基层医生', enabled: true },
+]
+
 export const SYSTEM_INSTITUTION_OPTIONS = [
   'xx市人民医院',
   'xx市拱星镇卫生院',
@@ -43,23 +61,23 @@ export const SYSTEM_INSTITUTION_OPTIONS = [
 ]
 
 export const SYSTEM_INSTITUTION_CONFIGS = [
-  { id: 'I001', name: 'xx市人民医院', code: '5106820001', type: '县级医院', contact: '张主任', phone: '0838-6201234', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: 'ed_duty_001', emergencyDutyContactName: '周主任', emergencyDeptPhone: '0838-6213200', patientNoticeTemplate: '1. 携带身份证、医保卡、本转诊短信及既往检查资料\n2. 到院后前往[接诊科室]挂号窗口，出示预约码[预约码]优先排队\n3. 住院患者请至[病区]办理，床位[床位号]，护士站电话[护士站电话]\n4. 到院后仍需正常挂号缴费，医保按分级诊疗政策执行' },
-  { id: 'I002', name: 'xx市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', canUp: true, canDown: true, enabled: true },
-  { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', canUp: true, canDown: false, enabled: true },
-  { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', canUp: true, canDown: true, enabled: true },
-  { id: 'I005', name: 'xx市九龙镇卫生室', code: '5106820021', type: '村卫生室', contact: '赵医生', phone: '0838-6204001', canUp: false, canDown: false, enabled: false },
+  { id: 'I001', name: 'xx市人民医院', code: '5106820001', type: '县级医院', contact: '张主任', phone: '0838-6201234', address: 'xx市中心大道88号', referralConsultPhone: '0838-6213111', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: 'ed_duty_001', emergencyDutyContactName: '周主任', emergencyDeptPhone: '0838-6213200', patientNoticeTemplate: '1. 携带身份证、医保卡、本转诊短信及既往检查资料\n2. 到院后前往[接诊科室]挂号窗口，出示预约码[预约码]优先排队\n3. 住院患者请至[病区]办理，床位[床位号]，护士站电话[护士站电话]\n4. 到院后仍需正常挂号缴费，医保按分级诊疗政策执行' },
+  { id: 'I002', name: 'xx市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', address: 'xx市拱星镇卫生路12号', referralConsultPhone: '0838-6201010', canUp: true, canDown: true, enabled: true },
+  { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', address: 'xx市汉旺镇健康街8号', referralConsultPhone: '0838-6202010', canUp: true, canDown: false, enabled: true },
+  { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', address: 'xx市清平乡清平路6号', referralConsultPhone: '0838-6203010', canUp: true, canDown: true, enabled: true },
+  { id: 'I005', name: 'xx市九龙镇卫生室', code: '5106820021', type: '村卫生室', contact: '赵医生', phone: '0838-6204001', address: 'xx市九龙镇便民服务点旁', referralConsultPhone: '', canUp: false, canDown: false, enabled: false },
 ]
 
 export const SYSTEM_DEPT_CONFIGS = {
   I001: [
-    { dept: '内科', head: '王主任', partnerDoctor: '—', dailyQuota: 5, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '外科', head: '李主任', partnerDoctor: '—', dailyQuota: 3, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '心血管科', head: '陈主任', partnerDoctor: '陈医生', dailyQuota: 2, dailyReservedBeds: 3, ward: '心内科病区（6楼东）', nurseStationPhone: '0836-12345601', rescueResources: '胸痛中心绿色通道已开启，导管室24小时待命', updatedAt: '2026-03-25 09:30', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '神经内科', head: '张主任', partnerDoctor: '张主任', dailyQuota: 0, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '卒中绿色通道待命，CT室可优先开放', updatedAt: '2026-03-25 09:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '呼吸科', head: '刘主任', partnerDoctor: '刘医生', dailyQuota: 4, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '内分泌科', head: '孙主任', partnerDoctor: '—', dailyQuota: 3, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '骨科', head: '赵主任', partnerDoctor: '—', dailyQuota: 2, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:30', updatedBy: SYSTEM_ADMIN_OPERATOR },
-    { dept: '急诊科', head: '周主任', partnerDoctor: '—', dailyQuota: 0, dailyReservedBeds: 2, ward: '急诊留观区', nurseStationPhone: '0838-6213201', rescueResources: '急诊抢救室、除颤仪、呼吸机均已待命', updatedAt: '2026-03-25 09:45', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '内科', head: '王主任', headUserId: 'county_doc_001', partnerDoctor: '王医生', partnerDoctorUserId: 'primary_doc_001', counterpartInstitutionId: 'I002', dailyQuota: 5, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '外科', head: '李主任', headUserId: 'county_doc_002', partnerDoctor: '李慧医生', partnerDoctorUserId: 'primary_doc_003', counterpartInstitutionId: 'I003', dailyQuota: 3, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '心血管科', head: '陈主任', headUserId: 'county_doc_003', partnerDoctor: '赵负责人', partnerDoctorUserId: 'primary_doc_002', counterpartInstitutionId: 'I002', dailyQuota: 2, dailyReservedBeds: 3, ward: '心内科病区（6楼东）', nurseStationPhone: '0836-12345601', rescueResources: '胸痛中心绿色通道已开启，导管室24小时待命', updatedAt: '2026-03-25 09:30', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '神经内科', head: '张主任', headUserId: 'county_doc_004', partnerDoctor: '刘院长', partnerDoctorUserId: 'primary_doc_004', counterpartInstitutionId: 'I003', dailyQuota: 0, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '卒中绿色通道待命，CT室可优先开放', updatedAt: '2026-03-25 09:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '呼吸科', head: '刘主任', headUserId: 'county_doc_005', partnerDoctor: '孙医生', partnerDoctorUserId: 'primary_doc_005', counterpartInstitutionId: 'I004', dailyQuota: 4, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '内分泌科', head: '孙主任', headUserId: 'county_doc_006', partnerDoctor: '—', partnerDoctorUserId: '', counterpartInstitutionId: 'I005', dailyQuota: 3, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '骨科', head: '赵主任', headUserId: 'county_doc_007', partnerDoctor: '王医生', partnerDoctorUserId: 'primary_doc_001', counterpartInstitutionId: 'I002', dailyQuota: 2, dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:30', updatedBy: SYSTEM_ADMIN_OPERATOR },
+    { dept: '急诊科', head: '周主任', headUserId: 'county_doc_008', partnerDoctor: '—', partnerDoctorUserId: '', counterpartInstitutionId: 'I004', dailyQuota: 0, dailyReservedBeds: 2, ward: '急诊留观区', nurseStationPhone: '0838-6213201', rescueResources: '急诊抢救室、除颤仪、呼吸机均已待命', updatedAt: '2026-03-25 09:45', updatedBy: SYSTEM_ADMIN_OPERATOR },
   ],
 }
 
@@ -70,14 +88,15 @@ export const SYSTEM_AUDIT_INSTITUTIONS = [
 ]
 
 export const SYSTEM_AUDIT_CANDIDATE_USERS = [
-  { userId: 'county_doctor_1', name: '李志远', deptName: '内科', institutionId: 'inst001' },
-  { userId: 'county_doctor_2', name: '王晓敏', deptName: '心内科', institutionId: 'inst001' },
-  { userId: 'c_head_001', name: '周主任', deptName: '骨科', institutionId: 'inst001' },
-  { userId: 'c_head_002', name: '吴主任', deptName: '神经内科', institutionId: 'inst001' },
-  { userId: 'c_head_003', name: '郑主任', deptName: '呼吸科', institutionId: 'inst001' },
-  { userId: 'c_head_004', name: '孙主任', deptName: '内分泌科', institutionId: 'inst001' },
-  { userId: 'u001_head', name: '赵负责人', deptName: '全科', institutionId: 'inst002' },
-  { userId: 'p_head_003', name: '刘院长', deptName: '全科', institutionId: 'inst003' },
+  { userId: 'county_doc_001', name: '王主任', deptName: '内科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_002', name: '李主任', deptName: '外科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_003', name: '陈主任', deptName: '心血管科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_004', name: '张主任', deptName: '神经内科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_005', name: '刘主任', deptName: '呼吸科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_006', name: '孙主任', deptName: '内分泌科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'county_doc_007', name: '赵主任', deptName: '骨科', institutionId: 'inst001', role: '县级科主任' },
+  { userId: 'primary_doc_002', name: '赵负责人', deptName: '全科', institutionId: 'inst002', role: '基层负责人' },
+  { userId: 'primary_doc_004', name: '刘院长', deptName: '全科', institutionId: 'inst003', role: '基层负责人' },
 ]
 
 export const SYSTEM_AUDIT_RULE_SEEDS = [
@@ -87,7 +106,7 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市人民医院',
     deptName: '心血管科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'county_doctor_2',
+    upwardAuditorUserId: 'county_doc_009',
     upwardAuditorName: '王晓敏',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
@@ -101,8 +120,8 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市人民医院',
     deptName: '骨科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'c_head_001',
-    upwardAuditorName: '周主任',
+    upwardAuditorUserId: 'county_doc_007',
+    upwardAuditorName: '赵主任',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
     downwardAuditorName: null,
@@ -129,8 +148,8 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市人民医院',
     deptName: '内科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'county_doctor_1',
-    upwardAuditorName: '李志远',
+    upwardAuditorUserId: 'county_doc_001',
+    upwardAuditorName: '王主任',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
     downwardAuditorName: null,
@@ -143,8 +162,8 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市人民医院',
     deptName: '呼吸科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'c_head_003',
-    upwardAuditorName: '郑主任',
+    upwardAuditorUserId: 'county_doc_005',
+    upwardAuditorName: '刘主任',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
     downwardAuditorName: null,
@@ -171,8 +190,8 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市人民医院',
     deptName: '外科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'c_head_001',
-    upwardAuditorName: '周主任',
+    upwardAuditorUserId: 'county_doc_007',
+    upwardAuditorName: '赵主任',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
     downwardAuditorName: null,
@@ -185,7 +204,7 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市拱星镇卫生院',
     deptName: '全科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'u001_head',
+    upwardAuditorUserId: 'primary_doc_002',
     upwardAuditorName: '赵负责人',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,
@@ -199,7 +218,7 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
     institutionName: 'xx市汉旺镇卫生院',
     deptName: '全科',
     upwardAuditEnabled: true,
-    upwardAuditorUserId: 'p_head_003',
+    upwardAuditorUserId: 'primary_doc_004',
     upwardAuditorName: '刘院长',
     downwardAuditEnabled: false,
     downwardAuditorUserId: null,

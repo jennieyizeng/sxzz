@@ -28,6 +28,7 @@ import AdminDiseaseDir from './pages/admin/DiseaseDir'
 import AdminTimeoutConfig from './pages/admin/TimeoutConfig'
 import AdminNotifyTemplate from './pages/admin/NotifyTemplate'
 import AdminAuditRuleConfig from './pages/admin/AuditRuleConfig'
+import AdminDocumentTemplateConfig from './pages/admin/DocumentTemplateConfig'
 import CountyInternalReview from './pages/county/InternalReview'
 import CountyCreateDownward from './pages/county/CreateDownward'
 import CountyReferralRecords from './pages/county/ReferralRecords'
@@ -118,6 +119,7 @@ function AppRoutes() {
         <Route path="/admin/disease-dir" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminDiseaseDir /></RoleRoute>} />
         <Route path="/admin/timeout-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminTimeoutConfig /></RoleRoute>} />
         <Route path="/admin/notify-template" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminNotifyTemplate /></RoleRoute>} />
+        <Route path="/admin/document-template-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminDocumentTemplateConfig /></RoleRoute>} />
         <Route path="/admin/audit-rule-config" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminAuditRuleConfig /></RoleRoute>} />
         <Route path="/admin/settings" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><Placeholder title="系统管理" description="机构信息、角色权限、规则配置等。" /></RoleRoute>} />
 

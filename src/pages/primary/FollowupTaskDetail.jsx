@@ -37,6 +37,55 @@ function InfoGrid({ items, columns = 4 }) {
   )
 }
 
+function PatientSummaryStrip({ detail }) {
+  const items = [
+    { label: '患者', value: `${detail.patient.name} · ${detail.patient.gender} · ${detail.patient.age}岁` },
+    { label: '主要诊断', value: detail.chiefDiagnosis },
+    { label: '来源医院', value: detail.sourceHospital },
+    { label: '下转日期', value: fmtDate(detail.downwardDate) },
+    { label: '责任医生', value: detail.responsibilityDoctor },
+    { label: '计划随访', value: fmtDate(detail.followupDate) },
+    { label: '上次随访', value: detail.lastFollowupAt ? fmtDate(detail.lastFollowupAt) : '暂无' },
+  ]
+
+  return (
+    <section className="bg-white border-y border-cyan-100 px-4 py-3">
+      <div className="flex items-center justify-between gap-4 mb-2">
+        <div className="text-sm font-semibold text-gray-800">患者基本信息</div>
+        <StatusBadge status={detail.status} size="sm" />
+      </div>
+      <div className="grid grid-cols-7 gap-x-4 gap-y-2">
+        {items.map(item => (
+          <div key={item.label} className="min-w-0">
+            <div className="text-[11px] text-gray-400">{item.label}</div>
+            <div className="text-sm font-medium text-gray-800 mt-0.5 truncate">{item.value || '—'}</div>
+          </div>
+        ))}
+      </div>
+    </section>
+  )
+}
+
+function TextPills({ items, emptyText = '暂无' }) {
+  const list = Array.isArray(items)
+    ? items.filter(Boolean)
+    : String(items || '').split(/[、,，;]/).map(item => item.trim()).filter(Boolean)
+
+  if (list.length === 0) {
+    return <div className="text-sm text-gray-400">{emptyText}</div>
+  }
+
+  return (
+    <div className="flex flex-wrap gap-2">
+      {list.map(item => (
+        <span key={item} className="text-xs px-2 py-0.5 rounded-full bg-gray-100 text-gray-600">
+          {item}
+        </span>
+      ))}
+    </div>
+  )
+}
+
 function RecordFollowupDialog({ initialValue, indicators, onCancel, onConfirm }) {
   const [form, setForm] = useState(initialValue)
 
@@ -131,8 +180,9 @@ function RecordFollowupDialog({ initialValue, indicators, onCancel, onConfirm })
   )
 }
 
-function ActionDialog({ title, description, confirmText, onCancel, onConfirm, placeholder }) {
+function ActionDialog({ title, description, confirmText, onCancel, onConfirm, placeholder, reasonLabel, required = false }) {
   const [reason, setReason] = useState('')
+  const canConfirm = !required || reason.trim().length > 0
   return (
     <div className="fixed inset-0 z-50 flex items-center justify-center">
       <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
@@ -142,6 +192,12 @@ function ActionDialog({ title, description, confirmText, onCancel, onConfirm, pl
           <div className="text-sm text-gray-500 mt-1">{description}</div>
         </div>
         <div className="p-5">
+          {reasonLabel && (
+            <label className="block text-sm font-medium text-gray-700 mb-2">
+              {reasonLabel}
+              {required && <span className="text-red-500 ml-1">*</span>}
+            </label>
+          )}
           <textarea
             rows={4}
             value={reason}
@@ -153,7 +209,12 @@ function ActionDialog({ title, description, confirmText, onCancel, onConfirm, pl
             <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
               取消
             </button>
-            <button onClick={() => onConfirm(reason)} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#0BBECF' }}>
+            <button
+              disabled={!canConfirm}
+              onClick={() => canConfirm && onConfirm(reason)}
+              className={`px-4 py-2 text-sm rounded-lg text-white ${canConfirm ? '' : 'opacity-50 cursor-not-allowed'}`}
+              style={{ background: '#0BBECF' }}
+            >
               {confirmText}
             </button>
           </div>
@@ -174,8 +235,6 @@ export default function PrimaryFollowupTaskDetail() {
     requestFollowupReassign,
   } = useApp()
   const detail = useMemo(() => buildFollowupTaskDetail(referrals, currentUser, id), [referrals, currentUser, id])
-  const [showHistory, setShowHistory] = useState(true)
-  const [showBackground, setShowBackground] = useState(false)
   const [notice, setNotice] = useState('')
   const [dialog, setDialog] = useState(null)
   const noticeTimerRef = useRef(null)
@@ -185,10 +244,17 @@ export default function PrimaryFollowupTaskDetail() {
   }
 
   const monitoredIndicators = detail.followupGoals.filter(item => item.monitored).map(item => item.label)
-  const backgroundItems = [
+  const rehabPlan = detail.referral.rehabPlan || {}
+  const medicationList = [
+    ...(rehabPlan.medications || []).map(item => item.displayText || [item.name, item.spec, item.usage].filter(Boolean).join(' · ')),
+    ...(rehabPlan.chineseMedications || []).map(item => [item.formulaName, item.herbs, item.usage, item.frequency].filter(Boolean).join(' · ')),
+  ].filter(Boolean)
+  const medicationNotes = rehabPlan.medicationNotes || detail.referral.medicationNotes || []
+  const planOverviewItems = [
     { label: '下转原因', value: detail.downwardReason },
-    { label: '转诊机构', value: detail.fromInstitution },
-    { label: '接诊机构', value: detail.toInstitution },
+    { label: '康复目标', value: rehabPlan.rehabSuggestion || (detail.referral.rehabGoals || []).join('、') || '—' },
+    { label: '护理要点', value: rehabPlan.notes || '—' },
+    { label: '预警症状', value: rehabPlan.warningNotes || '—' },
   ]
 
   function flash(message) {
@@ -232,42 +298,35 @@ export default function PrimaryFollowupTaskDetail() {
         </div>
       )}
 
-      <div className="mb-4 flex items-start justify-between gap-4">
+      <div className="mb-4 flex items-start gap-4">
         <div>
           <h2 className="text-base font-semibold text-gray-800">随访任务详情</h2>
           <div className="text-xs text-gray-400 mt-0.5">
             基层医生执行单个随访任务的工作页，转诊单作为参考资料子入口
           </div>
         </div>
-        <button
-          onClick={() => navigate('/primary/followup')}
-          className="px-3 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
-        >
-          返回任务列表
-        </button>
+        <div className="ml-auto flex items-center gap-2">
+          <button
+            onClick={() => navigate('/primary/followup')}
+            className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+          >
+            返回任务列表
+          </button>
+          <button
+            onClick={() => navigate(`/referral/${detail.referralId}`)}
+            className="px-3 py-1.5 text-xs rounded-lg text-white"
+            style={{ background: '#0BBECF' }}
+          >
+            查看关联转诊单
+          </button>
+        </div>
       </div>
 
       <div className="space-y-4">
-        <InfoCard title="患者基本信息">
-          <InfoGrid
-            items={[
-              { label: '患者姓名', value: detail.patient.name },
-              { label: '性别', value: detail.patient.gender },
-              { label: '年龄', value: `${detail.patient.age}岁` },
-              { label: '主要诊断', value: detail.chiefDiagnosis },
-              { label: '来源医院', value: detail.sourceHospital },
-              { label: '下转日期', value: fmtDate(detail.downwardDate) },
-              { label: '责任医生', value: detail.responsibilityDoctor },
-              { label: '任务状态', value: <StatusBadge status={detail.status} size="sm" /> },
-              { label: '计划随访日期', value: fmtDate(detail.followupDate) },
-              { label: '上次随访', value: detail.lastFollowupAt ? fmtDate(detail.lastFollowupAt) : '暂无' },
-            ]}
-            columns={4}
-          />
-        </InfoCard>
+        <PatientSummaryStrip detail={detail} />
 
         <InfoCard title="本次随访要点">
-          <div className="grid grid-cols-3 gap-4">
+          <div className="grid grid-cols-2 gap-4">
             <div className="rounded-xl p-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
               <div className="text-sm font-medium text-gray-800">监测指标</div>
               <div className="flex flex-wrap gap-2 mt-3">
@@ -284,23 +343,34 @@ export default function PrimaryFollowupTaskDetail() {
               </div>
             </div>
             <div className="rounded-xl p-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-              <div className="text-sm font-medium text-gray-800">用药医嘱</div>
-              <div className="text-sm text-gray-600 mt-3 space-y-1">
-                {(detail.referral.rehabPlan?.medications || []).slice(0, 3).map(item => (
-                  <div key={item.name}>{item.name} {item.spec} · {item.usage}</div>
-                ))}
+              <div className="text-sm font-medium text-gray-800">继续用药</div>
+              <div className="text-sm text-gray-600 mt-3 space-y-1 max-h-28 overflow-y-auto pr-1">
+                {medicationList.length > 0
+                  ? medicationList.map(item => <div key={item}>{item}</div>)
+                  : <div className="text-gray-400">暂无继续用药医嘱</div>}
               </div>
             </div>
             <div className="rounded-xl p-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-              <div className="text-sm font-medium text-gray-800">注意事项</div>
-              <div className="text-sm text-gray-600 mt-3 leading-6">
-                {detail.referral.rehabPlan?.notes || '暂无特别注意事项'}
+              <div className="text-sm font-medium text-gray-800">用药注意事项</div>
+              <div className="mt-3">
+                <TextPills items={medicationNotes} emptyText={rehabPlan.notes || '暂无特别注意事项'} />
+              </div>
+            </div>
+            <div className="rounded-xl p-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+              <div className="text-sm font-medium text-gray-800">康复与随访要求</div>
+              <div className="grid grid-cols-2 gap-x-4 gap-y-2 mt-3">
+                {planOverviewItems.map(item => (
+                  <div key={item.label} className="min-w-0">
+                    <div className="text-xs text-gray-400">{item.label}</div>
+                    <div className="text-sm text-gray-700 mt-1 line-clamp-2">{item.value}</div>
+                  </div>
+                ))}
               </div>
             </div>
           </div>
         </InfoCard>
 
-        <InfoCard title="随访操作区（核心）">
+        <InfoCard title="记录随访信息">
           <div className="rounded-xl px-4 py-4 mb-4" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
             <div className="text-sm text-gray-700">优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。</div>
           </div>
@@ -319,88 +389,6 @@ export default function PrimaryFollowupTaskDetail() {
               申请转派
             </button>
           </div>
-        </InfoCard>
-
-        <InfoCard
-          title="历史随访记录"
-          actions={
-            <button
-              onClick={() => setShowHistory(prev => !prev)}
-              className="text-sm font-medium"
-              style={{ color: '#0892a0' }}
-            >
-              {showHistory ? '收起' : '展开'}
-            </button>
-          }
-        >
-          {showHistory ? (
-            detail.historyRecords.length > 0 ? (
-              <div className="space-y-4">
-                {detail.historyRecords.map((item, index) => (
-                  <div key={item.id} className="relative pl-6">
-                    {index !== detail.historyRecords.length - 1 && (
-                      <div className="absolute left-[7px] top-6 bottom-[-18px] w-px bg-cyan-100" />
-                    )}
-                    <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full" style={{ background: '#0BBECF' }} />
-                    <div className="rounded-xl px-4 py-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
-                      <div className="flex items-start justify-between gap-4">
-                        <div>
-                          <div className="text-sm font-medium text-gray-800">{item.status}</div>
-                          <div className="text-xs text-gray-400 mt-1">{fmtDate(item.followupDate)} · {item.method} · {item.doctorName}</div>
-                        </div>
-                        <div className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>
-                          {item.patientStatus}
-                        </div>
-                      </div>
-                      {item.metricSummary && <div className="text-sm text-gray-600 mt-3">监测结果：{item.metricSummary}</div>}
-                      <div className="text-sm text-gray-600 mt-2">随访小结：{item.summary}</div>
-                      <div className="text-sm text-gray-600 mt-2">处理建议：{item.advice}</div>
-                      {item.nextFollowupDate && (
-                        <div className="text-xs text-gray-400 mt-2">下次随访日期：{fmtDate(item.nextFollowupDate)}</div>
-                      )}
-                    </div>
-                  </div>
-                ))}
-              </div>
-            ) : (
-              <div className="text-sm text-gray-400">暂无历史随访记录</div>
-            )
-          ) : (
-            <div className="text-sm text-gray-500">已折叠历次随访记录，可展开查看每次随访结果与处理建议。</div>
-          )}
-        </InfoCard>
-
-        <InfoCard
-          title="关联转诊单快捷查看"
-          actions={
-            <button
-              onClick={() => setShowBackground(prev => !prev)}
-              className="text-sm font-medium"
-              style={{ color: '#0892a0' }}
-            >
-              {showBackground ? '收起' : '展开'}
-            </button>
-          }
-        >
-          {showBackground ? (
-            <div className="space-y-3">
-              {backgroundItems.map(item => (
-                <div key={item.label} className="rounded-xl px-4 py-3" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
-                  <div className="text-xs text-gray-500">{item.label}</div>
-                  <div className="text-sm text-gray-800 mt-1">{item.value || '—'}</div>
-                </div>
-              ))}
-              <button
-                onClick={() => navigate(`/referral/${detail.referralId}`)}
-                className="text-sm font-medium"
-                style={{ color: '#0BBECF' }}
-              >
-                查看原转诊单 →
-              </button>
-            </div>
-          ) : (
-            <div className="text-sm text-gray-500">该区域用于快速查看下转原因与原转诊单入口，不作为主操作区。</div>
-          )}
         </InfoCard>
       </div>
 
@@ -427,8 +415,10 @@ export default function PrimaryFollowupTaskDetail() {
       {dialog === 'reassign' && (
         <ActionDialog
           title="申请转派"
-          description="基层医生不直接转移任务，请填写转派申请原因，由负责人后续处理。"
+          description="请填写转派申请原因，提交后由负责人继续处理。"
           confirmText="提交申请"
+          reasonLabel="转派原因"
+          required
           placeholder="例如：患者迁居外镇，建议改派更近机构继续随访"
           onCancel={() => setDialog(null)}
           onConfirm={handleReassign}

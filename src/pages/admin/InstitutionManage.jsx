@@ -4,6 +4,7 @@ import {
   SYSTEM_ADMIN_OPERATOR,
   SYSTEM_DEPT_CONFIGS,
   SYSTEM_INSTITUTION_CONFIGS,
+  SYSTEM_SSO_USERS,
 } from '../../data/systemAdminConfig'
 
 let _nextId = 6
@@ -28,6 +29,7 @@ const LANDLINE_PHONE_REGEX = /^0\d{2,3}-?\d{7,8}$/
 
 const EMPTY_FORM = {
   name: '', code: '', type: '', contact: '', phone: '', address: '',
+  referralConsultPhone: '',
   emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
   patientNoticeTemplate: '',
   canUp: true, canDown: true, enabled: true,
@@ -69,6 +71,21 @@ function DrawerField({ label, required, children, error }) {
       )}
     </div>
   )
+}
+
+function ReadOnlyField({ label, value }) {
+  return (
+    <div>
+      <label className="block text-xs text-gray-500 mb-1">{label}</label>
+      <div className="min-h-[34px] w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
+        {value || '—'}
+      </div>
+    </div>
+  )
+}
+
+function formatSsoUser(user) {
+  return user ? `${user.name}（${user.deptName}）` : ''
 }
 
 // ── 成功提示条 ─────────────────────────────────────────────
@@ -133,6 +150,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     emergencyDutyContactName: initial?.emergencyDutyContactName || initial?.emergencyDutyContact || '',
   }))
   const [errors, setErrors] = useState({})
+  const isEdit = mode === 'edit'
 
   const set = (key, val) => {
     setForm(f => ({ ...f, [key]: val }))
@@ -146,6 +164,12 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     if (!form.type)           errs.type    = '请选择机构类型'
     if (!form.contact.trim()) errs.contact = '请填写联系人'
     if (!form.phone.trim())   errs.phone   = '请填写联系电话'
+    if (form.referralConsultPhone?.trim()) {
+      const cleanedPhone = form.referralConsultPhone.trim()
+      if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
+        errs.referralConsultPhone = '请填写正确的手机号或固话格式'
+      }
+    }
     if (form.type === '县级医院' && form.emergencyDeptPhone?.trim()) {
       const cleanedPhone = form.emergencyDeptPhone.trim()
       if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
@@ -196,62 +220,97 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             基本信息
           </div>
 
-          <DrawerField label="机构名称" required error={errors.name}>
-            <input
-              value={form.name}
-              onChange={e => set('name', e.target.value)}
-              className={inputCls('name')}
-              placeholder="请输入机构全称"
-            />
-          </DrawerField>
+          {isEdit && (
+            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
+              🔗 机构基础信息来自医共体统一门户，如需修改请前往门户系统 <a href="#" className="font-medium underline underline-offset-2">→</a>
+            </div>
+          )}
 
-          <DrawerField label="机构编码" required error={errors.code}>
-            <input
-              value={form.code}
-              onChange={e => set('code', e.target.value)}
-              className={inputCls('code')}
-              placeholder="请输入国家卫健委机构编码"
-            />
-            <p className="text-xs text-gray-400 mt-0.5">统一填写国家卫健委机构编码（10位数字）</p>
-          </DrawerField>
+          {isEdit ? (
+            <>
+              <ReadOnlyField label="机构名称" value={form.name} />
+              <ReadOnlyField label="机构编码" value={form.code} />
+              <ReadOnlyField label="机构类型" value={form.type} />
+              <div className="grid grid-cols-2 gap-4">
+                <ReadOnlyField label="联系人" value={form.contact} />
+                <ReadOnlyField label="联系电话（医院总机）" value={form.phone} />
+              </div>
+              <ReadOnlyField label="详细地址" value={form.address} />
+            </>
+          ) : (
+            <>
+              <DrawerField label="机构名称" required error={errors.name}>
+                <input
+                  value={form.name}
+                  onChange={e => set('name', e.target.value)}
+                  className={inputCls('name')}
+                  placeholder="请输入机构全称"
+                />
+              </DrawerField>
 
-          <DrawerField label="机构类型" required error={errors.type}>
-            <select
-              value={form.type}
-              onChange={e => set('type', e.target.value)}
-              className={inputCls('type') + ' bg-white'}
-            >
-              <option value="">请选择机构类型</option>
-              {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </DrawerField>
+              <DrawerField label="机构编码" required error={errors.code}>
+                <input
+                  value={form.code}
+                  onChange={e => set('code', e.target.value)}
+                  className={inputCls('code')}
+                  placeholder="请输入国家卫健委机构编码"
+                />
+                <p className="text-xs text-gray-400 mt-0.5">统一填写国家卫健委机构编码（10位数字）</p>
+              </DrawerField>
 
-          <div className="grid grid-cols-2 gap-4">
-            <DrawerField label="联系人" required error={errors.contact}>
-              <input
-                value={form.contact}
-                onChange={e => set('contact', e.target.value)}
-                className={inputCls('contact')}
-                placeholder="姓名"
-              />
-            </DrawerField>
-            <DrawerField label="联系电话" required error={errors.phone}>
-              <input
-                value={form.phone}
-                onChange={e => set('phone', e.target.value)}
-                className={inputCls('phone')}
-                placeholder="区号-号码"
-              />
-            </DrawerField>
+              <DrawerField label="机构类型" required error={errors.type}>
+                <select
+                  value={form.type}
+                  onChange={e => set('type', e.target.value)}
+                  className={inputCls('type') + ' bg-white'}
+                >
+                  <option value="">请选择机构类型</option>
+                  {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+                </select>
+              </DrawerField>
+
+              <div className="grid grid-cols-2 gap-4">
+                <DrawerField label="联系人" required error={errors.contact}>
+                  <input
+                    value={form.contact}
+                    onChange={e => set('contact', e.target.value)}
+                    className={inputCls('contact')}
+                    placeholder="姓名"
+                  />
+                </DrawerField>
+                <DrawerField label="联系电话（医院总机）" required error={errors.phone}>
+                  <input
+                    value={form.phone}
+                    onChange={e => set('phone', e.target.value)}
+                    className={inputCls('phone')}
+                    placeholder="区号-号码"
+                  />
+                </DrawerField>
+              </div>
+
+              <DrawerField label="详细地址">
+                <input
+                  value={form.address}
+                  onChange={e => set('address', e.target.value)}
+                  className={inputCls('address')}
+                  placeholder="省市区街道详细地址（选填）"
+                />
+              </DrawerField>
+            </>
+          )}
+
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+            双转业务属性
           </div>
 
-          <DrawerField label="详细地址">
+          <DrawerField label="转诊咨询专用电话" error={errors.referralConsultPhone}>
             <input
-              value={form.address}
-              onChange={e => set('address', e.target.value)}
-              className={inputCls('address')}
-              placeholder="省市区街道详细地址（选填）"
+              value={form.referralConsultPhone || ''}
+              onChange={e => set('referralConsultPhone', e.target.value)}
+              className={inputCls('referralConsultPhone')}
+              placeholder="手机号或固话，如 13800138000 / 0838-6213200"
             />
+            <p className="text-xs text-gray-400 mt-0.5">双向转诊业务专用咨询电话，不回写医共体统一门户。</p>
           </DrawerField>
 
           {form.type === '县级医院' && (
@@ -365,6 +424,7 @@ function DeptConfigTab({ institutions }) {
   const [selectedInst, setSelectedInst] = useState(countyInsts[0]?.id || '')
   const [deptConfigs, setDeptConfigs] = useState(SYSTEM_DEPT_CONFIGS)
   const [editRow, setEditRow] = useState(null) // { instId, deptIndex, form }
+  const [partnerSearch, setPartnerSearch] = useState('')
   const [toast, setToast] = useState('')
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 1500) }
@@ -373,6 +433,7 @@ function DeptConfigTab({ institutions }) {
 
   const handleEdit = (instId, idx) => {
     setEditRow({ instId, deptIndex: idx, form: { ...configs[idx] } })
+    setPartnerSearch('')
   }
 
   const handleSave = () => {
@@ -406,6 +467,28 @@ function DeptConfigTab({ institutions }) {
     setEditRow(null)
     showToast('科室配置已保存')
   }
+
+  const headOptions = editRow
+    ? SYSTEM_SSO_USERS.filter(user =>
+      user.enabled &&
+      user.institutionId === editRow.instId &&
+      user.deptName === editRow.form.dept
+    )
+    : []
+
+  const counterpartInstitution = editRow
+    ? institutions.find(inst => inst.id === editRow.form.counterpartInstitutionId)
+    : null
+
+  const partnerOptions = editRow
+    ? SYSTEM_SSO_USERS.filter(user =>
+      user.enabled &&
+      user.institutionId === editRow.form.counterpartInstitutionId &&
+      (!partnerSearch.trim() ||
+        user.name.includes(partnerSearch.trim()) ||
+        user.empNo.toLowerCase().includes(partnerSearch.trim().toLowerCase()))
+    )
+    : []
 
   return (
     <div>
@@ -487,11 +570,64 @@ function DeptConfigTab({ institutions }) {
               <div className="grid grid-cols-2 gap-4 mb-4">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">科室负责人</label>
-                  <input className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" value={editRow.form.head} onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, head: e.target.value } }))} />
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+                    value={editRow.form.headUserId || ''}
+                    disabled={headOptions.length === 0}
+                    onChange={e => {
+                      const selectedUser = headOptions.find(user => user.userId === e.target.value)
+                      setEditRow(p => ({
+                        ...p,
+                        form: {
+                          ...p.form,
+                          headUserId: selectedUser?.userId || '',
+                          head: selectedUser?.name || '',
+                        },
+                      }))
+                    }}
+                  >
+                    <option value="">{headOptions.length ? '请选择科室负责人' : '该科室暂无用户'}</option>
+                    {headOptions.map(user => (
+                      <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
+                    ))}
+                  </select>
+                  {headOptions.length === 0 && (
+                    <p className="text-xs text-amber-600 mt-1">该科室暂无用户，请前往医共体统一门户维护用户归属 →</p>
+                  )}
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">对口联系医生 <span className="text-gray-400">（超时优先推送）</span></label>
-                  <input className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" placeholder="选填，留空则广播" value={editRow.form.partnerDoctor === '—' ? '' : editRow.form.partnerDoctor} onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, partnerDoctor: e.target.value || '—' } }))} />
+                  <div className="space-y-2">
+                    <input
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+                      placeholder="搜索姓名/工号"
+                      value={partnerSearch}
+                      onChange={e => setPartnerSearch(e.target.value)}
+                    />
+                    <select
+                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+                      value={editRow.form.partnerDoctorUserId || ''}
+                      onChange={e => {
+                        const selectedUser = partnerOptions.find(user => user.userId === e.target.value)
+                        setEditRow(p => ({
+                          ...p,
+                          form: {
+                            ...p.form,
+                            partnerDoctorUserId: selectedUser?.userId || '',
+                            partnerDoctor: selectedUser?.name || '—',
+                          },
+                        }))
+                      }}
+                    >
+                      <option value="">{partnerOptions.length ? '不指定，留空则广播' : '暂无匹配用户'}</option>
+                      {partnerOptions.map(user => (
+                        <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
+                      ))}
+                    </select>
+                  </div>
+                  <p className="text-xs text-gray-400 mt-1">
+                    候选来自对口基层机构：{counterpartInstitution?.name || '未配置'}
+                  </p>
                 </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">每日转诊号源 <span className="text-gray-400">（0=不启用）</span></label>
@@ -566,6 +702,7 @@ function DeptConfigTab({ institutions }) {
 // ── 主页面 ─────────────────────────────────────────────────
 export default function InstitutionManage() {
   const [list, setList] = useState(SYSTEM_INSTITUTION_CONFIGS)
+  const [syncState, setSyncState] = useState({ status: 'success', lastSyncText: '2 小时前' })
 
   // 筛选
   const [filters, setFilters] = useState({ name: '', type: 'all', enabled: 'all' })
@@ -611,6 +748,11 @@ export default function InstitutionManage() {
     setFilters(empty); setApplied(empty); setPage(1)
   }
 
+  const handleRefreshSync = () => {
+    setSyncState({ status: 'success', lastSyncText: '刚刚' })
+    showToast('机构列表已刷新')
+  }
+
   // 新增
   const handleCreate = () => setDrawer({ mode: 'create', data: null })
 
@@ -631,6 +773,7 @@ export default function InstitutionManage() {
           机构名称: newInst.name,
           机构编码: newInst.code,
           机构类型: newInst.type,
+          转诊咨询专用电话: newInst.referralConsultPhone || '未设置',
           上转能力: newInst.canUp ? '开启' : '关闭',
           下转能力: newInst.canDown ? '开启' : '关闭',
         },
@@ -646,11 +789,12 @@ export default function InstitutionManage() {
         detail: {
           操作: '编辑机构',
           机构名称: `${original.name} → ${formData.name}`,
-          联系人: `${original.contact || '未设置'} → ${formData.contact || '未设置'}`,
-          联系电话: `${original.phone || '未设置'} → ${formData.phone || '未设置'}`,
+          转诊咨询专用电话: `${original.referralConsultPhone || '未设置'} → ${formData.referralConsultPhone || '未设置'}`,
           上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,
           下转能力: `${original.canDown ? '开启' : '关闭'} → ${formData.canDown ? '开启' : '关闭'}`,
           启用状态: `${original.enabled ? '启用' : '停用'} → ${formData.enabled ? '启用' : '停用'}`,
+          急诊科值班联系人: `${original.emergencyDutyContactName || '未设置'} → ${formData.emergencyDutyContactName || '未设置'}`,
+          急诊科联系电话: `${original.emergencyDeptPhone || '未设置'} → ${formData.emergencyDeptPhone || '未设置'}`,
         },
       })
       showToast('机构信息已保存')
@@ -714,7 +858,7 @@ export default function InstitutionManage() {
         </div>
         {mainTab === 'institutions' && <button
           onClick={handleCreate}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+          className="hidden items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
           style={{ background: '#0BBECF' }}
           onMouseEnter={e => e.currentTarget.style.background = '#0892a0'}
           onMouseLeave={e => e.currentTarget.style.background = '#0BBECF'}
@@ -808,6 +952,20 @@ export default function InstitutionManage() {
         </div>
       </div>
 
+      <div className="mb-4 flex items-center justify-between rounded-lg border border-cyan-100 bg-cyan-50 px-4 py-2.5 text-xs">
+        {syncState.status === 'failed' ? (
+          <span className="text-red-600">📡 机构列表同步自医共体统一门户，最后同步失败，请稍后重试</span>
+        ) : (
+          <span className="text-cyan-700">📡 机构列表同步自医共体统一门户，最后同步：{syncState.lastSyncText}</span>
+        )}
+        <button
+          onClick={handleRefreshSync}
+          className="rounded border border-cyan-200 bg-white px-2.5 py-1 font-medium text-cyan-700 hover:bg-cyan-50"
+        >
+          刷新
+        </button>
+      </div>
+
       {/* 数据表格 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         <div className="overflow-x-auto">
@@ -828,7 +986,7 @@ export default function InstitutionManage() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
                       </svg>
                       <span className="text-sm">暂无机构信息</span>
-                      <span className="text-xs text-gray-300">可点击右上角「新增机构」添加</span>
+                      <span className="text-xs text-gray-300">机构信息由医共体统一门户同步</span>
                     </div>
                   </td>
                 </tr>

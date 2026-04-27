@@ -3,6 +3,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { ROLES } from '../../data/mockData'
 import {
+  buildFollowupTaskDetail,
   buildScopedFollowups,
   filterFollowupsByAssignee,
   filterFollowupsByTab,
@@ -68,6 +69,7 @@ export default function PrimaryFollowupList() {
   const [filter, setFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [assignDialog, setAssignDialog] = useState(null)
+  const [historyDialog, setHistoryDialog] = useState(null)
   const [selectedDoctor, setSelectedDoctor] = useState('')
   const [successTip, setSuccessTip] = useState('')
   const [assigneeOverrides, setAssigneeOverrides] = useState({})
@@ -94,6 +96,14 @@ export default function PrimaryFollowupList() {
     setAssignDialog(task)
   }
 
+  function openHistory(task) {
+    const detail = buildFollowupTaskDetail(referrals, currentUser, task.referralId)
+    setHistoryDialog({
+      ...task,
+      historyRecords: detail?.historyRecords || [],
+    })
+  }
+
   function confirmAssign() {
     if (!assignDialog || !selectedDoctor) return
     setAssigneeOverrides(prev => ({ ...prev, [assignDialog.referralId]: selectedDoctor }))
@@ -104,9 +114,6 @@ export default function PrimaryFollowupList() {
   }
 
   const pageTitle = isPrimaryHead ? '机构随访任务' : '我的随访任务'
-  const pageSubtitle = isPrimaryHead
-    ? '显示本机构全部随访任务，可按负责人和状态筛选'
-    : '仅显示本人负责的随访任务'
   const emptyText = isPrimaryHead ? '当前机构暂无随访任务' : '暂无随访任务'
   const footerText = isPrimaryHead
     ? 'ℹ️ 随访任务由系统在基层确认接收转入后自动创建并归属到机构内执行医生名下，可在本页按需转派。'
@@ -122,9 +129,6 @@ export default function PrimaryFollowupList() {
 
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">{pageTitle}</h2>
-        <div className="text-xs text-gray-400 mt-0.5">
-          {currentUser.name} · {currentUser.institution} — {pageSubtitle}
-        </div>
       </div>
 
       {/* 统计卡 */}
@@ -248,14 +252,14 @@ export default function PrimaryFollowupList() {
                       className="text-xs font-medium"
                       style={{ color: '#0892a0' }}
                     >
-                      查看随访
+                      记录随访
                     </button>
                     <button
-                      onClick={() => navigate(`/referral/${f.referralId}`)}
+                      onClick={() => openHistory(f)}
                       className="text-xs font-medium"
                       style={{ color: '#0BBECF' }}
                     >
-                      查看转诊单
+                      历史随访记录
                     </button>
                     {isPrimaryHead && (
                       <button
@@ -276,6 +280,57 @@ export default function PrimaryFollowupList() {
       <div className="mt-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600">
         {footerText}
       </div>
+
+      {historyDialog && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl mx-4 overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
+            <div className="px-5 py-4 flex items-center justify-between" style={{ borderBottom: '1px solid #EEF7F9' }}>
+              <div>
+                <h3 className="text-sm font-semibold text-gray-800">历史随访记录</h3>
+                <div className="text-xs text-gray-400 mt-1">{historyDialog.patient.name} · {historyDialog.diagnosis.name}</div>
+              </div>
+              <button onClick={() => setHistoryDialog(null)} className="w-8 h-8 rounded-lg text-gray-400 hover:bg-gray-100 text-lg">×</button>
+            </div>
+            <div className="px-5 py-4 max-h-[60vh] overflow-y-auto">
+              {historyDialog.historyRecords.length > 0 ? (
+                <div className="space-y-4">
+                  {historyDialog.historyRecords.map((item, index) => (
+                    <div key={item.id || index} className="relative pl-6">
+                      {index !== historyDialog.historyRecords.length - 1 && (
+                        <div className="absolute left-[7px] top-6 bottom-[-18px] w-px bg-cyan-100" />
+                      )}
+                      <div className="absolute left-0 top-1.5 w-4 h-4 rounded-full" style={{ background: '#0BBECF' }} />
+                      <div className="rounded-xl px-4 py-4" style={{ background: '#F9FAFB', border: '1px solid #E5E7EB' }}>
+                        <div className="flex items-start justify-between gap-4">
+                          <div>
+                            <div className="text-sm font-medium text-gray-800">{item.status}</div>
+                            <div className="text-xs text-gray-400 mt-1">{fmt(item.followupDate)} · {item.method} · {item.doctorName}</div>
+                          </div>
+                          <div className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>
+                            {item.patientStatus}
+                          </div>
+                        </div>
+                        {item.metricSummary && <div className="text-sm text-gray-600 mt-3">监测结果：{item.metricSummary}</div>}
+                        <div className="text-sm text-gray-600 mt-2">随访小结：{item.summary}</div>
+                        <div className="text-sm text-gray-600 mt-2">处理建议：{item.advice}</div>
+                        {item.nextFollowupDate && (
+                          <div className="text-xs text-gray-400 mt-2">下次随访日期：{fmt(item.nextFollowupDate)}</div>
+                        )}
+                      </div>
+                    </div>
+                  ))}
+                </div>
+              ) : (
+                <div className="text-sm text-gray-400 py-6 text-center">暂无历史随访记录</div>
+              )}
+            </div>
+            <div className="px-5 py-4 flex items-center justify-end gap-3" style={{ borderTop: '1px solid #EEF7F9' }}>
+              <button onClick={() => setHistoryDialog(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">关闭</button>
+              <button onClick={() => navigate(`/primary/followup-task/${historyDialog.referralId}`)} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#0BBECF' }}>进入随访详情</button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {assignDialog && (
         <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }}>

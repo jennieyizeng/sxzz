@@ -13,6 +13,11 @@ function asText(value, fallback = '—') {
   return text ? text : fallback
 }
 
+function formatDateTime(value) {
+  if (!value) return '—'
+  return new Date(value).toLocaleString('zh-CN')
+}
+
 function buildPurposeText(ref, sourceVisitType) {
   if (sourceVisitType === 'inpatient') {
     return asText(ref.inpatientTransferPurpose || ref.transferPurpose || ref.reason)
@@ -59,14 +64,22 @@ function inferSourceVisitType(ref) {
   return ref?.is_emergency ? null : 'outpatient'
 }
 
-function getAttachmentNames(list) {
-  return Array.isArray(list) && list.length > 0
-    ? list.map(item => item?.name || item).filter(Boolean).join('、')
-    : '未上传'
-}
-
 export function formatUpwardHandlingPreference(value) {
   return UPWARD_HANDLING_PREFERENCE_OPTIONS.find(option => option.value === value)?.label || '—'
+}
+
+function buildConsentSection(ref, consentInfo) {
+  return {
+    title: '知情同意',
+    items: [
+      { label: '签署方式', value: ref?.consentMethod === 'pending_upload' ? '待线下签署后补传' : '线下签字后上传' },
+      { label: '签署人类型', value: consentInfo?.signedByLabel || (ref?.consentSignedBy === 'family' ? '家属代签' : '患者本人') },
+      { label: '与患者关系', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyRelation) : '—' },
+      { label: '代签原因', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyReason) : '—' },
+      { label: '上传时间', value: formatDateTime(consentInfo?.consentUploadedAt) },
+      { label: '状态', value: consentInfo?.isUploaded ? '已完成' : '待补充' },
+    ],
+  }
 }
 
 export function getUpwardDetailSections(ref, consentInfo) {
@@ -117,44 +130,18 @@ export function getUpwardDetailSections(ref, consentInfo) {
           { label: '联动专科', value: asText(ref?.linkedSpecialty) },
         ],
       },
-      {
-        title: '已上传资料清单',
-        items: [
-          { label: '已上传检查 / 检验资料', value: getAttachmentNames(ref?.attachments) },
-          { label: '已上传护理记录', value: getAttachmentNames(ref?.nursingAttachments) },
-          { label: '知情同意状态', value: consentInfo?.isUploaded ? '已上传' : '待补传' },
-          { label: '已上传知情同意书', value: consentInfo?.isUploaded ? '已上传' : '未上传' },
-        ],
-      },
+      buildConsentSection(ref, consentInfo),
     ]
-  }
-
-  const uploadedSection = {
-    title: '已上传资料清单',
-    items: [
-      { label: '已上传检查 / 检验资料', value: getAttachmentNames(ref?.attachments) },
-      { label: '已上传护理记录', value: getAttachmentNames(ref?.nursingAttachments) },
-      { label: '知情同意状态', value: consentInfo?.isUploaded ? '已上传' : '待补传' },
-      { label: '已上传知情同意书', value: consentInfo?.isUploaded ? '已上传' : '未上传' },
-    ],
   }
 
   if (sourceVisitType === 'inpatient') {
     return [
       ...commonSections,
       {
-        title: '本次住院信息',
-        items: [
-          { label: '住院号', value: asText(ref?.inpatientWardNo) },
-          { label: '入院日期', value: asText(ref?.inpatientAdmissionDate) },
-          { label: '当前住院科室', value: asText(ref?.inpatientWard) },
-          { label: '当前主管医生 / 经治医生', value: asText(ref?.inpatientDoctor) },
-          { label: '当前住院诊断', value: asText(ref?.inpatientDiagnosis || ref?.diagnosis?.name) },
-        ],
-      },
-      {
         title: '诊断与转诊目的',
         items: [
+          { label: '初步诊断', value: `${ref?.diagnosis?.code || '—'} ${ref?.diagnosis?.name || '—'}`.trim() },
+          { label: '主诉', value: asText(ref?.chiefComplaint) },
           { label: '转院目的', value: buildPurposeText(ref, sourceVisitType) },
           { label: '当前病情评估', value: asText(ref?.conditionAssessment) },
           { label: '是否适合转运', value: asText(ref?.transportSuitability) },
@@ -171,7 +158,7 @@ export function getUpwardDetailSections(ref, consentInfo) {
           { label: '期望处理方式', value: formatUpwardHandlingPreference(ref?.admissionTypePref) },
         ],
       },
-      uploadedSection,
+      buildConsentSection(ref, consentInfo),
     ]
   }
 
@@ -205,6 +192,6 @@ export function getUpwardDetailSections(ref, consentInfo) {
         { label: '期望处理方式', value: formatUpwardHandlingPreference(ref?.admissionTypePref) },
       ],
     },
-    uploadedSection,
+    buildConsentSection(ref, consentInfo),
   ]
 }

@@ -70,6 +70,22 @@ const ADMISSION_TYPE_PREFERENCE_OPTIONS = [
   { value: 'byHospital', label: '由上级医院判断' },
 ]
 
+const CONSENT_PROXY_RELATION_OPTIONS = [
+  '配偶',
+  '父母',
+  '子女',
+  '兄弟姐妹',
+  '其他监护人',
+  '其他',
+]
+
+const CONSENT_PROXY_REASON_OPTIONS = [
+  '患者意识不清',
+  '认知障碍',
+  '患者授权',
+  '其他',
+]
+
 const MOCK_INPATIENT_PATIENTS = [
   {
     id: 'P001',
@@ -291,7 +307,6 @@ export default function CreateReferral() {
   const [nursingAttachments, setNursingAttachments] = useState([])
   const [showEmergencySupplementary, setShowEmergencySupplementary] = useState(false)
   const [patientSearchQuery, setPatientSearchQuery] = useState('')
-  const [healthRecordExpanded, setHealthRecordExpanded] = useState(false)
   const [inpatientTransferPurpose, setInpatientTransferPurpose] = useState('')
   const [inpatientTransferPurposeOther, setInpatientTransferPurposeOther] = useState('')
   const [conditionAssessment, setConditionAssessment] = useState('')
@@ -367,7 +382,7 @@ export default function CreateReferral() {
   const normalCanNext = [
     form.sourceVisitType && form.patientName && form.patientGender && form.patientAge && form.patientPhone
       && (isInpatientSource
-        ? (form.inpatientWard && form.inpatientAdmissionDate && form.inpatientDiagnosis)
+        ? true
         : form.outpatientDoctor),
     form.chiefComplaint
       && form.diagnosis
@@ -646,9 +661,14 @@ export default function CreateReferral() {
       nursingAttachments: nursingAttachments.map(file => ({ name: file.name, size: file.size })),
       consentMethod: 'offline_upload',
       consentSigned: true,
+      consentFileName: consentFile?.name || null,
+      consentFileNames: consentFile ? [consentFile.name] : [],
       consentFileUrl: consentFile?.fileUrl || null,
+      consentFileUrls: consentFile?.fileUrl ? [consentFile.fileUrl] : [],
       consentUploadedAt: consentFile?.uploadedAt || new Date().toISOString(),
       consentSignedBy,
+      consentProxyRelation: signerType === 'family' ? signerRelation : null,
+      consentProxyReason: signerType === 'family' ? signerReason : null,
       consentDeferred: false,
       logs: consentFile
         ? [{ time: new Date().toISOString(), actor: currentUser.name, action: '上传已签署知情同意书', note: `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name} · 基层就诊类型：${visitTypeLabel}` }]
@@ -663,6 +683,10 @@ export default function CreateReferral() {
     // CHG-39: 急诊若选择已上传，则必须先有附件
     if (consentMethod === 'offline_upload' && !consentFile) {
       setConsentError('请先上传已签署的知情同意书')
+      return
+    }
+    if (consentMethod === 'offline_upload' && consentSignedBy === 'family' && (!signerRelation || !signerReason)) {
+      setConsentError('请选择与患者关系和代签原因')
       return
     }
 
@@ -700,9 +724,14 @@ export default function CreateReferral() {
       nursingAttachments: nursingAttachments.map(file => ({ name: file.name, size: file.size })),
       consentMethod,
       consentSigned: consentMethod === 'offline_upload',
+      consentFileName: consentMethod === 'offline_upload' ? (consentFile?.name || null) : null,
+      consentFileNames: consentMethod === 'offline_upload' && consentFile ? [consentFile.name] : [],
       consentFileUrl: consentMethod === 'offline_upload' ? (consentFile?.fileUrl || null) : null,
+      consentFileUrls: consentMethod === 'offline_upload' && consentFile?.fileUrl ? [consentFile.fileUrl] : [],
       consentUploadedAt: consentMethod === 'offline_upload' ? (consentFile?.uploadedAt || new Date().toISOString()) : null,
       consentSignedBy,
+      consentProxyRelation: consentSignedBy === 'family' ? signerRelation : null,
+      consentProxyReason: consentSignedBy === 'family' ? signerReason : null,
       consentDeferred: consentMethod === 'pending_upload',
       logs: [
         { time: new Date().toISOString(), actor: currentUser.name, action: consentMethod === 'pending_upload' ? '急诊知情同意后置，待患者到院后补传签署附件' : '急诊知情同意已线下签署并上传附件', note: consentMethod === 'offline_upload' && consentFile ? `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name}` : '' },
@@ -904,7 +933,7 @@ export default function CreateReferral() {
                       <div className="grid grid-cols-2 gap-3 mb-4">
                         <button
                           type="button"
-                          onClick={() => { handlePatientLink('search'); setPatientSearchQuery(''); setHealthRecordExpanded(false) }}
+                          onClick={() => { handlePatientLink('search'); setPatientSearchQuery('') }}
                           className="rounded-xl border px-4 py-3 text-left transition-colors"
                           style={patientLinkMode === 'search' || patientLinkMode === null
                             ? { borderColor: '#0BBECF', background: '#F0FBFC' }
@@ -977,7 +1006,7 @@ export default function CreateReferral() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>✅ 已关联患者主索引</span>
-                            <button type="button" onClick={() => { setLinkedPatient(null); setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' })); setHealthRecordExpanded(false) }} className="text-xs text-gray-400 hover:text-gray-600">重新搜索</button>
+                            <button type="button" onClick={() => { setLinkedPatient(null); setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' })) }} className="text-xs text-gray-400 hover:text-gray-600">重新搜索</button>
                           </div>
                         </div>
                       )}
@@ -999,7 +1028,7 @@ export default function CreateReferral() {
                         </button>
                           <button
                             type="button"
-                            onClick={() => { handlePatientLink('manual'); setPatientSearchQuery(''); setHealthRecordExpanded(false) }}
+                            onClick={() => { handlePatientLink('manual'); setPatientSearchQuery('') }}
                             className="rounded-xl border px-4 py-3 text-left transition-colors"
                             style={patientLinkMode === 'manual'
                               ? { borderColor: '#0BBECF', background: '#F0FBFC' }
@@ -1183,82 +1212,6 @@ export default function CreateReferral() {
                     </div>
                   )}
 
-                  {/* Health record collapsible (inpatient only, when linked and hasHealthRecord) */}
-                  {isInpatientSource && linkedPatient?.hasHealthRecord && (
-                    <div className="rounded-lg border" style={{ borderColor: '#DDF0F3' }}>
-                      <button
-                        type="button"
-                        onClick={() => setHealthRecordExpanded(prev => !prev)}
-                        className="w-full flex items-center justify-between px-4 py-3 text-sm text-left"
-                        style={{ color: '#0892a0' }}
-                      >
-                        <span>📋 该患者有居民健康档案记录，点击展开查看历史诊断及慢病信息（仅供参考）</span>
-                        <span>{healthRecordExpanded ? '▲' : '▼'}</span>
-                      </button>
-                      {healthRecordExpanded && (
-                        <div className="px-4 pb-4 border-t border-gray-100">
-                          <div className="mt-3 space-y-2">
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">慢病标签</div>
-                              <div className="flex gap-2 flex-wrap">
-                                {linkedPatient.healthRecordSummary?.chronicDiseases?.map(d => (
-                                  <span key={d} className="text-xs px-2 py-1 rounded-full" style={{ background: '#FEF3C7', color: '#D97706' }}>{d}</span>
-                                ))}
-                              </div>
-                            </div>
-                            <div>
-                              <div className="text-xs text-gray-400 mb-1">最近就诊</div>
-                              <div className="text-sm text-gray-700">{linkedPatient.healthRecordSummary?.lastVisit}</div>
-                            </div>
-                          </div>
-                        </div>
-                      )}
-                    </div>
-                  )}
-
-                  {/* Inpatient: Hospitalization info */}
-                  {isInpatientSource && (
-                    <div className="rounded-xl border p-4" style={{ borderColor: '#E5E7EB', background: '#FCFCFD' }}>
-                      <div className="text-sm font-semibold text-gray-700 mb-1">本次住院信息</div>
-                      <div className="text-xs text-gray-400 mb-3">以下住院信息请根据病历手工填写，系统暂未对接住院系统。</div>
-                      <div className="grid grid-cols-2 gap-4">
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">住院号</label>
-                          <input type="text" value={form.inpatientWardNo}
-                            onChange={e => setForm(prev => ({ ...prev, inpatientWardNo: e.target.value }))}
-                            placeholder="请输入住院号"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">入院日期 <span className="text-red-500">*</span></label>
-                          <input type="date" value={form.inpatientAdmissionDate}
-                            onChange={e => setForm(prev => ({ ...prev, inpatientAdmissionDate: e.target.value }))}
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院科室 <span className="text-red-500">*</span></label>
-                          <input type="text" value={form.inpatientWard}
-                            onChange={e => setForm(prev => ({ ...prev, inpatientWard: e.target.value }))}
-                            placeholder="如：内科、骨科"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                        </div>
-                        <div>
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前主管医生 / 经治医生</label>
-                          <input type="text" value={form.inpatientDoctor}
-                            onChange={e => setForm(prev => ({ ...prev, inpatientDoctor: e.target.value }))}
-                            placeholder="请输入医生姓名"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                        </div>
-                        <div className="col-span-2">
-                          <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院诊断 <span className="text-red-500">*</span></label>
-                          <input type="text" value={form.inpatientDiagnosis}
-                            onChange={e => setForm(prev => ({ ...prev, inpatientDiagnosis: e.target.value }))}
-                            placeholder="请输入住院诊断"
-                            className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
-                        </div>
-                      </div>
-                    </div>
-                  )}
                 </>
               )}
             </div>
@@ -1269,11 +1222,6 @@ export default function CreateReferral() {
           <div className="p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">诊断及转诊目的</h2>
             <div className="space-y-4">
-              <div className="rounded-lg border px-4 py-3 text-sm" style={{ background: '#F8FDFE', borderColor: '#DDF0F3' }}>
-                <span className="text-gray-500">患者当前就诊类型：</span>
-                <span className="font-semibold text-gray-800 ml-1">{visitTypeLabel}</span>
-              </div>
-
               {/* ===== INPATIENT specific ===== */}
               {isInpatientSource ? (
                 <>
@@ -1632,18 +1580,26 @@ export default function CreateReferral() {
                 {signerType === 'family' && (
                   <div className="mt-3 grid grid-cols-2 gap-4">
                     <div>
-                      <label className="block text-sm font-medium text-gray-700 mb-1.5">代签关系 <span className="text-red-500">*</span></label>
-                      <input type="text" value={signerRelation}
+                      <label className="block text-sm font-medium text-gray-700 mb-1.5">与患者关系 <span className="text-red-500">*</span></label>
+                      <select value={signerRelation}
                         onChange={e => setSignerRelation(e.target.value)}
-                        placeholder="如：女儿、配偶"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white">
+                        <option value="">请选择</option>
+                        {CONSENT_PROXY_RELATION_OPTIONS.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">代签原因 <span className="text-red-500">*</span></label>
-                      <input type="text" value={signerReason}
+                      <select value={signerReason}
                         onChange={e => setSignerReason(e.target.value)}
-                        placeholder="请填写代签原因"
-                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none" />
+                        className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white">
+                        <option value="">请选择</option>
+                        {CONSENT_PROXY_REASON_OPTIONS.map(option => (
+                          <option key={option} value={option}>{option}</option>
+                        ))}
+                      </select>
                     </div>
                   </div>
                 )}
@@ -1709,28 +1665,6 @@ export default function CreateReferral() {
                       ['门诊号 / 就诊记录号', form.outpatientNo || '—'],
                     ].map(([key, value]) => (
                       <div key={key} className="px-4 py-2.5 border-t border-gray-100">
-                        <div className="text-xs text-gray-400">{key}</div>
-                        <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
-                      </div>
-                    ))}
-                  </div>
-                </div>
-              )}
-
-              {isInpatientSource && (
-                <div className="rounded-xl overflow-hidden" style={{ background: '#f9fafb', border: '1px solid #e5e7eb' }}>
-                  <div className="px-4 py-2" style={{ background: '#E0F6F9' }}>
-                    <span className="text-xs font-semibold" style={{ color: '#0892a0' }}>本次住院信息</span>
-                  </div>
-                  <div className="grid grid-cols-2">
-                    {[
-                      ['住院号', form.inpatientWardNo || '—'],
-                      ['入院日期', form.inpatientAdmissionDate || '—'],
-                      ['当前住院科室', form.inpatientWard || '—'],
-                      ['当前主管医生 / 经治医生', form.inpatientDoctor || '—'],
-                      ['当前住院诊断', form.inpatientDiagnosis || '—'],
-                    ].map(([key, value]) => (
-                      <div key={key} className={`px-4 py-2.5 border-t border-gray-100 ${key === '当前住院诊断' ? 'col-span-2' : ''}`}>
                         <div className="text-xs text-gray-400">{key}</div>
                         <div className="text-sm text-gray-800 font-medium mt-0.5">{value}</div>
                       </div>
@@ -2503,6 +2437,32 @@ export default function CreateReferral() {
                   onSelectFile={handleConsentFileSelect}
                   onRemoveFile={clearConsentFile}
                   error={consentError}
+                  middleContent={consentSignedBy === 'family' ? (
+                    <div className="grid grid-cols-2 gap-4">
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">与患者关系 <span className="text-red-500">*</span></label>
+                        <select value={signerRelation}
+                          onChange={e => setSignerRelation(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white">
+                          <option value="">请选择</option>
+                          {CONSENT_PROXY_RELATION_OPTIONS.map(option => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                      <div>
+                        <label className="block text-sm font-medium text-gray-700 mb-1.5">代签原因 <span className="text-red-500">*</span></label>
+                        <select value={signerReason}
+                          onChange={e => setSignerReason(e.target.value)}
+                          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none bg-white">
+                          <option value="">请选择</option>
+                          {CONSENT_PROXY_REASON_OPTIONS.map(option => (
+                            <option key={option} value={option}>{option}</option>
+                          ))}
+                        </select>
+                      </div>
+                    </div>
+                  ) : null}
                 />
               ) : (
                 <div className="rounded-lg px-4 py-3 text-sm text-amber-800 bg-amber-50 border border-amber-200">

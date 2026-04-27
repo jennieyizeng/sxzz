@@ -18,6 +18,7 @@ export default function ConsentOfflinePanel({
   introPanelStyle = 'card',
   introDescriptionClassName = '',
   templateButtonVariant = 'mixed',
+  signerSelectorVariant = 'card',
   allowMultiple = false,
   middleContent = null,
   confirmationChecked = false,
@@ -70,24 +71,44 @@ export default function ConsentOfflinePanel({
       {showSignerSelector && (
         <div>
           <div className="text-sm font-medium text-gray-700 mb-2">{signerLabel}</div>
-          <div className="grid grid-cols-2 gap-3">
-            {[
-              { value: 'patient', label: '患者本人' },
-              { value: 'family', label: '家属代签' },
-            ].map(option => (
-              <button
-                key={option.value}
-                type="button"
-                onClick={() => onSignedByChange(option.value)}
-                className="rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
-                style={signedBy === option.value
-                  ? { borderColor: '#0BBECF', background: '#F0FBFC', color: '#0F766E' }
-                  : { borderColor: '#E5E7EB', background: '#fff', color: '#374151' }}
-              >
-                {option.label}
-              </button>
-            ))}
-          </div>
+          {signerSelectorVariant === 'radio' ? (
+            <div className="flex flex-wrap gap-6">
+              {[
+                { value: 'patient', label: '患者本人' },
+                { value: 'family', label: '家属代签' },
+              ].map(option => (
+                <label key={option.value} className="inline-flex items-center gap-2 cursor-pointer text-sm font-medium text-gray-700">
+                  <input
+                    type="radio"
+                    name="consentSignerType"
+                    value={option.value}
+                    checked={signedBy === option.value}
+                    onChange={() => onSignedByChange(option.value)}
+                  />
+                  <span>{option.label}</span>
+                </label>
+              ))}
+            </div>
+          ) : (
+            <div className="grid grid-cols-2 gap-3">
+              {[
+                { value: 'patient', label: '患者本人' },
+                { value: 'family', label: '家属代签' },
+              ].map(option => (
+                <button
+                  key={option.value}
+                  type="button"
+                  onClick={() => onSignedByChange(option.value)}
+                  className="rounded-xl border px-4 py-3 text-sm font-medium transition-colors"
+                  style={signedBy === option.value
+                    ? { borderColor: '#0BBECF', background: '#F0FBFC', color: '#0F766E' }
+                    : { borderColor: '#E5E7EB', background: '#fff', color: '#374151' }}
+                >
+                  {option.label}
+                </button>
+              ))}
+            </div>
+          )}
         </div>
       )}
 
