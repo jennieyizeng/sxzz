@@ -22,6 +22,7 @@ export function getAuditConfig(deptName, direction, institutionName = null) {
     ? AUDIT_RULE_CONFIGS.find(c => c.institutionName === institutionName && c.deptName === deptName)
     : AUDIT_RULE_CONFIGS.find(c => c.deptName === deptName)
   if (!config) return { enabled: direction === 'upward', auditorUserId: null }
+  if (config.enabled === false) return { enabled: false, auditorUserId: null }
   return direction === 'upward'
     ? { enabled: config.upwardAuditEnabled, auditorUserId: config.upwardAuditorUserId }
     : { enabled: config.downwardAuditEnabled, auditorUserId: config.downwardAuditorUserId }

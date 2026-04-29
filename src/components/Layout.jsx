@@ -72,7 +72,7 @@ const NAV_CONFIG = {
   [ROLES.SYSTEM_ADMIN]: [
     {
       label: '系统管理', icon: '⚙️', children: [
-        { path: '/admin/institution-manage', label: '机构管理' },
+        { path: '/admin/institution-manage', label: '机构转诊能力配置' },
         { path: '/admin/role-manage', label: '角色权限' },
         { path: '/admin/disease-dir', label: '专病规则配置' },
         { path: '/admin/timeout-config', label: '超时规则' },
@@ -195,7 +195,7 @@ export default function Layout({ children }) {
 
       {/* 左侧导航 220px */}
       <aside
-        className="w-[220px] bg-white flex flex-col flex-shrink-0 overflow-y-auto"
+        className="hidden md:flex w-[220px] bg-white flex-col flex-shrink-0 overflow-y-auto"
         style={{ boxShadow: '2px 0 8px rgba(11,190,207,0.10)' }}
       >
         {/* Logo区 */}
@@ -241,11 +241,11 @@ export default function Layout({ children }) {
       </aside>
 
       {/* 主区域 */}
-      <div className="flex-1 flex flex-col overflow-hidden">
+      <div className="flex-1 min-w-0 flex flex-col overflow-hidden">
 
         {/* 顶部栏 52px */}
         <header
-          className="h-[52px] bg-white border-b border-gray-200 flex items-center justify-between px-5 flex-shrink-0"
+          className="h-[52px] bg-white border-b border-gray-200 flex items-center justify-between px-3 sm:px-5 flex-shrink-0"
           style={{ boxShadow: '0 1px 4px rgba(11,190,207,0.08)' }}
         >
           <div className="text-sm font-medium text-gray-700">双向转诊平台</div>

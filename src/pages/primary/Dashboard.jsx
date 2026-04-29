@@ -2,6 +2,7 @@ import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { UPWARD_STATUS, DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import { getDownwardDisplayStatus, getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
+import { shouldShowDownwardReferralForPrimaryDoctor } from '../../utils/primaryDownwardScope'
 import StatusBadge from '../../components/StatusBadge'
 
 function fromNow(isoStr) {
@@ -179,11 +180,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
       return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id || mode === 'coordinator_reassign'
     }
 
-    if (r.status === DOWNWARD_STATUS.PENDING) {
-      return r.designatedDoctorId === currentUser.id
-    }
-
-    return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id
+    return shouldShowDownwardReferralForPrimaryDoctor(r, currentUser)
   })
   const pendingDownward = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING)
   const myUpward = referrals.filter(r =>

@@ -32,14 +32,14 @@ const TD = 'px-3 py-2.5 text-sm'
 // Mock 指标汇总（根据当前筛选，此处写死，实际应由后端返回）
 // Assumption: 数据来自全机构汇总，已按所选周期聚合
 const METRICS = [
-  { label: '上转总量', value: 67, unit: '例', color: '#2563eb', bg: '#eff6ff' },
-  { label: '下转总量', value: 88, unit: '例', color: '#16a34a', bg: '#f0fdf4' },
-  { label: '完成率', value: '91.0', unit: '%', color: '#0BBECF', bg: '#E0F6F9' },
+  { label: '基层→县级总量', value: 67, unit: '例', color: '#2563eb', bg: '#eff6ff' },
+  { label: '县级→基层总量', value: 88, unit: '例', color: '#16a34a', bg: '#f0fdf4' },
+  { label: '综合完成率', value: '91.0', unit: '%', color: '#0BBECF', bg: '#E0F6F9' },
   { label: '拒绝率', value: '8.0', unit: '%', color: '#d97706', bg: '#fffbeb' },
-  { label: '超时率', value: '4.5', unit: '%', color: '#dc2626', bg: '#fef2f2' },
-  { label: '平均完成时长', value: '2.9', unit: 'h', color: '#7c3aed', bg: '#f5f3ff' },
-  { label: '知情同意签署率', value: '98.5', unit: '%', color: '#0891b2', bg: '#ecfeff' },
-  { label: '数据上报完成率', value: '96.3', unit: '%', color: '#065f46', bg: '#ecfdf5' },
+  { label: '平均响应时长', value: '2.3', unit: 'h', color: '#0284c7', bg: '#f0f9ff' },
+  { label: '平均接收时长', value: '3.8', unit: 'h', color: '#0f766e', bg: '#f0fdfa' },
+  { label: '基层→县级平均闭环时长', value: '18.5', unit: 'h', color: '#7c3aed', bg: '#f5f3ff' },
+  { label: '县级→基层平均闭环时长', value: '22.4', unit: 'h', color: '#9333ea', bg: '#faf5ff' },
 ]
 
 export default function ExamReport() {
@@ -208,7 +208,7 @@ export default function ExamReport() {
               <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 760 }}>
                 <thead>
                   <tr style={{ background: '#E0F6F9' }}>
-                    {['机构名称', '机构类型', '上转发起', '下转接收', '完成数', '完成率', '平均响应时长', '超时数', '拒绝数'].map(h => (
+                    {['机构名称', '机构类型', '转诊流出数', '转诊流入数', '完成数', '完成率', '平均响应时长', '超时数', '发起申请被拒数'].map(h => (
                       <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                     ))}
                   </tr>

@@ -6,7 +6,7 @@
   "scripts": {
     "dev": "vite",
     "build": "vite build",
-    "test": "node --test src/utils/emergencyReferral.test.js src/utils/followupTasks.test.js src/utils/countyReferralAccess.test.js src/utils/contentCleanup.test.js",
+    "test": "node --test src/utils/emergencyReferral.test.js src/utils/followupTasks.test.js src/utils/countyReferralAccess.test.js src/utils/contentCleanup.test.js src/utils/primaryDownwardScope.test.js src/utils/phoneCall.test.js src/pages/admin/statsDashboardModel.test.js",
     "lint": "eslint .",
     "preview": "vite preview"
   },

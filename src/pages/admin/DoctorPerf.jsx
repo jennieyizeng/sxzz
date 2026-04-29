@@ -180,7 +180,7 @@ export default function DoctorPerf() {
             <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 760 }}>
               <thead>
                 <tr style={{ background: '#E0F6F9' }}>
-                  {['排名', '科室名称', '所在机构', '上转处理量', '下转发起量', '完成率', '平均响应时长', '拒绝数', '操作'].map(h => (
+                  {['排名', '科室名称', '所在机构', '接收处理量', '发起申请量', '完成率', '平均响应时长', '拒绝数', '操作'].map(h => (
                     <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                   ))}
                 </tr>
@@ -229,7 +229,7 @@ export default function DoctorPerf() {
             <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 820 }}>
               <thead>
                 <tr style={{ background: '#E0F6F9' }}>
-                  {['排名', '医生姓名', '所在科室', '所在机构', '上转发起', '下转完成', '完成率', '平均响应时长(h)', '操作'].map(h => (
+                  {['排名', '医生姓名', '所在科室', '所在机构', '发起申请量', '完成接收量', '完成率', '平均响应时长(h)', '操作'].map(h => (
                     <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                   ))}
                 </tr>

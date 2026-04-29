@@ -8,6 +8,7 @@ import MinimalArrangementStatusCard from '../../components/MinimalArrangementSta
 import ArrangementModal from '../../components/ArrangementModal'
 import ReferralSummaryCard from '../../components/ReferralSummaryCard'
 import StructuredReasonSelector from '../../components/StructuredReasonSelector'
+import PhoneCallButton from '../../components/PhoneCallButton'
 import { getReferralClosureEvents } from '../../utils/referralClosureEvents'
 import { getConsentInfo } from '../../utils/consentUpload'
 import { canViewEmergencyModifyWindowInfo, canViewEmergencyReferralDetail, getEmergencyHospitalConfig } from '../../utils/emergencyReferral'
@@ -34,6 +35,7 @@ import {
   UPWARD_CLOSE_REASON_OPTIONS,
   UPWARD_REJECT_REASON_OPTIONS,
 } from '../../constants/reasonCodes'
+import { maskPhoneNumber, PHONE_CALL_ACTIONS } from '../../utils/phoneCall'
 
 function formatTime(isoStr) {
   if (!isoStr) return '—'
@@ -299,6 +301,57 @@ function NoticeDialog({ title, description, onClose, closeText = '知道了' }) 
               style={{ background: '#0BBECF' }}
             >
               {closeText}
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function EmergencyPatientContactDialog({ referral, currentUser, currentRole, onLog, onOtherContact }) {
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/50" />
+      <div className="relative bg-white rounded-2xl shadow-2xl w-[440px] overflow-hidden">
+        <div className="px-6 py-4 border-b border-red-100 bg-red-50">
+          <h3 className="font-semibold text-red-800 text-lg">⚠️ 已修改转诊目标，请立即电话联系患者</h3>
+        </div>
+        <div className="p-6 space-y-4">
+          <p className="text-sm text-gray-600 leading-6">
+            系统已自动重发短信至患者手机，但为确保患者不去错医院，请务必电话告知本次变更。
+          </p>
+          <div className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-3 text-sm">
+            <div className="flex justify-between gap-3">
+              <span className="text-gray-500">患者</span>
+              <span className="font-medium text-gray-900">{referral.patient?.name || '—'}</span>
+            </div>
+            <div className="mt-2 flex justify-between gap-3">
+              <span className="text-gray-500">联系电话</span>
+              <span className="font-mono font-medium text-gray-900">{maskPhoneNumber(referral.patient?.phone)}</span>
+            </div>
+          </div>
+          <div className="flex gap-3 pt-1">
+            <PhoneCallButton
+              number={referral.patient?.phone}
+              label="患者"
+              variant="emergency"
+              source="emergency_modify_patient"
+              numberType="patient"
+              action={PHONE_CALL_ACTIONS.EMERGENCY_MODIFY_PATIENT_CALLED}
+              actorId={currentUser?.id}
+              actorRole={currentRole}
+              referralId={referral.id}
+              onLog={onLog}
+              className="flex-1 py-2 text-sm"
+              buttonText="拨打患者电话"
+            />
+            <button
+              type="button"
+              onClick={onOtherContact}
+              className="flex-1 rounded-lg border border-gray-200 px-3 py-2 text-sm font-medium text-gray-700 hover:bg-gray-50"
+            >
+              我已通过其他方式联系
             </button>
           </div>
         </div>
@@ -689,7 +742,7 @@ export default function ReferralDetail() {
     reassignDownwardReferral, selfAcceptDownwardReferral, rejectDownwardByCoordinator,
     approveInternalReview, rejectInternalReview, fillAdmissionArrangement, supplementEmergencyAdmission, emergencyModifyReferral,
     markEmergencyFirstViewed, confirmEmergencyPatientNotified,
-    recordReferralDocumentAction,
+    recordReferralDocumentAction, recordPhoneCallAction,
   } = useApp()
 
   const ref = referrals.find(r => r.id === id)
@@ -781,6 +834,7 @@ export default function ReferralDetail() {
   const currentTransferLabel = isUpward ? '上转' : '下转'
   const displayedStatus = getReferralDisplayStatus(ref, { role: currentRole, userId: currentUser?.id })
   const isCountyInitiator = isCountyDoctor && currentUser?.name === ref.fromDoctor
+  const isCountyInitiatingInstitution = isCountyScopedRole && currentUser?.institution === ref.fromInstitution
   const isDownwardAssignedDoctor = ref.downwardAssignedDoctorId === currentUser?.id
   const isDesignatedDoctor = ref.designatedDoctorId === currentUser?.id
   const canTransferUpToHigherLevel = isUpward && isCountyAttendingDoctor
@@ -947,7 +1001,7 @@ export default function ReferralDetail() {
         break
       case 'emergencyModifyConfirm':
         emergencyModifyReferral(id, dialog.form)
-        setDialog(null)
+        setDialog({ type: 'emergencyPatientContact' })
         break
       case 'confirmPatientNotified':
         confirmEmergencyPatientNotified(id)
@@ -1073,7 +1127,11 @@ export default function ReferralDetail() {
   const emergencyElapsedMinutes = isEmergencyReferral ? Math.max(0, Math.floor((nowTs - new Date(ref.createdAt).getTime()) / 60000)) : 0
   const emergencyElapsedHours = Math.floor(emergencyElapsedMinutes / 60)
   const emergencyElapsedRemainMinutes = emergencyElapsedMinutes % 60
-  const maskedPatientPhone = ref.patient?.phone?.replace(/^(\d{3})\d*(\d{4})$/, '$1****$2') || ref.patient?.phone || '—'
+  const maskedPatientPhone = maskPhoneNumber(ref.patient?.phone)
+  const targetInstitutionConfig = INSTITUTIONS.find(item => item.name === ref.toInstitution)
+  const emergencyDeptPhone = targetInstitutionConfig?.emergencyDeptPhone || targetInstitutionConfig?.departmentInfo?.['急诊科']?.nurseStationPhone || ''
+  const primaryCoordinator = (DOWNWARD_RECEIVER_OPTIONS[ref.toInstitution] || []).find(item => item.isReferralCoordinator)
+  const referralCoordinatorPhone = targetInstitutionConfig?.referralCoordinatorPhone || ''
   const messageTimeline = (ref.patientSmsLog || []).map(item => ({
     ...item,
     label: item.kind === 'initial'
@@ -1124,6 +1182,10 @@ export default function ReferralDetail() {
         : '门诊就诊'}
 如有疑问请联系：${ref.admissionArrangement?.departmentPhone || '—'}`
     : null
+
+  function handlePhoneLog(entry) {
+    recordPhoneCallAction(id, entry)
+  }
 
   function handleAttachmentAction(item, action) {
     const actionLabel = action === 'download' ? '下载' : '查看'
@@ -1248,6 +1310,19 @@ export default function ReferralDetail() {
                     ⚡ 紧急修改目标医院
                   </button>
                 )}
+                <PhoneCallButton
+                  number={emergencyDeptPhone}
+                  label="急诊科"
+                  variant="emergency"
+                  source="emergency_detail"
+                  numberType="emergency_dept"
+                  actorId={currentUser?.id}
+                  actorRole={currentRole}
+                  referralId={ref.id}
+                  onLog={handlePhoneLog}
+                  className="px-4 py-2 text-sm"
+                  buttonText="拨打急诊科电话"
+                />
                 {emergencyModifyLocked && (
                   <div className="px-4 py-2 rounded-lg text-sm text-gray-500 border border-gray-200 bg-gray-50">
                     修改窗口已关闭
@@ -1292,25 +1367,6 @@ export default function ReferralDetail() {
           </div>
           <div className="text-xs text-red-600 mt-1">
             急诊科电话：{INSTITUTIONS.find(item => item.name === ref.toInstitution)?.emergencyDeptPhone || '—'}
-          </div>
-        </div>
-      )}
-
-      {isEmergencyReferral && hasPendingEmergencyModifyNotice && !isRetroEntry && (
-        <div className="mb-4 rounded-xl border border-orange-300 bg-orange-50 px-5 py-4">
-          <div className="flex items-start justify-between gap-4">
-            <div>
-              <div className="text-sm font-semibold text-orange-900">⚠️ 目标信息已于 {formatTime(ref.emergencyModifyAt)} 修改</div>
-              <div className="text-sm text-orange-800 mt-1">请确认患者已知晓新的就诊信息。</div>
-            </div>
-            {currentRole === ROLES.ADMIN && (
-              <button
-                onClick={() => handleAction('confirmPatientNotified')}
-                className="px-3 py-1.5 rounded-lg text-xs font-medium text-white bg-orange-500 hover:bg-orange-600 transition-colors"
-              >
-                转诊中心：确认患者已通知
-              </button>
-            )}
           </div>
         </div>
       )}
@@ -1381,6 +1437,30 @@ export default function ReferralDetail() {
 
           {/* 操作按钮区 */}
           <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
+            {!canGenerateFormalDocument && (
+              <button
+                onClick={() => handleDocumentAction('预览')}
+                className="self-end px-3 py-1 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
+                style={{ borderColor: '#DDF0F3', color: '#6b7280' }}
+              >
+                预览申请信息
+              </button>
+            )}
+            {isEmergencyReferral && isUpward && !isRetroEntry && (
+              <PhoneCallButton
+                number={emergencyDeptPhone}
+                label="急诊科"
+                variant="emergency"
+                source="emergency_detail"
+                numberType="emergency_dept"
+                actorId={currentUser?.id}
+                actorRole={currentRole}
+                referralId={ref.id}
+                onLog={handlePhoneLog}
+                className="self-end"
+                buttonText="拨打急诊科电话"
+              />
+            )}
             {isCountyDoctor && isEmergencyReferral && (
               <div className="px-4 py-2 rounded-lg text-xs text-red-600 border border-red-200 bg-red-50">
                 急诊转诊由转诊中心处理，县级医生此处只读。
@@ -1602,15 +1682,8 @@ export default function ReferralDetail() {
               </button>
             )}
 
-            {canGenerateFormalDocument ? (
+            {canGenerateFormalDocument && (
               <>
-                <button
-                  onClick={() => handleDocumentAction('预览')}
-                  className="px-4 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
-                  style={{ borderColor: '#B6EDF2', color: '#0892a0' }}
-                >
-                  预览双向转诊单
-                </button>
                 <button
                   onClick={() => handleDocumentAction('下载')}
                   className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
@@ -1624,14 +1697,6 @@ export default function ReferralDetail() {
                   打印
                 </button>
               </>
-            ) : (
-              <button
-                onClick={() => handleDocumentAction('预览')}
-                className="px-4 py-1.5 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
-                style={{ borderColor: '#B6EDF2', color: '#0892a0' }}
-              >
-                预览申请信息
-              </button>
             )}
           </div>
         </div>
@@ -1779,23 +1844,6 @@ export default function ReferralDetail() {
         </div>
       )}
 
-      {/* P1-03：转诊预约码展示（转诊中状态，有预约码时显示）*/}
-      {(ref.appointmentCode || ref.admissionArrangement?.appointmentCode) && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && appointmentCodeVisibility === 'full' && (
-        <div className="mb-4 px-5 py-4 rounded-xl" style={{ background: '#f0fdfe', border: '1px solid #a5f3fc' }}>
-          <div className="text-xs font-medium mb-2" style={{ color: '#0e7490' }}>转诊预约码</div>
-          <div className="flex items-center gap-5">
-            <span className="font-mono text-2xl font-bold tracking-widest" style={{ color: '#0BBECF' }}>{ref.appointmentCode || ref.admissionArrangement?.appointmentCode}</span>
-            <div className="text-xs leading-relaxed" style={{ color: '#0891b2' }}>
-              <div>有效期至：{new Date(ref.appointmentCodeExpireAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })}</div>
-              <div>凭此码到 <span className="font-medium">{ref.admissionArrangement?.department || ref.toDept}</span> 挂号窗口出示，优先排队就诊</div>
-              {currentRole !== ROLES.ADMIN && (
-                <div>患者就诊时需出示此码，短信中已同步发送至患者手机</div>
-              )}
-            </div>
-          </div>
-        </div>
-      )}
-
       {/* CHG-30：到院安排卡（转诊中状态，管理员已填写时显示蓝色卡，未填写时显示灰色占位） */}
       {isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && arrangementVisibility !== 'hidden' && (
         <div className="mb-4">
@@ -1840,137 +1888,98 @@ export default function ReferralDetail() {
                 )}
               </div>
             </div>
-          ) : ref.admissionArrangement ? (
-            <div className="px-5 py-4 rounded-xl" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
-              <div className="flex items-center justify-between mb-3">
-                <div className="flex items-center gap-2">
-                  <span className="text-sm font-semibold text-blue-800">🏥 到院接诊安排</span>
-                  {isGreenChannel && ref.specialistConsultRequested && (
-                    <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#16a34a' }}>
-                      已启动专科会诊
-                    </span>
-                  )}
+          ) : ref.admissionArrangement ? (() => {
+            const arr = ref.admissionArrangement
+            const isInpatientGuidance = ref.admissionType === 'inpatient' || ref.emergencyAdmissionType === 'inpatient'
+            const appointmentCode = ref.appointmentCode || arr.appointmentCode
+            const bedDisplay = arr.bedNumber?.includes('入院时') ? '入院时分配' : (arr.bedNumber || '入院时分配')
+            const guidanceRows = [
+              ['就诊时间', formatTime(arr.visitTime)],
+              ['接诊医院', ref.toInstitution || '—'],
+              ['接诊科室', arr.department || ref.toDept || '—'],
+              ['楼层/区域', isInpatientGuidance ? (arr.ward || arr.floor || '—') : (arr.floor || '—')],
+              ['诊室/床位', isInpatientGuidance ? bedDisplay : (arr.room || '—')],
+              ['科室/护士站电话', isInpatientGuidance ? (arr.nurseStationPhone || arr.departmentPhone || '—') : (arr.departmentPhone || '—')],
+            ]
+            if (appointmentCode && appointmentCodeVisibility === 'full') {
+              guidanceRows.push(['转诊预约码', appointmentCode])
+              guidanceRows.push([
+                '有效期至',
+                ref.appointmentCodeExpireAt
+                  ? new Date(ref.appointmentCodeExpireAt).toLocaleString('zh-CN', { month: 'numeric', day: 'numeric', hour: '2-digit', minute: '2-digit' })
+                  : '—'
+              ])
+            }
+            return (
+              <div className="px-5 py-4 rounded-xl" style={{ background: '#eff6ff', border: '1px solid #bfdbfe' }}>
+                <div className="flex items-center justify-between mb-2">
+                  <div className="flex items-center gap-2">
+                    <span className="text-sm font-semibold text-blue-800">🏥 患者到院指引</span>
+                    {isGreenChannel && ref.specialistConsultRequested && (
+                      <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#16a34a' }}>
+                        已启动专科会诊
+                      </span>
+                    )}
+                  </div>
                 </div>
-                <span className="text-xs text-blue-400">
-                  由 {ref.admissionArrangement.arrangedBy || '转诊中心'} 安排 · {formatTime(ref.admissionArrangement.arrangedAt)}
-                </span>
-              </div>
-              {[ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(currentRole) && (
                 <div className="text-xs text-cyan-700 mb-3 font-medium">请告知患者按以下信息到院就诊</div>
-              )}
-              {isEmergencyReferral && (
-                <div className="text-xs text-blue-500 mb-3">
-                  {isRetroEntry
-                    ? '补录模式：未触发急诊科、专科负责人和转诊中心实时通知'
-                    : `已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓${isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}`}
-                </div>
-              )}
-              <div className="grid grid-cols-2 gap-3 text-sm">
-                {ref.patientArrivedAt && (
-                  <div>
-                    <span className="text-blue-500 text-xs">患者到院时间</span>
-                    <div className="font-medium text-blue-900">{formatTime(ref.patientArrivedAt)}</div>
+                {isEmergencyReferral && (
+                  <div className="text-xs text-blue-500 mb-3">
+                    {isRetroEntry
+                      ? '补录模式：未触发急诊科、专科负责人和转诊中心实时通知'
+                      : `已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓${isGreenChannel && ref.linkedSpecialty ? ` · ${ref.linkedSpecialty}负责人✓` : ''}`}
                   </div>
                 )}
-                <div>
-                  <span className="text-blue-500 text-xs">就诊时间</span>
-                  <div className="font-medium text-blue-900">{formatTime(ref.admissionArrangement.visitTime)}</div>
-                </div>
-                <div>
-                  <span className="text-blue-500 text-xs">接诊科室</span>
-                  <div className="font-medium text-blue-900">{ref.admissionArrangement.department}</div>
-                </div>
-                <div>
-                  <span className="text-blue-500 text-xs">楼层/区域</span>
-                  <div className="font-medium text-blue-900">{ref.admissionArrangement.floor}</div>
-                </div>
-                {ref.admissionType !== 'inpatient' && (
-                  <div>
-                    <span className="text-blue-500 text-xs">诊室/床位</span>
-                    <div className="font-medium text-blue-900">{ref.admissionArrangement.room || '—'}</div>
-                  </div>
-                )}
-                <div>
-                  <span className="text-blue-500 text-xs">科室电话</span>
-                  <div className="font-medium text-blue-900">{ref.admissionArrangement.departmentPhone}</div>
-                </div>
-                {ref.admissionArrangement.doctorName && (
-                  <div>
-                    <span className="text-blue-500 text-xs">参考医生</span>
-                    <div className="font-medium text-blue-900">
-                      {ref.admissionArrangement.doctorName}
-                      <span className="text-blue-400 text-xs ml-1">（仅供参考）</span>
+                <div className="grid grid-cols-2 gap-3 text-sm">
+                  {guidanceRows.map(([label, value]) => (
+                    <div key={label}>
+                      <span className="text-blue-500 text-xs">{label}</span>
+                      <div className={`font-medium text-blue-900 ${label === '转诊预约码' ? 'font-mono text-lg tracking-widest' : ''}`}>
+                        {label === '科室/护士站电话' ? (
+                          <div className="flex flex-wrap items-center gap-2">
+                            <span>{value}</span>
+                            <PhoneCallButton
+                              number={isInpatientGuidance ? (arr.nurseStationPhone || arr.departmentPhone) : arr.departmentPhone}
+                              label={isInpatientGuidance ? '护士站' : '科室'}
+                              variant="normal"
+                              source="admission_arrangement"
+                              numberType={isInpatientGuidance ? 'nurse_station' : 'department'}
+                              actorId={currentUser?.id}
+                              actorRole={currentRole}
+                              referralId={ref.id}
+                              onLog={handlePhoneLog}
+                              buttonText="拨打"
+                            />
+                          </div>
+                        ) : value}
+                      </div>
                     </div>
+                  ))}
+                  <div className="col-span-2">
+                    <span className="text-blue-500 text-xs">使用说明</span>
+                    <div className="font-medium text-blue-900">请患者凭预约码到指定窗口出示，按转诊流程优先排队；具体接诊安排以医院现场为准。</div>
+                  </div>
+                </div>
+                {appointmentCode && currentRole !== ROLES.ADMIN && (
+                  <div className="mt-3 pt-3 border-t border-blue-200 text-xs text-blue-400">
+                    已同步短信通知患者。
+                  </div>
+                )}
+                {/* 变更五：模拟短信预览入口（管理员视角） */}
+                {currentRole === ROLES.ADMIN && (
+                  <div className="mt-3 pt-3 border-t border-blue-200 flex justify-end">
+                    <button
+                      onClick={() => setShowSmsPreview(true)}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border"
+                      style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#dbeafe' }}
+                    >
+                      📱 预览患者通知短信
+                    </button>
                   </div>
                 )}
               </div>
-
-              {/* J-4：住院安排 */}
-              {(ref.admissionType === 'inpatient' || ref.emergencyAdmissionType === 'inpatient') && ref.admissionArrangement.ward && (
-                <div className="mt-3 pt-3 border-t border-blue-200">
-                  <div className="flex items-center gap-2 mb-2">
-                    <span className="text-sm font-semibold text-blue-800">🛏 住院安排</span>
-                    {/* bedStatus 角标 */}
-                    {ref.bedStatus === 'bed_reserved' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: '#dcfce7', color: '#16a34a' }}>床位已预占</span>
-                    )}
-                    {ref.bedStatus === 'bed_used' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6B7280' }}>已入院核销</span>
-                    )}
-                    {ref.bedStatus === 'bed_expired' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: '#fff7ed', color: '#F97316' }}>已超时释放</span>
-                    )}
-                    {ref.bedStatus === 'bed_released' && (
-                      <span className="text-xs px-1.5 py-0.5 rounded font-medium" style={{ background: '#f3f4f6', color: '#6B7280' }}>已释放</span>
-                    )}
-                  </div>
-                  <div className="grid grid-cols-2 gap-3 text-sm">
-                    <div>
-                      <span className="text-blue-500 text-xs">病区</span>
-                      <div className="font-medium text-blue-900">{ref.admissionArrangement.ward}</div>
-                    </div>
-                    <div>
-                      <span className="text-blue-500 text-xs">床位号</span>
-                      <div className="font-medium text-blue-900">{ref.admissionArrangement.bedNumber || '入院时由护士站安排'}</div>
-                    </div>
-                    <div>
-                      <span className="text-blue-500 text-xs">护士站</span>
-                      <div className="font-medium text-blue-900">{ref.admissionArrangement.nurseStationPhone || '—'}</div>
-                    </div>
-                  </div>
-                </div>
-              )}
-
-              {ref.admissionArrangement.appointmentCode && (
-                <div className="mt-3 pt-3 border-t border-blue-200 flex items-center gap-3">
-                  <span className="text-blue-500 text-xs">取号码</span>
-                  <span className="font-mono text-xl font-bold tracking-widest text-blue-700">
-                    {ref.admissionArrangement.appointmentCode}
-                  </span>
-                  <span className="text-xs text-blue-400">
-                    {ref.admissionType === 'inpatient' ? '持本取号码至护士站办理入院' : '到挂号窗口出示，优先取号'}
-                  </span>
-                </div>
-              )}
-              {/* 变更五：模拟短信预览入口（管理员视角） */}
-              {currentRole === ROLES.ADMIN && (
-                <div className="mt-3 pt-3 border-t border-blue-200 flex justify-end">
-                  <button
-                    onClick={() => setShowSmsPreview(true)}
-                    className="text-xs font-medium px-3 py-1.5 rounded-lg border"
-                    style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#dbeafe' }}
-                  >
-                    📱 预览患者通知短信
-                  </button>
-                </div>
-              )}
-              {[ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(currentRole) && (
-                <div className="mt-3 pt-3 border-t border-blue-200 text-xs text-blue-500">
-                  实际接诊医生以到院现场安排为准
-                </div>
-              )}
-            </div>
-          ) : (
+            )
+          })() : (
             <div className="px-5 py-4 rounded-xl bg-gray-50 border border-gray-200">
               <div className="flex items-center gap-2">
                 <span className="text-gray-400 text-sm">🏥</span>
@@ -2095,6 +2104,31 @@ export default function ReferralDetail() {
         <div className="mb-4 flex items-center gap-3 px-4 py-3 rounded-xl bg-amber-50 border border-amber-200 text-sm text-amber-700">
           <span>↺</span>
           <span>该{downwardDisplayLabel}申请已进入 <span className="font-medium">负责人改派窗口</span>。请改派其他医生、本人直接接收，或直接退回申请。</span>
+        </div>
+      )}
+      {isDownward && ref.status === DOWNWARD_STATUS.PENDING && downwardAllocationMode === 'coordinator_reassign' && isCountyInitiatingInstitution && (
+        <div className="mb-4 rounded-xl border border-amber-200 bg-amber-50 px-5 py-4">
+          <div className="flex flex-wrap items-center justify-between gap-4">
+            <div>
+              <div className="text-sm font-semibold text-amber-800">待改派（指定医生已拒绝）</div>
+              <div className="mt-1 text-sm text-amber-700">接收机构：{ref.toInstitution || '—'}</div>
+              <div className="mt-1 text-sm text-amber-700">转诊负责人：{primaryCoordinator?.name || '基层转诊负责人'}</div>
+              <div className="mt-1 text-sm text-amber-700">联系电话：{referralCoordinatorPhone || '待配置'}</div>
+              <div className="mt-2 text-xs text-amber-600">已等待 {Math.max(1, Math.floor((nowTs - new Date(ref.allocationModeChangedAt || ref.updatedAt || ref.createdAt).getTime()) / 3600000))}h，建议电话催办</div>
+            </div>
+            <PhoneCallButton
+              number={referralCoordinatorPhone}
+              label="负责人"
+              variant="normal"
+              source="reassign_window"
+              numberType="coordinator"
+              actorId={currentUser?.id}
+              actorRole={currentRole}
+              referralId={ref.id}
+              onLog={handlePhoneLog}
+              buttonText="拨打负责人"
+            />
+          </div>
         </div>
       )}
 
@@ -2574,6 +2608,22 @@ export default function ReferralDetail() {
           onCancel={() => setDialog(null)}
         />
       )}
+      {dialog?.type === 'emergencyPatientContact' && (
+        <EmergencyPatientContactDialog
+          referral={ref}
+          currentUser={currentUser}
+          currentRole={currentRole}
+          onLog={handlePhoneLog}
+          onOtherContact={() => {
+            recordPhoneCallAction(id, {
+              action: PHONE_CALL_ACTIONS.EMERGENCY_MODIFY_OTHER_CONTACT,
+              source: 'emergency_modify_patient',
+              numberType: 'patient',
+            })
+            setDialog(null)
+          }}
+        />
+      )}
       {dialog?.type === 'collaborativeClose' && (
         <CollaborativeCloseDialog
           isUpward={isUpward}
@@ -2841,7 +2891,7 @@ ${renderedNotice}`
               setDialog({
                 type: 'notice',
                 title: '接诊安排已提交',
-                description: `预约取号码已发送至基层医生，患者可按安排到院就诊。${ref.appointmentCode ? `\n当前预约码：${ref.appointmentCode}` : ''}`
+                description: `转诊预约码已发送至基层医生和患者，患者可按安排到院就诊。${ref.appointmentCode ? `\n当前预约码：${ref.appointmentCode}` : ''}`
               })
             }}
           />

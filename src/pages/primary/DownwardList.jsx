@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 import { getDownwardDisplayStatus, matchesDownwardDisplayStatus } from '../../utils/downwardStatusPresentation'
+import { shouldShowDownwardReferralForPrimaryDoctor } from '../../utils/primaryDownwardScope'
 
 function RowNo({ n }) {
   return (
@@ -35,7 +36,7 @@ function getOwnerLabel(ref) {
 
 function getStageHint(ref, isCoordinator, currentUser) {
   const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
-  if (!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && ref.designatedDoctorId === currentUser.id) {
+  if (!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && shouldShowDownwardReferralForPrimaryDoctor(ref, currentUser)) {
     return '待您接收，可直接接收或拒绝'
   }
   if (isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && mode === 'coordinator') {
@@ -69,15 +70,12 @@ export default function DownwardList() {
     if (displayStatus === DOWNWARD_STATUS.RETURNED) {
       return r.designatedDoctorId === currentUser.id || r.downwardAssignedDoctorId === currentUser.id
     }
-    if (r.status === DOWNWARD_STATUS.PENDING) {
-      return r.designatedDoctorId === currentUser.id
-    }
-    return r.downwardAssignedDoctorId === currentUser.id || r.designatedDoctorId === currentUser.id
+    return shouldShowDownwardReferralForPrimaryDoctor(r, currentUser)
   })
   const filtered = scopedDownward
     .filter(r => matchesDownwardDisplayStatus(r, filter, viewer))
     .filter(r => !search || r.patient.name.includes(search) || r.diagnosis.name.includes(search))
-  const pendingForMeCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && r.designatedDoctorId === currentUser.id).length
+  const pendingForMeCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && shouldShowDownwardReferralForPrimaryDoctor(r, currentUser)).length
   const pendingAssignCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && (r.allocationMode || 'coordinator') === 'coordinator').length
   const pendingReassignCount = scopedDownward.filter(r => r.status === DOWNWARD_STATUS.PENDING && (r.allocationMode || '') === 'coordinator_reassign').length
 
@@ -186,7 +184,7 @@ export default function DownwardList() {
                 <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleDateString('zh-CN')}</td>
                 <td className={TD} onClick={e => e.stopPropagation()}>
                   <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
-                  {!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && ref.designatedDoctorId === currentUser.id && (
+                  {!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && shouldShowDownwardReferralForPrimaryDoctor(ref, currentUser) && (
                     <>
                       <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#10b981' }}>接收</button>
                       <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#DC2626' }}>拒绝</button>

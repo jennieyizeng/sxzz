@@ -2,7 +2,6 @@ import { useState, useRef } from 'react'
 import {
   appendSystemOperationLog,
   SYSTEM_NOTIFY_SMS_TEMPLATES,
-  SYSTEM_NOTIFY_SMS_VARIABLES,
   SYSTEM_NOTIFY_SYS_TEMPLATES,
   SYSTEM_NOTIFY_VARIABLES,
 } from '../../data/systemAdminConfig'
@@ -12,17 +11,6 @@ const MAX_CONTENT_LEN = 200
 // ── 样式常量 ────────────────────────────────────────────────
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
-
-function renderSmsPreview(template, content) {
-  const mockData = template.mockData || {}
-  const previewSource = template.previewContent && content === template.content
-    ? template.previewContent
-    : content
-  return `${template.smsSign}${Object.entries(mockData).reduce(
-    (text, [key, value]) => text.replaceAll(`【${key}】`, value),
-    previewSource,
-  )}`
-}
 
 // ── Toggle 组件 ─────────────────────────────────────────────
 function Toggle({ value, onChange }) {
@@ -54,8 +42,6 @@ function EditModal({ template, isSms, onCancel, onSave }) {
   const [enabled, setEnabled] = useState(template.enabled)
   const [contentErr, setContentErr] = useState('')
   const textareaRef = useRef(null)
-  const variables = isSms ? SYSTEM_NOTIFY_SMS_VARIABLES : SYSTEM_NOTIFY_VARIABLES
-  const smsPreview = isSms ? renderSmsPreview(template, content) : ''
 
   const insertVariable = (varKey) => {
     const el = textareaRef.current
@@ -90,139 +76,119 @@ function EditModal({ template, isSms, onCancel, onSave }) {
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onCancel} />
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
-        <div className="bg-white rounded-xl shadow-2xl w-full max-w-2xl max-h-[86vh] overflow-hidden flex flex-col">
+        <div className="bg-white rounded-xl shadow-2xl w-full max-w-md p-6">
 
           {/* Modal 标题 */}
-          <div className="flex items-center justify-between px-5 py-4 border-b border-gray-100">
-            <div className="min-w-0">
-              <h3 className="text-sm font-semibold text-gray-800">
-                编辑{isSms ? '短信' : '系统内消息'}模板
-              </h3>
-            </div>
+          <div className="flex items-center justify-between mb-5">
+            <h3 className="text-sm font-semibold text-gray-800">
+              编辑{isSms ? '短信' : '系统内消息'}模板
+            </h3>
             <button
               onClick={onCancel}
-              className="w-7 h-7 flex-shrink-0 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none"
+              className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none"
             >×</button>
           </div>
 
-          <div className="px-5 py-4 overflow-y-auto">
-            <div className="mb-4 rounded-lg border border-gray-100 bg-gray-50 px-3 py-3">
-              <div className="mb-2 text-xs font-medium text-gray-700">模板概览</div>
-              <div className={`grid grid-cols-1 ${isSms ? 'sm:grid-cols-3' : 'sm:grid-cols-[1fr_1.2fr_auto]'} gap-3 items-start`}>
-                <div className="min-w-0">
-                  <div className="text-xs text-gray-400 mb-1">事件触发</div>
-                  <div className="text-sm text-gray-700 font-medium truncate" title={template.event}>{template.event}</div>
-                </div>
-                <div className="min-w-0">
-                  <div className="text-xs text-gray-400 mb-1">接收{isSms ? '对象' : '角色'}</div>
-                  <div className="flex flex-wrap gap-1">
-                    {template.receivers.map(r => (
-                      <span key={r} className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">{r}</span>
-                    ))}
-                  </div>
-                </div>
-                {isSms ? (
-                  <div>
-                    <div className="text-xs text-gray-400 mb-1">短信签名</div>
-                    <div className="text-sm text-gray-700 font-medium">{template.smsSign}</div>
-                  </div>
-                ) : (
-                  <div className="sm:text-right">
-                    <div className="text-xs text-gray-400 mb-1">模板状态</div>
-                    <Toggle value={enabled} onChange={setEnabled} />
-                  </div>
-                )}
-              </div>
+          {/* 事件触发（只读） */}
+          <div className="mb-4 grid grid-cols-2 gap-4">
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">事件触发</label>
+              <div className="text-sm text-gray-700 font-medium">{template.event}</div>
             </div>
-
-            {/* 模板标题或短信签名（只读） */}
-            {isSms ? (
-              <div className="mb-4 flex items-center justify-between rounded-lg border border-gray-100 px-3 py-2">
-                <div>
-                  <div className="text-xs text-gray-400">模板状态</div>
-                  <div className="text-xs text-gray-500 mt-0.5">关闭后该短信事件不发送患者/家属短信。</div>
-                </div>
-                <Toggle value={enabled} onChange={setEnabled} />
-              </div>
-            ) : (
-              <div className="mb-4">
-                <label className="block text-xs text-gray-500 mb-1">消息标题（只读）</label>
-                <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg leading-snug">
-                  {template.title}
-                </div>
-                <p className="text-xs text-gray-400 mt-1">用于消息中心列表展示，由系统固定，不支持修改。</p>
-              </div>
-            )}
-
-            {/* 模板内容 */}
-            <div className="mb-4">
-              <label className="block text-xs text-gray-500 mb-1">
-                {isSms ? '短信正文' : '消息内容'}
-                <span className="text-red-500 ml-0.5">*</span>
-                <span className="ml-1 text-gray-300">（最多 {MAX_CONTENT_LEN} 字）</span>
-              </label>
-              <textarea
-                ref={textareaRef}
-                value={content}
-                onChange={e => {
-                  setContent(e.target.value)
-                  if (e.target.value.trim()) setContentErr('')
-                }}
-                rows={isSms ? 4 : 5}
-                placeholder="请输入模板内容，可使用下方变量"
-                className={`w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 ${
-                  contentErr ? 'border-red-400 focus:ring-red-300' : 'border-gray-200 focus:ring-[#0BBECF]'
-                }`}
-              />
-              <div className="flex items-center justify-between mt-0.5">
-                <span className="text-xs text-red-500">{contentErr}</span>
-                <span className={`text-xs ${content.length > MAX_CONTENT_LEN ? 'text-red-500' : 'text-gray-400'}`}>
-                  {content.length} / {MAX_CONTENT_LEN}
-                </span>
-              </div>
-            </div>
-
-            {/* 变量提示区 */}
-            <div className="mb-4 bg-gray-50 border border-gray-100 rounded-lg p-3">
-              <div className="flex items-center justify-between gap-2 mb-2">
-                <div className="text-xs text-gray-700 font-medium">可用变量</div>
-                <div className="text-xs text-gray-400">点击可用变量插入到光标位置</div>
-              </div>
-              <div className="flex flex-wrap gap-1.5 max-h-24 overflow-y-auto pr-1">
-                {variables.map(v => (
-                  <button
-                    key={v.key}
-                    type="button"
-                    aria-label={`插入${v.label}`}
-                    onClick={() => insertVariable(v.key)}
-                    className="px-2 py-1 rounded text-xs border border-dashed transition-colors"
-                    style={{ borderColor: '#0BBECF', color: '#0BBECF', background: '#fff' }}
-                    onMouseEnter={e => e.currentTarget.style.background = '#E0F6F9'}
-                    onMouseLeave={e => e.currentTarget.style.background = '#fff'}
-                  >
-                    {v.label}
-                  </button>
+            <div>
+              <label className="block text-xs text-gray-500 mb-1">接收{isSms ? '对象' : '角色'}</label>
+              <div className="flex flex-wrap gap-1">
+                {template.receivers.map(r => (
+                  <span key={r} className="text-xs px-2 py-0.5 rounded bg-blue-100 text-blue-700">{r}</span>
                 ))}
               </div>
             </div>
+          </div>
 
-            {isSms && (
-              <div className="mb-4 rounded-lg border border-cyan-100 bg-cyan-50/60 px-3 py-3">
-                <div className="text-xs font-medium text-gray-700 mb-2">短信预览</div>
-                <div className="text-sm text-gray-700 leading-6 break-words">{smsPreview}</div>
+          {/* 模板标题或短信签名（只读） */}
+          {isSms ? (
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">短信签名（固定）</label>
+              <div className="inline-block text-sm font-medium text-gray-700 bg-gray-50 border border-gray-200 px-3 py-1 rounded-lg">
+                {template.smsSign}
               </div>
-            )}
+            </div>
+          ) : (
+            <div className="mb-4">
+              <label className="block text-xs text-gray-500 mb-1">消息标题（只读）</label>
+              <div className="text-sm text-gray-700 bg-gray-50 border border-gray-200 px-3 py-1.5 rounded-lg leading-snug">
+                {template.title}
+              </div>
+            </div>
+          )}
 
-            <div className="rounded-lg border border-gray-100 bg-gray-50 px-3 py-2">
-              <div className="text-xs leading-5 text-gray-500">
-                {isSms ? '禁用后该事件不会发送此通知。' : '关闭后该事件不发送系统内通知。'}
-                保存后仅影响后续新生成的通知，历史已发送通知不受影响。
-              </div>
+          {/* 模板内容 */}
+          <div className="mb-4">
+            <label className="block text-xs text-gray-500 mb-1">
+              {isSms ? '短信正文' : '消息内容'}
+              <span className="text-red-500 ml-0.5">*</span>
+              <span className="ml-1 text-gray-300">（最多 {MAX_CONTENT_LEN} 字）</span>
+            </label>
+            <textarea
+              ref={textareaRef}
+              value={content}
+              onChange={e => {
+                setContent(e.target.value)
+                if (e.target.value.trim()) setContentErr('')
+              }}
+              rows={isSms ? 4 : 5}
+              placeholder="请输入模板内容，可使用下方变量"
+              className={`w-full border rounded-lg px-3 py-2 text-sm resize-none focus:outline-none focus:ring-1 ${
+                contentErr ? 'border-red-400 focus:ring-red-300' : 'border-gray-200 focus:ring-[#0BBECF]'
+              }`}
+            />
+            <div className="flex items-center justify-between mt-0.5">
+              <span className="text-xs text-red-500">{contentErr}</span>
+              <span className={`text-xs ${content.length > MAX_CONTENT_LEN ? 'text-red-500' : 'text-gray-400'}`}>
+                {content.length} / {MAX_CONTENT_LEN}
+              </span>
+            </div>
+          </div>
+
+          {/* 变量提示区 */}
+          <div className="mb-5 bg-gray-50 border border-gray-100 rounded-lg p-3">
+            <div className="text-xs text-gray-500 mb-2 font-medium">可用变量（点击插入到光标位置）</div>
+            <div className="flex flex-wrap gap-1.5">
+              {SYSTEM_NOTIFY_VARIABLES.map(v => (
+                <button
+                  key={v.key}
+                  onClick={() => insertVariable(v.key)}
+                  className="flex items-center gap-1 px-2 py-1 rounded text-xs border border-dashed transition-colors"
+                  style={{ borderColor: '#0BBECF', color: '#0BBECF', background: '#fff' }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#E0F6F9'}
+                  onMouseLeave={e => e.currentTarget.style.background = '#fff'}
+                >
+                  <code className="font-mono">{v.key}</code>
+                  <span className="text-gray-400">=</span>
+                  <span>{v.label}</span>
+                </button>
+              ))}
+            </div>
+          </div>
+
+          {/* 状态 Toggle */}
+          <div className="mb-5 flex items-center justify-between py-2 border border-gray-100 rounded-lg px-3">
+            <div>
+              <div className="text-sm text-gray-700 font-medium">模板状态</div>
+              <div className="text-xs text-gray-400 mt-0.5">禁用后该事件不会发送此通知</div>
+            </div>
+            <Toggle value={enabled} onChange={setEnabled} />
+          </div>
+
+          <div className="mb-5 rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+            <div className="text-xs font-medium text-amber-800 mb-1">生效影响提示</div>
+            <div className="text-xs leading-5 text-amber-700">
+              保存后该模板会立即用于“{template.event}”事件；已发送通知不回溯修改，后续新通知按当前模板内容生成。
             </div>
           </div>
 
           {/* 按钮区 */}
-          <div className="flex justify-end gap-2 px-5 py-3 border-t border-gray-100">
+          <div className="flex justify-end gap-2">
             <button
               onClick={onCancel}
               className="px-4 py-1.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
@@ -285,11 +251,11 @@ function SysTemplateTable({ templates, onToggle, onEdit }) {
                 </div>
               </td>
               <td className={TD}>
-                <Toggle value={tpl.enabled} onChange={(v) => onToggle('sys', tpl.id, v)} />
+                <Toggle value={tpl.enabled} onChange={(v) => onToggle(tpl.id, v)} />
               </td>
               <td className={TD}>
                 <button
-                  onClick={() => onEdit(tpl, 'sys')}
+                  onClick={() => onEdit(tpl)}
                   className="text-sm font-medium transition-colors"
                   style={{ color: '#0BBECF' }}
                   onMouseEnter={e => e.currentTarget.style.color = '#0892a0'}
@@ -310,10 +276,10 @@ function SysTemplateTable({ templates, onToggle, onEdit }) {
 function SmsTemplateTable({ templates, onToggle, onEdit }) {
   return (
     <div className="overflow-x-auto">
-      <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 820 }}>
+      <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 680 }}>
         <thead>
           <tr style={{ background: '#E0F6F9' }}>
-            {['ID', '事件触发', '模板名称', '短信内容（前60字）', '接收对象', '状态', '操作'].map(h => (
+            {['ID', '事件触发', '短信内容（前60字）', '接收对象', '状态', '操作'].map(h => (
               <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
             ))}
           </tr>
@@ -334,15 +300,12 @@ function SmsTemplateTable({ templates, onToggle, onEdit }) {
                 <td className={TD + ' font-mono text-xs text-gray-500'}>{tpl.id}</td>
                 <td className={TD}>
                   <span className="inline-block text-xs px-2 py-0.5 rounded bg-purple-100 text-purple-700 font-medium">
-                  {tpl.event}
-                </span>
-              </td>
-              <td className={TD + ' text-gray-700 font-medium max-w-[180px]'}>
-                <span className="block truncate" title={tpl.name}>{tpl.name}</span>
-              </td>
-              <td className={TD + ' text-gray-600 text-xs max-w-[260px]'}>
-                <span className="block truncate" title={tpl.smsSign + tpl.content}>{preview}</span>
-              </td>
+                    {tpl.event}
+                  </span>
+                </td>
+                <td className={TD + ' text-gray-600 text-xs max-w-[260px]'}>
+                  <span className="block truncate" title={tpl.smsSign + tpl.content}>{preview}</span>
+                </td>
                 <td className={TD}>
                   <div className="flex flex-wrap gap-1">
                     {tpl.receivers.map(r => (
@@ -351,11 +314,11 @@ function SmsTemplateTable({ templates, onToggle, onEdit }) {
                   </div>
                 </td>
                 <td className={TD}>
-                <Toggle value={tpl.enabled} onChange={(v) => onToggle('sms', tpl.id, v)} />
+                  <Toggle value={tpl.enabled} onChange={(v) => onToggle(tpl.id, v)} />
                 </td>
                 <td className={TD}>
                   <button
-                    onClick={() => onEdit(tpl, 'sms')}
+                    onClick={() => onEdit(tpl)}
                     className="text-sm font-medium transition-colors"
                     style={{ color: '#0BBECF' }}
                     onMouseEnter={e => e.currentTarget.style.color = '#0892a0'}
@@ -386,14 +349,10 @@ export default function NotifyTemplate() {
     setTimeout(() => setToast(''), 1500)
   }
 
-  const isSmsEdit = editingTpl?.channel === 'sms'
+  const isSmsEdit = editingTpl ? smsTemplates.some(t => t.id === editingTpl.id) : false
 
-  const openEditor = (tpl, channel) => {
-    setEditingTpl({ ...tpl, channel })
-  }
-
-  const handleToggle = (channel, id, value) => {
-    const inSys = channel === 'sys'
+  const handleToggle = (id, value) => {
+    const inSys = sysTemplates.some(t => t.id === id)
     const original = inSys ? sysTemplates.find(t => t.id === id) : smsTemplates.find(t => t.id === id)
     if (inSys) {
       setSysTemplates(prev => prev.map(t => t.id === id ? { ...t, enabled: value } : t))
@@ -407,7 +366,7 @@ export default function NotifyTemplate() {
         target: original.event,
         detail: {
           配置项: '通知模板',
-          模板名称: inSys ? original.title : original.name,
+          模板名称: inSys ? original.title : `${original.smsSign}${original.event}`,
           变更字段: '模板状态',
           原值: original.enabled ? '启用' : '禁用',
           新值: value ? '启用' : '禁用',
@@ -418,14 +377,12 @@ export default function NotifyTemplate() {
   }
 
   const handleSave = (updated) => {
-    const inSys = updated.channel === 'sys'
+    const inSys = sysTemplates.some(t => t.id === updated.id)
     const original = inSys ? sysTemplates.find(t => t.id === updated.id) : smsTemplates.find(t => t.id === updated.id)
-    const normalized = { ...updated }
-    delete normalized.channel
     if (inSys) {
-      setSysTemplates(prev => prev.map(t => t.id === updated.id ? normalized : t))
+      setSysTemplates(prev => prev.map(t => t.id === updated.id ? updated : t))
     } else {
-      setSmsTemplates(prev => prev.map(t => t.id === updated.id ? normalized : t))
+      setSmsTemplates(prev => prev.map(t => t.id === updated.id ? updated : t))
     }
     if (original) {
       appendSystemOperationLog({
@@ -434,7 +391,7 @@ export default function NotifyTemplate() {
         target: updated.event,
         detail: {
           配置项: '通知模板',
-          模板名称: inSys ? updated.title : updated.name,
+          模板名称: inSys ? updated.title : `${updated.smsSign}${updated.event}`,
           变更字段: '模板内容',
           原值: original.content,
           新值: updated.content,
@@ -454,7 +411,7 @@ export default function NotifyTemplate() {
       {/* 页面标题 */}
       <div className="mb-5">
         <h2 className="text-base font-semibold text-gray-800">通知模板配置</h2>
-        <div className="text-xs text-gray-400 mt-0.5">管理双向转诊流程中的系统内消息模板。模板事件和接收角色由系统流程固定，管理员仅可维护消息内容和启用状态。</div>
+        <div className="text-xs text-gray-400 mt-0.5">管理各业务事件的消息通知内容，支持系统内消息与短信两种渠道</div>
       </div>
 
       {/* Tab 切换 */}
@@ -496,8 +453,8 @@ export default function NotifyTemplate() {
             </span>
             <span className="ml-2 text-xs text-gray-400">
               {activeTab === 'sys'
-            ? '系统内推送，医护人员登录后可在消息中心查看'
-                : '短信通知主要面向患者/家属，用于急诊到院提醒、接诊安排告知、预约码发送及必要的就诊须知提醒。内部流程通知请使用系统内消息。'
+                ? '系统内推送，医护人员登录后可在消息中心查看'
+                : '通过短信发送，主要用于通知患者'
               }
             </span>
           </div>
@@ -519,13 +476,13 @@ export default function NotifyTemplate() {
           <SysTemplateTable
             templates={sysTemplates}
             onToggle={handleToggle}
-            onEdit={openEditor}
+            onEdit={setEditingTpl}
           />
         ) : (
           <SmsTemplateTable
             templates={smsTemplates}
             onToggle={handleToggle}
-            onEdit={openEditor}
+            onEdit={setEditingTpl}
           />
         )}
 
@@ -535,8 +492,8 @@ export default function NotifyTemplate() {
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M13 16h-1v-4h-1m1-4h.01M21 12a9 9 0 11-18 0 9 9 0 0118 0z" />
           </svg>
           {activeTab === 'sys'
-            ? '模板标题与接收角色由系统流程固定，不支持修改；修改模板内容后，仅影响后续新生成的通知，不影响历史消息。'
-            : '短信签名固定为【xx市医共体】，不可修改；短信内容修改后仅影响后续新发送短信，不影响历史短信。超过70字可能按多条计费。'
+            ? '系统内消息模板变更立即生效。模板标题与接收角色由系统固定，不可修改，仅可编辑内容与启用状态。'
+            : '短信签名【绵竹医联体】固定，不可修改。短信内容需符合运营商规范，建议不超过 70 字（含签名）以避免按多条计费。'
           }
         </div>
       </div>

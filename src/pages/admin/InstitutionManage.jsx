@@ -10,12 +10,16 @@ import {
 let _nextId = 6
 
 // ── 常量 ───────────────────────────────────────────────────
-const INSTITUTION_TYPES = ['县级医院', '乡镇卫生院', '村卫生室']
+const INSTITUTION_TYPES = ['综合医院', '中医医院', '专科医院', '妇幼保健院', '社区卫生服务中心', '乡镇卫生院']
+const COUNTY_SERVICE_TYPES = ['综合医院', '中医医院', '专科医院', '妇幼保健院']
 
 const TYPE_TAG = {
-  '县级医院':   'bg-purple-100 text-purple-700',
-  '乡镇卫生院': 'bg-blue-100 text-blue-700',
-  '村卫生室':   'bg-green-100 text-green-700',
+  '综合医院':         'bg-purple-100 text-purple-700',
+  '中医医院':         'bg-emerald-100 text-emerald-700',
+  '专科医院':         'bg-indigo-100 text-indigo-700',
+  '妇幼保健院':       'bg-pink-100 text-pink-700',
+  '社区卫生服务中心': 'bg-green-100 text-green-700',
+  '乡镇卫生院':       'bg-blue-100 text-blue-700',
 }
 
 const EMERGENCY_DUTY_CONTACT_OPTIONS = [
@@ -29,9 +33,9 @@ const LANDLINE_PHONE_REGEX = /^0\d{2,3}-?\d{7,8}$/
 
 const EMPTY_FORM = {
   name: '', code: '', type: '', contact: '', phone: '', address: '',
-  referralConsultPhone: '',
+  referralConsultPhone: '', referralContactUserId: '', referralContactName: '', referralContactPhone: '',
+  referralCoordinatorPhone: '',
   emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
-  patientNoticeTemplate: '',
   canUp: true, canDown: true, enabled: true,
 }
 
@@ -75,9 +79,9 @@ function DrawerField({ label, required, children, error }) {
 
 function ReadOnlyField({ label, value }) {
   return (
-    <div>
-      <label className="block text-xs text-gray-500 mb-1">{label}</label>
-      <div className="min-h-[34px] w-full rounded-lg border border-gray-100 bg-gray-50 px-3 py-1.5 text-sm text-gray-700">
+    <div className="rounded-lg bg-gray-50 px-3 py-2">
+      <div className="text-xs text-gray-400 mb-1">{label}</div>
+      <div className="text-sm font-medium text-gray-800 leading-5">
         {value || '—'}
       </div>
     </div>
@@ -146,11 +150,20 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_FORM,
     ...(initial || {}),
+    type: INSTITUTION_TYPES.includes(initial?.type) ? initial.type : '',
+    referralContactUserId: initial?.referralContactUserId || '',
+    referralContactName: initial?.referralContactName || '',
+    referralContactPhone: initial?.referralContactPhone || '',
+    referralCoordinatorPhone: initial?.referralCoordinatorPhone || '',
     emergencyDutyContactId: initial?.emergencyDutyContactId || '',
     emergencyDutyContactName: initial?.emergencyDutyContactName || initial?.emergencyDutyContact || '',
   }))
   const [errors, setErrors] = useState({})
   const isEdit = mode === 'edit'
+  const referralContactOptions = SYSTEM_SSO_USERS.filter(user =>
+    user.enabled &&
+    (form.id ? user.institutionId === form.id : true)
+  )
 
   const set = (key, val) => {
     setForm(f => ({ ...f, [key]: val }))
@@ -159,18 +172,32 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
 
   const validate = () => {
     const errs = {}
-    if (!form.name.trim())    errs.name    = '请填写机构名称'
-    if (!form.code.trim())    errs.code    = '请填写机构编码'
-    if (!form.type)           errs.type    = '请选择机构类型'
-    if (!form.contact.trim()) errs.contact = '请填写联系人'
-    if (!form.phone.trim())   errs.phone   = '请填写联系电话'
+    if (!isEdit) {
+      if (!form.name.trim())    errs.name    = '请填写机构名称'
+      if (!form.code.trim())    errs.code    = '请填写机构代码'
+      if (!form.type)           errs.type    = '请选择机构类别'
+      if (!form.contact.trim()) errs.contact = '请填写联系人'
+      if (!form.phone.trim())   errs.phone   = '请填写联系电话'
+    }
     if (form.referralConsultPhone?.trim()) {
       const cleanedPhone = form.referralConsultPhone.trim()
       if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
         errs.referralConsultPhone = '请填写正确的手机号或固话格式'
       }
     }
-    if (form.type === '县级医院' && form.emergencyDeptPhone?.trim()) {
+    if (form.referralContactPhone?.trim()) {
+      const cleanedPhone = form.referralContactPhone.trim()
+      if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
+        errs.referralContactPhone = '请填写正确的手机号或固话格式'
+      }
+    }
+    if (form.referralCoordinatorPhone?.trim()) {
+      const cleanedPhone = form.referralCoordinatorPhone.trim()
+      if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
+        errs.referralCoordinatorPhone = '请填写正确的手机号或固话格式'
+      }
+    }
+    if (form.emergencyDeptPhone?.trim()) {
       const cleanedPhone = form.emergencyDeptPhone.trim()
       if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
         errs.emergencyDeptPhone = '请填写正确的手机号或固话格式'
@@ -183,10 +210,27 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   const handleSave = () => {
     if (!validate()) return
     const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === form.emergencyDutyContactId)
-    onSave({
+    const normalized = {
       ...form,
-      emergencyDutyContactName: selectedDutyContact?.name || '',
-    })
+      emergencyDutyContactName: selectedDutyContact?.name || form.emergencyDutyContactName || '',
+    }
+    if (isEdit) {
+      onSave({
+        referralConsultPhone: normalized.referralConsultPhone,
+        referralContactUserId: normalized.referralContactUserId,
+        referralContactName: normalized.referralContactName,
+        referralContactPhone: normalized.referralContactPhone,
+        referralCoordinatorPhone: normalized.referralCoordinatorPhone,
+        emergencyDutyContactId: normalized.emergencyDutyContactId,
+        emergencyDutyContactName: normalized.emergencyDutyContactName,
+        emergencyDeptPhone: normalized.emergencyDeptPhone,
+        canUp: normalized.canUp,
+        canDown: normalized.canDown,
+        enabled: normalized.enabled,
+      })
+      return
+    }
+    onSave(normalized)
   }
 
   const inputCls = (key) =>
@@ -197,15 +241,16 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   return (
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
-      <div className="fixed inset-y-0 right-0 w-full max-w-lg bg-white shadow-2xl z-50 flex flex-col">
+      <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 pointer-events-none">
+      <div className="w-full max-w-3xl max-h-[88vh] bg-white rounded-xl shadow-2xl flex flex-col pointer-events-auto overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         {/* 标题栏 */}
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <div className="text-sm font-semibold text-gray-800">
-              {mode === 'create' ? '新增机构' : '编辑机构信息'}
+              {mode === 'create' ? '新增机构' : '机构转诊配置'}
             </div>
             <div className="text-xs text-gray-400 mt-0.5">
-              {mode === 'create' ? '填写新机构基本信息与转诊能力配置' : `编辑 ${initial?.name}`}
+              {mode === 'create' ? '填写新机构基本信息与转诊能力配置' : '配置当前机构的双向转诊业务联系人、急诊联系人及相关业务参数'}
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none">
@@ -217,25 +262,23 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
         <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
-            基本信息
+            机构基础信息
           </div>
 
           {isEdit && (
             <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              🔗 机构基础信息来自医共体统一门户，如需修改请前往门户系统 <a href="#" className="font-medium underline underline-offset-2">→</a>
+              机构基础信息来自医共体统一门户，本系统仅维护双向转诊业务配置；如需修改机构档案，请前往门户系统。
             </div>
           )}
 
           {isEdit ? (
             <>
-              <ReadOnlyField label="机构名称" value={form.name} />
-              <ReadOnlyField label="机构编码" value={form.code} />
-              <ReadOnlyField label="机构类型" value={form.type} />
               <div className="grid grid-cols-2 gap-4">
-                <ReadOnlyField label="联系人" value={form.contact} />
-                <ReadOnlyField label="联系电话（医院总机）" value={form.phone} />
+                <ReadOnlyField label="机构名称" value={form.name} />
+                <ReadOnlyField label="机构代码" value={form.code} />
+                <ReadOnlyField label="机构类别" value={form.type} />
+                <ReadOnlyField label="区划地址" value={form.address} />
               </div>
-              <ReadOnlyField label="详细地址" value={form.address} />
             </>
           ) : (
             <>
@@ -248,23 +291,22 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                 />
               </DrawerField>
 
-              <DrawerField label="机构编码" required error={errors.code}>
+              <DrawerField label="机构代码" required error={errors.code}>
                 <input
                   value={form.code}
                   onChange={e => set('code', e.target.value)}
                   className={inputCls('code')}
-                  placeholder="请输入国家卫健委机构编码"
+                  placeholder="请输入机构代码"
                 />
-                <p className="text-xs text-gray-400 mt-0.5">统一填写国家卫健委机构编码（10位数字）</p>
               </DrawerField>
 
-              <DrawerField label="机构类型" required error={errors.type}>
+              <DrawerField label="机构类别" required error={errors.type}>
                 <select
                   value={form.type}
                   onChange={e => set('type', e.target.value)}
                   className={inputCls('type') + ' bg-white'}
                 >
-                  <option value="">请选择机构类型</option>
+                  <option value="">请选择机构类别</option>
                   {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
                 </select>
               </DrawerField>
@@ -288,109 +330,133 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                 </DrawerField>
               </div>
 
-              <DrawerField label="详细地址">
+              <DrawerField label="区划地址">
                 <input
                   value={form.address}
                   onChange={e => set('address', e.target.value)}
                   className={inputCls('address')}
-                  placeholder="省市区街道详细地址（选填）"
+                  placeholder="请输入区划地址（选填）"
                 />
               </DrawerField>
             </>
           )}
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            双转业务属性
+            双转业务配置
           </div>
 
-          <DrawerField label="转诊咨询专用电话" error={errors.referralConsultPhone}>
-            <input
-              value={form.referralConsultPhone || ''}
-              onChange={e => set('referralConsultPhone', e.target.value)}
-              className={inputCls('referralConsultPhone')}
-              placeholder="手机号或固话，如 13800138000 / 0838-6213200"
-            />
-            <p className="text-xs text-gray-400 mt-0.5">双向转诊业务专用咨询电话，不回写医共体统一门户。</p>
-          </DrawerField>
-
-          {form.type === '县级医院' && (
-            <>
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-                急诊转诊配置
-              </div>
-
-              <div className="grid grid-cols-2 gap-4">
-                <DrawerField label="急诊科值班联系人">
-                  <select
-                    value={form.emergencyDutyContactId || ''}
-                    onChange={e => {
-                      const nextId = e.target.value
-                      const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === nextId)
-                      setForm(prev => ({
-                        ...prev,
-                        emergencyDutyContactId: nextId,
-                        emergencyDutyContactName: selectedDutyContact?.name || '',
-                      }))
-                    }}
-                    className={inputCls('emergencyDutyContactId') + ' bg-white'}
-                  >
-                    <option value="">请选择值班联系人</option>
-                    {EMERGENCY_DUTY_CONTACT_OPTIONS.map(item => (
-                      <option key={item.id} value={item.id}>{item.name}</option>
-                    ))}
-                  </select>
-                  <p className="text-xs text-gray-400 mt-0.5">急诊转诊提交时将通知此联系人，使急诊科提前做好接诊准备</p>
-                </DrawerField>
-                <DrawerField label="急诊科联系电话" error={errors.emergencyDeptPhone}>
-                  <input
-                    value={form.emergencyDeptPhone || ''}
-                    onChange={e => set('emergencyDeptPhone', e.target.value)}
-                    className={inputCls('emergencyDeptPhone')}
-                    placeholder="手机号或固话，如 13800138000 / 0838-6213200"
-                  />
-                  <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
-                </DrawerField>
-              </div>
-
-              <DrawerField label="患者须知模板">
-                <textarea
-                  value={form.patientNoticeTemplate || ''}
-                  onChange={e => set('patientNoticeTemplate', e.target.value)}
-                  className={inputCls('patientNoticeTemplate') + ' resize-none'}
-                  rows={5}
-                  placeholder="支持占位符：[接诊科室] [预约码] [病区] [床位号] [护士站电话]；留空时短信预览使用系统默认模板"
-                />
-                <p className="text-xs text-gray-400 mt-0.5">用于接诊安排完成后的患者短信末尾须知内容，仅做原型展示。</p>
-              </DrawerField>
-            </>
-          )}
+          <div className="grid grid-cols-3 gap-3">
+            <DrawerField label="转诊咨询专用电话" error={errors.referralConsultPhone}>
+              <input
+                value={form.referralConsultPhone || ''}
+                onChange={e => set('referralConsultPhone', e.target.value)}
+                className={inputCls('referralConsultPhone')}
+                placeholder="手机号或固话"
+              />
+            </DrawerField>
+            <DrawerField label="转诊联系人">
+              <select
+                value={form.referralContactUserId || ''}
+                disabled={referralContactOptions.length === 0}
+                onChange={e => {
+                  const nextId = e.target.value
+                  const selectedUser = referralContactOptions.find(user => user.userId === nextId)
+                  setForm(prev => ({
+                    ...prev,
+                    referralContactUserId: nextId,
+                    referralContactName: selectedUser?.name || '',
+                  }))
+                }}
+                className={inputCls('referralContactUserId') + ' bg-white'}
+              >
+                <option value="">{referralContactOptions.length ? '请选择联系人' : '暂无可选联系人'}</option>
+                {referralContactOptions.map(user => (
+                  <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
+                ))}
+              </select>
+            </DrawerField>
+            <DrawerField label="联系电话" error={errors.referralContactPhone}>
+              <input
+                value={form.referralContactPhone || ''}
+                onChange={e => set('referralContactPhone', e.target.value)}
+                className={inputCls('referralContactPhone')}
+                placeholder="手机号或固话"
+              />
+            </DrawerField>
+            <DrawerField label="基层转诊负责人电话" error={errors.referralCoordinatorPhone}>
+              <input
+                value={form.referralCoordinatorPhone || ''}
+                onChange={e => set('referralCoordinatorPhone', e.target.value)}
+                className={inputCls('referralCoordinatorPhone')}
+                placeholder="基层机构建议必填"
+              />
+              <p className="text-xs text-gray-400 mt-0.5">用于下转改派窗口的负责人兜底联系。</p>
+            </DrawerField>
+          </div>
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
             转诊能力配置
           </div>
 
-          <div className="space-y-3 py-1">
-            <div className="flex items-center justify-between py-2 border-b border-gray-50">
+          <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
+            <div className="flex items-center justify-between px-4 py-3">
               <div>
-                <div className="text-sm text-gray-700 font-medium">上转能力</div>
+                <div className="text-sm font-medium text-gray-800">上转能力</div>
                 <div className="text-xs text-gray-400 mt-0.5">允许该机构发起上转申请</div>
               </div>
-              <Toggle value={form.canUp} onChange={v => set('canUp', v)} />
+              <Toggle value={form.canUp} onChange={value => set('canUp', value)} />
             </div>
-            <div className="flex items-center justify-between py-2 border-b border-gray-50">
+            <div className="flex items-center justify-between px-4 py-3">
               <div>
-                <div className="text-sm text-gray-700 font-medium">下转能力</div>
+                <div className="text-sm font-medium text-gray-800">下转能力</div>
                 <div className="text-xs text-gray-400 mt-0.5">允许该机构接收下转患者</div>
               </div>
-              <Toggle value={form.canDown} onChange={v => set('canDown', v)} />
+              <Toggle value={form.canDown} onChange={value => set('canDown', value)} />
             </div>
-            <div className="flex items-center justify-between py-2">
+            <div className="flex items-center justify-between px-4 py-3">
               <div>
-                <div className="text-sm text-gray-700 font-medium">启用状态</div>
+                <div className="text-sm font-medium text-gray-800">启用状态</div>
                 <div className="text-xs text-gray-400 mt-0.5">停用后该机构无法参与新的转诊业务</div>
               </div>
-              <Toggle value={form.enabled} onChange={v => set('enabled', v)} />
+              <Toggle value={form.enabled} onChange={value => set('enabled', value)} />
             </div>
+          </div>
+
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+            急诊转诊配置
+          </div>
+
+          <div className="grid grid-cols-2 gap-4">
+            <DrawerField label="急诊科值班联系人">
+              <select
+                value={form.emergencyDutyContactId || ''}
+                onChange={e => {
+                  const nextId = e.target.value
+                  const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === nextId)
+                  setForm(prev => ({
+                    ...prev,
+                    emergencyDutyContactId: nextId,
+                    emergencyDutyContactName: selectedDutyContact?.name || '',
+                  }))
+                }}
+                className={inputCls('emergencyDutyContactId') + ' bg-white'}
+              >
+                <option value="">请选择值班联系人</option>
+                {EMERGENCY_DUTY_CONTACT_OPTIONS.map(item => (
+                  <option key={item.id} value={item.id}>{item.name}</option>
+                ))}
+              </select>
+              <p className="text-xs text-gray-400 mt-0.5">急诊转诊提交时将通知此联系人，使急诊科提前做好接诊准备</p>
+            </DrawerField>
+            <DrawerField label="急诊科联系电话" error={errors.emergencyDeptPhone}>
+              <input
+                value={form.emergencyDeptPhone || ''}
+                onChange={e => set('emergencyDeptPhone', e.target.value)}
+                className={inputCls('emergencyDeptPhone')}
+                placeholder="手机号或固话，如 13800138000 / 0838-6213200"
+              />
+              <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
+            </DrawerField>
           </div>
 
         </div>
@@ -414,17 +480,17 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
           </button>
         </div>
       </div>
+      </div>
     </>
   )
 }
 
 // ── 科室配置 Tab ────────────────────────────────────────────
 function DeptConfigTab({ institutions }) {
-  const countyInsts = institutions.filter(i => i.type === '县级医院' && i.enabled)
+  const countyInsts = institutions.filter(i => COUNTY_SERVICE_TYPES.includes(i.type) && i.enabled)
   const [selectedInst, setSelectedInst] = useState(countyInsts[0]?.id || '')
   const [deptConfigs, setDeptConfigs] = useState(SYSTEM_DEPT_CONFIGS)
   const [editRow, setEditRow] = useState(null) // { instId, deptIndex, form }
-  const [partnerSearch, setPartnerSearch] = useState('')
   const [toast, setToast] = useState('')
 
   const showToast = (msg) => { setToast(msg); setTimeout(() => setToast(''), 1500) }
@@ -433,13 +499,13 @@ function DeptConfigTab({ institutions }) {
 
   const handleEdit = (instId, idx) => {
     setEditRow({ instId, deptIndex: idx, form: { ...configs[idx] } })
-    setPartnerSearch('')
   }
 
   const handleSave = () => {
     const { instId, deptIndex, form } = editRow
     const original = deptConfigs[instId]?.[deptIndex]
     const instName = institutions.find(inst => inst.id === instId)?.name || instId
+    const shouldSuggestNursePhone = Number(form.dailyReservedBeds || 0) > 0 && !String(form.nurseStationPhone || '').trim()
     setDeptConfigs(prev => ({
       ...prev,
       [instId]: prev[instId].map((row, i) => i === deptIndex ? {
@@ -459,13 +525,17 @@ function DeptConfigTab({ institutions }) {
           科室: form.dept,
           科室负责人: `${original.head || '未设置'} → ${form.head || '未设置'}`,
           对口联系医生: `${original.partnerDoctor || '未设置'} → ${form.partnerDoctor || '未设置'}`,
-          每日转诊保留名额: `${original.dailyQuota ?? 0} → ${form.dailyQuota ?? 0}`,
+          门诊号源配置: `${original.dailyQuota ?? 0} → ${form.dailyQuota ?? 0}`,
+          门诊位置: `${original.outpatientLocation || '未设置'} → ${form.outpatientLocation || '未设置'}`,
+          科室电话: `${original.departmentPhone || '未设置'} → ${form.departmentPhone || '未设置'}`,
           每日转诊保留床位: `${original.dailyReservedBeds ?? 0} → ${form.dailyReservedBeds ?? 0}`,
         },
       })
     }
     setEditRow(null)
-    showToast('科室配置已保存')
+    showToast(shouldSuggestNursePhone
+      ? '已启用床位池，建议填写护士站联系电话，便于患者到院联系。'
+      : '科室配置已保存')
   }
 
   const headOptions = editRow
@@ -476,17 +546,10 @@ function DeptConfigTab({ institutions }) {
     )
     : []
 
-  const counterpartInstitution = editRow
-    ? institutions.find(inst => inst.id === editRow.form.counterpartInstitutionId)
-    : null
-
   const partnerOptions = editRow
     ? SYSTEM_SSO_USERS.filter(user =>
       user.enabled &&
-      user.institutionId === editRow.form.counterpartInstitutionId &&
-      (!partnerSearch.trim() ||
-        user.name.includes(partnerSearch.trim()) ||
-        user.empNo.toLowerCase().includes(partnerSearch.trim().toLowerCase()))
+      user.institutionId === editRow.form.counterpartInstitutionId
     )
     : []
 
@@ -502,10 +565,10 @@ function DeptConfigTab({ institutions }) {
         >
           {countyInsts.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
         </select>
-        <span className="text-xs text-gray-400">仅县级医院可配置科室号源（基层机构号源由HIS维护）</span>
+        <span className="text-xs text-gray-400">仅医院类机构可配置科室号源（基层机构号源由HIS维护）</span>
       </div>
       <div className="mb-4 rounded-lg bg-cyan-50 border border-cyan-100 px-4 py-3 text-xs text-cyan-700">
-        科室由机构主数据同步，本页仅维护转诊相关配置，不在此处新增科室。
+        科室配置用于维护双向转诊通知联系人、转诊保留名额及住院床位参考信息；科室基础信息来自统一门户，不在本系统维护。
       </div>
 
       {configs.length === 0 ? (
@@ -515,7 +578,7 @@ function DeptConfigTab({ institutions }) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['科室', '科室负责人', '对口联系医生', '每日转诊保留名额', '床位池（转诊专用）', '最后更新', '最后修改人', '操作'].map(h => (
+                {['科室', '科室负责人', '对口联系医生', '转诊保留名额', '床位配置', '最后更新', '最后修改人', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -532,16 +595,16 @@ function DeptConfigTab({ institutions }) {
                     }
                   </td>
                   <td className={TD}>
-                    <span className="font-mono text-sm">{row.dailyQuota === 0 ? <span className="text-gray-400">未启用</span> : `${row.dailyQuota} 个/日`}</span>
+                    <span className="font-mono text-sm">{row.dailyQuota === 0 ? <span className="text-gray-400">未启用</span> : `${row.dailyQuota}/日`}</span>
                   </td>
                   <td className={TD}>
                     {row.dailyReservedBeds > 0 ? (
                       <div>
-                        <span className="font-mono text-sm text-blue-700">{row.dailyReservedBeds} 床/日</span>
+                        <span className="font-mono text-sm text-blue-700">{row.dailyReservedBeds}床/日</span>
                         {row.ward && <div className="text-xs text-gray-400 mt-0.5">{row.ward}</div>}
                       </div>
                     ) : (
-                      <span className="text-xs text-gray-400">未配置</span>
+                      <span className="text-xs text-gray-400">未启用</span>
                     )}
                   </td>
                   <td className={TD + ' text-xs text-gray-400'}>{row.updatedAt}</td>
@@ -565,10 +628,12 @@ function DeptConfigTab({ institutions }) {
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setEditRow(null)} />
           <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl shadow-2xl w-[480px] p-6">
+            <div className="bg-white rounded-xl shadow-2xl w-[640px] max-h-[88vh] overflow-y-auto p-6">
               <h3 className="text-sm font-semibold text-gray-800 mb-4">编辑科室配置 — {editRow.form.dept}</h3>
-              <div className="grid grid-cols-2 gap-4 mb-4">
-                <div>
+              <div className="border-t border-gray-100 pt-4 mb-4">
+                <div className="text-xs font-medium text-gray-600 mb-3">转诊协同配置</div>
+                <div className="grid grid-cols-2 gap-4">
+                  <div>
                   <label className="block text-xs text-gray-500 mb-1">科室负责人</label>
                   <select
                     className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
@@ -596,52 +661,63 @@ function DeptConfigTab({ institutions }) {
                   )}
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">对口联系医生 <span className="text-gray-400">（超时优先推送）</span></label>
-                  <div className="space-y-2">
-                    <input
-                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
-                      placeholder="搜索姓名/工号"
-                      value={partnerSearch}
-                      onChange={e => setPartnerSearch(e.target.value)}
-                    />
-                    <select
-                      className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
-                      value={editRow.form.partnerDoctorUserId || ''}
-                      onChange={e => {
-                        const selectedUser = partnerOptions.find(user => user.userId === e.target.value)
-                        setEditRow(p => ({
-                          ...p,
-                          form: {
-                            ...p.form,
-                            partnerDoctorUserId: selectedUser?.userId || '',
-                            partnerDoctor: selectedUser?.name || '—',
-                          },
-                        }))
-                      }}
-                    >
-                      <option value="">{partnerOptions.length ? '不指定，留空则广播' : '暂无匹配用户'}</option>
-                      {partnerOptions.map(user => (
-                        <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
-                      ))}
-                    </select>
-                  </div>
-                  <p className="text-xs text-gray-400 mt-1">
-                    候选来自对口基层机构：{counterpartInstitution?.name || '未配置'}
-                  </p>
+                  <label className="block text-xs text-gray-500 mb-1">对口联系医生（可选）</label>
+                  <select
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+                    value={editRow.form.partnerDoctorUserId || ''}
+                    onChange={e => {
+                      const selectedUser = partnerOptions.find(user => user.userId === e.target.value)
+                      setEditRow(p => ({
+                        ...p,
+                        form: {
+                          ...p.form,
+                          partnerDoctorUserId: selectedUser?.userId || '',
+                          partnerDoctor: selectedUser?.name || '—',
+                        },
+                      }))
+                    }}
+                  >
+                    <option value="">{partnerOptions.length ? '不指定' : '暂无可选医生'}</option>
+                    {partnerOptions.map(user => (
+                      <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
+                    ))}
+                  </select>
                 </div>
                 <div>
-                  <label className="block text-xs text-gray-500 mb-1">每日转诊号源 <span className="text-gray-400">（0=不启用）</span></label>
+                  <label className="block text-xs text-gray-500 mb-1">
+                    每日转诊保留号源数<span className="text-red-500 ml-0.5">*</span>
+                  </label>
                   <input type="number" min="0" max="99" className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none" value={editRow.form.dailyQuota} onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, dailyQuota: parseInt(e.target.value) || 0 } }))} />
+                  <p className="text-xs text-gray-400 mt-1">每日转诊保留号源；0表示不启用专用号源。</p>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">门诊位置</label>
+                  <input
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+                    placeholder="例：门诊2楼B区 / 呼吸科诊区"
+                    value={editRow.form.outpatientLocation ?? ''}
+                    onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, outpatientLocation: e.target.value } }))}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">用于转诊中心填写门诊接诊安排时自动预填，不代表患者最终就诊位置。</p>
+                </div>
+                <div>
+                  <label className="block text-xs text-gray-500 mb-1">科室电话</label>
+                  <input
+                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
+                    placeholder="例：0838-6213302"
+                    value={editRow.form.departmentPhone ?? ''}
+                    onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, departmentPhone: e.target.value } }))}
+                  />
+                  <p className="text-xs text-gray-400 mt-1">用于接诊安排、患者到院指引和短信通知。</p>
                 </div>
               </div>
+              </div>
 
-              {/* J-4：床位池配置 */}
               <div className="border-t border-dashed border-gray-200 pt-4 mb-4">
-                <div className="text-xs font-medium text-gray-600 mb-3">🛏 床位池配置（J-4）</div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div className="col-span-2">
+                  <div>
                     <label className="block text-xs text-gray-500 mb-1">
-                      每日转诊保留床位数 <span className="text-gray-400">（0=不启用）</span>
+                      每日转诊保留床位数<span className="text-red-500 ml-0.5">*</span>
                     </label>
                     <input
                       type="number" min="0" max="99"
@@ -649,43 +725,44 @@ function DeptConfigTab({ institutions }) {
                       value={editRow.form.dailyReservedBeds ?? 0}
                       onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, dailyReservedBeds: parseInt(e.target.value) || 0 } }))}
                     />
-                    <p className="text-xs text-gray-400 mt-1">⚠️ 政策要求预留比例≥20%，请参照科室实际床位数填写</p>
+                    <p className="text-xs text-gray-400 mt-1">仅在承接方式为住院时用于接诊安排参考；0表示不启用床位池。</p>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">病区名称 <span className="text-gray-400">（选填）</span></label>
+                    <label className="block text-xs text-gray-500 mb-1">病区名称</label>
                     <input
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
                       placeholder="例：心内科病区（6楼东）"
                       value={editRow.form.ward ?? ''}
                       onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, ward: e.target.value } }))}
                     />
-                    <p className="text-xs text-gray-400 mt-1">将在接诊安排中自动预填</p>
                   </div>
                   <div>
-                    <label className="block text-xs text-gray-500 mb-1">护士站联系电话 <span className="text-gray-400">（选填）</span></label>
+                    <label className="block text-xs text-gray-500 mb-1">护士站联系电话</label>
                     <input
                       className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none"
                       placeholder="例：0836-12345601"
                       value={editRow.form.nurseStationPhone ?? ''}
                       onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, nurseStationPhone: e.target.value } }))}
                     />
-                    <p className="text-xs text-gray-400 mt-1">将在接诊安排中自动预填并推送患者短信</p>
-                  </div>
-                  <div className="col-span-2">
-                    <label className="block text-xs text-gray-500 mb-1">抢救资源 <span className="text-gray-400">（仅绿色通道展示）</span></label>
-                    <textarea
-                      rows={2}
-                      className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
-                      placeholder="例：胸痛中心绿色通道已开启，导管室24小时待命"
-                      value={editRow.form.rescueResources ?? ''}
-                      onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, rescueResources: e.target.value } }))}
-                    />
                   </div>
                 </div>
               </div>
 
-              <div className="bg-blue-50 border border-blue-100 rounded p-3 mb-4 text-xs text-blue-600">
-                每日转诊保留名额为系统分配的转诊专用号，0 表示不启用专用号源。对口联系医生配置后，有新转诊申请时将优先推送给该医生，3小时无响应后再广播全科室。
+              <div className="border-t border-dashed border-gray-200 pt-4 mb-4">
+                <div className="text-xs font-medium text-gray-600 mb-3">急诊/绿通展示配置</div>
+                <label className="block text-xs text-gray-500 mb-1">绿色通道资源说明</label>
+                <textarea
+                  rows={2}
+                  className="w-full border border-gray-200 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+                  placeholder="例：胸痛中心绿色通道已开启，导管室24小时待命。"
+                  value={editRow.form.rescueResources ?? ''}
+                  onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, rescueResources: e.target.value } }))}
+                />
+                <p className="text-xs text-gray-400 mt-1">仅用于急诊/绿通转诊详情页展示，便于转诊中心了解科室资源状态，不参与自动分诊判断。</p>
+              </div>
+
+              <div className="bg-gray-50 border border-gray-100 rounded p-3 mb-4 text-xs text-gray-500">
+                科室配置仅用于转诊通知、接诊安排预填及号源/床位参考；配置为0表示不启用对应资源池，具体接诊地点和联系电话以转诊中心最终安排为准。
               </div>
               <div className="flex gap-3 justify-end">
                 <button onClick={() => setEditRow(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600">取消</button>
@@ -771,9 +848,12 @@ export default function InstitutionManage() {
         detail: {
           操作: '新增机构',
           机构名称: newInst.name,
-          机构编码: newInst.code,
-          机构类型: newInst.type,
+          机构代码: newInst.code,
+          机构类别: newInst.type,
           转诊咨询专用电话: newInst.referralConsultPhone || '未设置',
+          转诊联系人: newInst.referralContactName || '未设置',
+          转诊联系电话: newInst.referralContactPhone || '未设置',
+          基层转诊负责人电话: newInst.referralCoordinatorPhone || '未设置',
           上转能力: newInst.canUp ? '开启' : '关闭',
           下转能力: newInst.canDown ? '开启' : '关闭',
         },
@@ -781,23 +861,38 @@ export default function InstitutionManage() {
       showToast('机构新增成功')
     } else {
       const original = drawer.data
-      setList(prev => prev.map(inst => inst.id === drawer.data.id ? { ...inst, ...formData } : inst))
+      const editablePayload = {
+        referralConsultPhone: formData.referralConsultPhone,
+        referralContactUserId: formData.referralContactUserId,
+        referralContactName: formData.referralContactName,
+        referralContactPhone: formData.referralContactPhone,
+        referralCoordinatorPhone: formData.referralCoordinatorPhone,
+        emergencyDutyContactId: formData.emergencyDutyContactId,
+        emergencyDutyContactName: formData.emergencyDutyContactName,
+        emergencyDeptPhone: formData.emergencyDeptPhone,
+        canUp: formData.canUp,
+        canDown: formData.canDown,
+        enabled: formData.enabled,
+      }
+      setList(prev => prev.map(inst => inst.id === drawer.data.id ? { ...inst, ...editablePayload } : inst))
       appendSystemOperationLog({
         domain: '机构配置',
         type: '机构信息变更',
         target: original.name,
         detail: {
           操作: '编辑机构',
-          机构名称: `${original.name} → ${formData.name}`,
           转诊咨询专用电话: `${original.referralConsultPhone || '未设置'} → ${formData.referralConsultPhone || '未设置'}`,
-          上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,
-          下转能力: `${original.canDown ? '开启' : '关闭'} → ${formData.canDown ? '开启' : '关闭'}`,
-          启用状态: `${original.enabled ? '启用' : '停用'} → ${formData.enabled ? '启用' : '停用'}`,
+          转诊联系人: `${original.referralContactName || '未设置'} → ${formData.referralContactName || '未设置'}`,
+          转诊联系电话: `${original.referralContactPhone || '未设置'} → ${formData.referralContactPhone || '未设置'}`,
+          基层转诊负责人电话: `${original.referralCoordinatorPhone || '未设置'} → ${formData.referralCoordinatorPhone || '未设置'}`,
           急诊科值班联系人: `${original.emergencyDutyContactName || '未设置'} → ${formData.emergencyDutyContactName || '未设置'}`,
           急诊科联系电话: `${original.emergencyDeptPhone || '未设置'} → ${formData.emergencyDeptPhone || '未设置'}`,
+          上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,
+          下转能力: `${original.canDown ? '开启' : '关闭'} → ${formData.canDown ? '开启' : '关闭'}`,
+          启用状态: `${original.enabled ? '开启' : '关闭'} → ${formData.enabled ? '开启' : '关闭'}`,
         },
       })
-      showToast('机构信息已保存')
+      showToast('机构转诊配置已保存')
     }
     setDrawer(null)
   }
@@ -853,8 +948,7 @@ export default function InstitutionManage() {
       {/* 页面标题区 */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">机构与转诊能力配置</h2>
-          <div className="text-xs text-gray-400 mt-0.5">机构基础信息维护 · 转诊能力与资源配置</div>
+          <h2 className="text-base font-semibold text-gray-800">机构转诊能力配置</h2>
         </div>
         {mainTab === 'institutions' && <button
           onClick={handleCreate}
@@ -909,7 +1003,7 @@ export default function InstitutionManage() {
             />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">机构类型</label>
+            <label className="block text-xs text-gray-500 mb-1">机构类别</label>
             <select
               value={filters.type}
               onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
@@ -972,7 +1066,7 @@ export default function InstitutionManage() {
           <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', '机构名称', '机构编码', '机构类型', '联系人', '联系电话', '上转能力', '下转能力', '状态', '操作'].map(h => (
+                {['序号', '机构名称', '机构代码', '机构类别', '联系人', '联系电话', '上转能力', '下转能力', '状态', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>

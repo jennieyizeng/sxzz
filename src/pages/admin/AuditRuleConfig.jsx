@@ -1,11 +1,10 @@
 import { useState } from 'react'
 import { AUDIT_RULE_CONFIGS, updateAuditRuleConfig } from '../../data/auditRuleConfig'
-import { appendSystemOperationLog, SYSTEM_ADMIN_OPERATOR, SYSTEM_AUDIT_INSTITUTIONS, SYSTEM_SSO_USERS } from '../../data/systemAdminConfig'
+import { appendSystemOperationLog, SYSTEM_ADMIN_OPERATOR, SYSTEM_AUDIT_CANDIDATE_USERS, SYSTEM_AUDIT_INSTITUTIONS } from '../../data/systemAdminConfig'
 
 // ── 辅助小组件 ─────────────────────────────────────────────
-const TH = 'px-4 py-2.5 text-left text-xs font-medium text-gray-500 whitespace-nowrap'
-const TD = 'px-4 py-3 text-sm text-gray-800'
-const AUDITOR_ROLES = ['县级科主任', '基层负责人']
+const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
+const TD = 'px-3 py-2.5 text-sm'
 const MOCK_PENDING_COUNTS = {
   county_doc_009: 3,
   county_doc_007: 2,
@@ -13,90 +12,29 @@ const MOCK_PENDING_COUNTS = {
 }
 
 function formatSsoUser(user) {
-  return user ? `${user.name}（${user.deptName}）` : ''
+  return user ? `${user.name}（${user.deptName}/${user.role}）` : ''
 }
 
 function getSsoUser(userId) {
-  return SYSTEM_SSO_USERS.find(user => user.userId === userId)
+  return SYSTEM_AUDIT_CANDIDATE_USERS.find(user => user.userId === userId)
 }
 
 function getAuditCandidates(config) {
   if (!config) return []
-  return SYSTEM_SSO_USERS.filter(user =>
-    user.enabled &&
-    AUDITOR_ROLES.includes(user.role) &&
-    user.auditInstitutionId === config.institutionId &&
+  return SYSTEM_AUDIT_CANDIDATE_USERS.filter(user =>
+    user.institutionId === config.institutionId &&
     user.deptName === config.deptName
   )
-}
-
-function getSelectOptions(config, currentUserId) {
-  const candidates = getAuditCandidates(config)
-  const currentUser = getSsoUser(currentUserId)
-  if (currentUser && !candidates.some(user => user.userId === currentUser.userId)) {
-    return [currentUser, ...candidates]
-  }
-  return candidates
 }
 
 function getPendingCount({ currentAuditorId }) {
   return MOCK_PENDING_COUNTS[currentAuditorId] || 0
 }
 
-function Toggle({ value, onChange, disabled = false }) {
+function AuditorCell({ auditorName }) {
   return (
-    <label
-      className={`flex items-center gap-2 ${disabled ? 'opacity-50 cursor-not-allowed' : 'cursor-pointer'}`}
-      onClick={() => !disabled && onChange(!value)}
-    >
-      <div className={`w-10 h-5 rounded-full transition-colors relative ${value ? 'bg-[#0BBECF]' : 'bg-gray-300'}`}>
-        <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
-      </div>
-      <span className="text-sm text-gray-700">{value ? '开启' : '关闭'}</span>
-    </label>
-  )
-}
-
-function AuditCell({ enabled, auditorName }) {
-  if (!enabled) {
-    return (
-      <span className="text-gray-400 text-sm">
-        ○ 关闭
-        {auditorName && <span className="ml-1.5">保留审核人：{auditorName}</span>}
-      </span>
-    )
-  }
-  return (
-    <span className="text-sm">
-      <span className="text-green-600 font-medium">● 开启</span>
-      {auditorName && (
-        <span className="text-gray-600 ml-1.5">审核人：{auditorName}</span>
-      )}
-      {!auditorName && (
-        <span className="text-orange-500 ml-1.5">⚠ 未设审核人</span>
-      )}
-    </span>
-  )
-}
-
-function CrossDeptWarning({ config }) {
-  const warnings = [
-    { label: '转入', user: getSsoUser(config.upwardAuditorUserId) },
-    { label: '转出', user: getSsoUser(config.downwardAuditorUserId) },
-  ].filter(item => item.user && item.user.deptName !== config.deptName)
-
-  if (warnings.length === 0) return null
-
-  const detail = warnings
-    .map(item => `该${item.label}审核人当前所属「${item.user.deptName}」，与规则科室「${config.deptName}」不一致，可能为调岗或数据异常`)
-    .join('；')
-
-  return (
-    <span
-      title={detail}
-      className="inline-flex items-center rounded-full bg-amber-50 px-2 py-0.5 text-xs font-medium text-amber-700 border border-amber-200"
-    >
-      ⚠️ 审核人跨科室
+    <span className="text-sm whitespace-nowrap text-gray-700">
+      {auditorName || <span className="text-orange-500">未配置</span>}
     </span>
   )
 }
@@ -157,9 +95,73 @@ function PendingAuditorChangeModal({ pendingChange, onCancel, onConfirm }) {
   )
 }
 
+function SearchableAuditorSelect({ value, options, disabled, error, onChange }) {
+  const [query, setQuery] = useState('')
+  const [open, setOpen] = useState(false)
+  const selected = options.find(user => user.userId === value)
+  const normalizedQuery = query.trim().toLowerCase()
+  const filteredOptions = normalizedQuery
+    ? options.filter(user => (
+      user.name.toLowerCase().includes(normalizedQuery) ||
+      user.deptName.toLowerCase().includes(normalizedQuery) ||
+      user.role.toLowerCase().includes(normalizedQuery)
+    ))
+    : options
+  const displayValue = open && !disabled ? query : formatSsoUser(selected)
+
+  return (
+    <div className="relative">
+      <input
+        value={displayValue}
+        disabled={disabled}
+        onFocus={() => {
+          if (disabled) return
+          setOpen(true)
+          setQuery('')
+        }}
+        onChange={event => {
+          setQuery(event.target.value)
+          setOpen(true)
+        }}
+        placeholder={options.length ? '搜索姓名、科室、角色' : '当前科室无可选审核人'}
+        className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0BBECF] ${
+          disabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' :
+          error ? 'border-red-400' : 'border-gray-300'
+        }`}
+      />
+      {open && !disabled && (
+        <div className="absolute z-20 mt-1 max-h-48 w-full overflow-y-auto rounded-lg border border-gray-200 bg-white shadow-lg">
+          {filteredOptions.length === 0 ? (
+            <div className="px-3 py-2 text-sm text-gray-400">未找到匹配审核人</div>
+          ) : filteredOptions.map(user => (
+            <button
+              key={user.userId}
+              type="button"
+              onMouseDown={event => event.preventDefault()}
+              onClick={() => {
+                onChange(user.userId)
+                setQuery('')
+                setOpen(false)
+              }}
+              className="block w-full px-3 py-2 text-left text-sm text-gray-700 hover:bg-cyan-50"
+            >
+              {formatSsoUser(user)}
+            </button>
+          ))}
+        </div>
+      )}
+    </div>
+  )
+}
+
 export default function AuditRuleConfig() {
-  const [configs, setConfigs] = useState(AUDIT_RULE_CONFIGS)
+  const [configs, setConfigs] = useState(() => AUDIT_RULE_CONFIGS.map(config => ({
+    ...config,
+    enabled: config.enabled ?? Boolean(config.downwardAuditEnabled),
+  })))
   const [selectedInstId, setSelectedInstId] = useState('inst001')
+  const [filters, setFilters] = useState({ deptName: '', enabled: 'all' })
+  const [applied, setApplied] = useState({ deptName: '', enabled: 'all' })
   const [drawerOpen, setDrawerOpen] = useState(false)
   const [editingConfig, setEditingConfig] = useState(null)
   const [form, setForm] = useState({})
@@ -168,19 +170,20 @@ export default function AuditRuleConfig() {
 
   const institutions = SYSTEM_AUDIT_INSTITUTIONS
 
-  const visibleConfigs = configs.filter(c => c.institutionId === selectedInstId)
-  const upwardCandidates = getAuditCandidates(editingConfig)
+  const visibleConfigs = configs.filter(c => {
+    if (c.institutionId !== selectedInstId) return false
+    if (applied.deptName.trim() && !c.deptName.includes(applied.deptName.trim())) return false
+    if (applied.enabled !== 'all') {
+      const wantEnabled = applied.enabled === 'enabled'
+      if (Boolean(c.enabled) !== wantEnabled) return false
+    }
+    return true
+  })
   const downwardCandidates = getAuditCandidates(editingConfig)
-  const upwardOptions = getSelectOptions(editingConfig, form.upwardAuditorUserId)
-  const downwardOptions = getSelectOptions(editingConfig, form.downwardAuditorUserId)
 
   function openDrawer(config) {
     setEditingConfig(config)
     setForm({
-      upwardAuditEnabled: config.upwardAuditEnabled,
-      upwardAuditorUserId: config.upwardAuditorUserId || '',
-      upwardAuditorName: config.upwardAuditorName || '',
-      downwardAuditEnabled: config.downwardAuditEnabled,
       downwardAuditorUserId: config.downwardAuditorUserId || '',
       downwardAuditorName: config.downwardAuditorName || '',
     })
@@ -191,20 +194,13 @@ export default function AuditRuleConfig() {
 
   function handleAuditorChange(direction, userId) {
     const user = getSsoUser(userId)
-    if (direction === 'upward') {
-      setForm(f => ({ ...f, upwardAuditorUserId: userId, upwardAuditorName: user?.name || '' }))
-    } else {
-      setForm(f => ({ ...f, downwardAuditorUserId: userId, downwardAuditorName: user?.name || '' }))
-    }
+    setForm(f => ({ ...f, downwardAuditorUserId: userId, downwardAuditorName: user?.name || '' }))
     setErrors(e => ({ ...e, [`${direction}Auditor`]: '' }))
   }
 
   function validate() {
     const errs = {}
-    if (form.upwardAuditEnabled && !form.upwardAuditorUserId) {
-      errs.upwardAuditor = '请选择转入审核人'
-    }
-    if (form.downwardAuditEnabled && !form.downwardAuditorUserId) {
+    if (!form.downwardAuditorUserId) {
       errs.downwardAuditor = '请选择转出审核人'
     }
     return errs
@@ -212,10 +208,7 @@ export default function AuditRuleConfig() {
 
   function buildPatch() {
     return {
-      upwardAuditEnabled: form.upwardAuditEnabled,
-      upwardAuditorUserId: form.upwardAuditorUserId || null,
-      upwardAuditorName: form.upwardAuditorName || null,
-      downwardAuditEnabled: form.downwardAuditEnabled,
+      downwardAuditEnabled: true,
       downwardAuditorUserId: form.downwardAuditorUserId || null,
       downwardAuditorName: form.downwardAuditorName || null,
     }
@@ -223,13 +216,6 @@ export default function AuditRuleConfig() {
 
   function findPendingAuditorChange(patch) {
     const changes = [
-      {
-        direction: '转入',
-        currentAuditorId: editingConfig.upwardAuditorUserId,
-        currentAuditorName: editingConfig.upwardAuditorName,
-        nextAuditorId: patch.upwardAuditorUserId,
-        nextAuditorName: patch.upwardAuditorName,
-      },
       {
         direction: '转出',
         currentAuditorId: editingConfig.downwardAuditorUserId,
@@ -258,9 +244,6 @@ export default function AuditRuleConfig() {
         配置项: '审核规则',
         机构: editingConfig.institutionName,
         科室: editingConfig.deptName,
-        转入审核: `${editingConfig.upwardAuditEnabled ? '开启' : '关闭'} → ${patch.upwardAuditEnabled ? '开启' : '关闭'}`,
-        转入审核人: `${editingConfig.upwardAuditorName || '未设置'} → ${patch.upwardAuditorName || '未设置'}`,
-        转出审核: `${editingConfig.downwardAuditEnabled ? '开启' : '关闭'} → ${patch.downwardAuditEnabled ? '开启' : '关闭'}`,
         转出审核人: `${editingConfig.downwardAuditorName || '未设置'} → ${patch.downwardAuditorName || '未设置'}`,
         存量未审单据处理: pendingResolution
           ? `${pendingResolution.direction}审核人仍有 ${pendingResolution.count} 单未审核，选择${pendingResolution.mode === 'transfer' ? '移交给新审核人' : '保留原审核人'}`
@@ -275,6 +258,41 @@ export default function AuditRuleConfig() {
     ))
     setDrawerOpen(false)
     setPendingChange(null)
+  }
+
+  function handleQuery() {
+    setApplied({ ...filters })
+  }
+
+  function handleReset() {
+    const next = { deptName: '', enabled: 'all' }
+    setFilters(next)
+    setApplied(next)
+  }
+
+  function handleToggleEnabled(config) {
+    const nextEnabled = !config.enabled
+    const patch = { enabled: nextEnabled, downwardAuditEnabled: nextEnabled }
+
+    updateAuditRuleConfig(config.id, patch, SYSTEM_ADMIN_OPERATOR)
+    appendSystemOperationLog({
+      domain: '审核规则',
+      type: '系统配置变更',
+      target: `${config.institutionName} · ${config.deptName}`,
+      detail: {
+        配置项: '审核规则',
+        机构: config.institutionName,
+        科室: config.deptName,
+        变更字段: '启用状态',
+        原值: config.enabled ? '启用' : '停用',
+        新值: nextEnabled ? '启用' : '停用',
+      },
+    })
+    setConfigs(prev => prev.map(item =>
+      item.id === config.id
+        ? { ...item, enabled: nextEnabled, updatedAt: new Date().toLocaleString('zh-CN', { hour12: false }).replace(/\//g, '-'), updatedBy: SYSTEM_ADMIN_OPERATOR }
+        : item
+    ))
   }
 
   function handleSave() {
@@ -300,80 +318,143 @@ export default function AuditRuleConfig() {
   }
 
   return (
-    <div className="p-6 max-w-4xl mx-auto">
+    <div className="p-5">
       {/* 页面标题 */}
-      <div className="mb-5">
-        <h1 className="text-xl font-semibold text-gray-800">审核规则配置</h1>
-        <p className="text-sm text-gray-500 mt-0.5">本页用于配置各机构科室的转入/转出院内审核规则。</p>
+      <div className="mb-4">
+        <h2 className="text-base font-semibold text-gray-800">审核规则配置</h2>
+        <div className="text-xs text-gray-400 mt-0.5">配置各机构科室的转出院内审核规则 · 变更将写入操作日志</div>
       </div>
 
       {/* 说明提示 */}
       <div className="mb-4 space-y-2">
         <div className="px-4 py-3 bg-yellow-50 border border-yellow-200 rounded-lg text-xs text-yellow-800">
-          ⚠️ 转入院内审核默认开启；转出院内审核默认关闭（开启转出审核会导致压床风险）。
-        </div>
-        <div className="px-4 py-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
-          🔒 急诊转入无论开关状态自动豁免院内审核（系统硬规则，不可修改）。
+          基层医疗机构转诊至县级医院：转出院内审核默认开启；县级医院转诊至基层医疗机构：转出院内审核默认关闭，开启转出审核后可能延长患者转出处理时间，请结合院内管理要求配置。
         </div>
       </div>
 
-      {/* 机构切换 */}
-      <div className="mb-4 flex items-center gap-3">
-        <label className="text-sm font-medium text-gray-700 whitespace-nowrap">选择机构</label>
-        <select
-          value={selectedInstId}
-          onChange={e => setSelectedInstId(e.target.value)}
-          className="border border-gray-300 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#0BBECF] min-w-[200px]"
-        >
-          {institutions.map(i => (
-            <option key={i.id} value={i.id}>{i.name}</option>
-          ))}
-        </select>
+      {/* 筛选栏 */}
+      <div className="bg-white rounded-xl p-4 mb-4" style={{ border: '1px solid #DDF0F3' }}>
+        <div className="grid grid-cols-4 gap-3">
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">所属机构</label>
+            <select
+              value={selectedInstId}
+              onChange={e => setSelectedInstId(e.target.value)}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
+            >
+              {institutions.map(i => (
+                <option key={i.id} value={i.id}>{i.name}</option>
+              ))}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">科室名称</label>
+            <input
+              value={filters.deptName}
+              onChange={e => setFilters(prev => ({ ...prev, deptName: e.target.value }))}
+              onKeyDown={e => e.key === 'Enter' && handleQuery()}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none focus:ring-1 focus:ring-[#0BBECF]"
+              placeholder="输入科室名称"
+            />
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">规则状态</label>
+            <select
+              value={filters.enabled}
+              onChange={e => setFilters(prev => ({ ...prev, enabled: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
+            >
+              <option value="all">全部</option>
+              <option value="enabled">启用</option>
+              <option value="disabled">停用</option>
+            </select>
+          </div>
+          <div className="flex items-end gap-2">
+            <button
+              onClick={handleQuery}
+              className="flex-1 py-1.5 rounded-lg text-sm font-medium text-white transition-colors"
+              style={{ background: '#0BBECF' }}
+              onMouseEnter={e => e.currentTarget.style.background = '#0892a0'}
+              onMouseLeave={e => e.currentTarget.style.background = '#0BBECF'}
+            >
+              查询
+            </button>
+            <button
+              onClick={handleReset}
+              className="flex-1 py-1.5 rounded-lg text-sm border transition-colors"
+              style={{ color: '#0BBECF', borderColor: '#0BBECF' }}
+            >
+              重置
+            </button>
+          </div>
+        </div>
       </div>
 
       {/* 科室列表表格 */}
-      <div className="bg-white rounded-xl border border-gray-200 overflow-hidden">
-        <table className="w-full text-sm">
-          <thead className="bg-gray-50 border-b border-gray-200">
-            <tr>
-              <th className={TH}>科室名称</th>
-              <th className={TH}>转入审核</th>
-              <th className={TH}>转出审核</th>
-              <th className={TH}>最后更新</th>
-              <th className={TH}>操作</th>
+      <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
+        <table className="w-full text-sm" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
+          <thead>
+            <tr style={{ background: '#E0F6F9' }}>
+              {['序号', '科室名称', '审核人', '状态', '最后更新时间', '操作人', '操作'].map(h => (
+                <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
+              ))}
             </tr>
           </thead>
-          <tbody className="divide-y divide-gray-100">
+          <tbody>
             {visibleConfigs.length === 0 ? (
               <tr>
-                <td colSpan={5} className="px-4 py-10 text-center text-gray-400 text-sm">
+                <td colSpan={7} className="px-4 py-10 text-center text-gray-400 text-sm">
                   暂无该机构的审核规则配置
                 </td>
               </tr>
             ) : (
-              visibleConfigs.map(config => (
-                <tr key={config.id} className="hover:bg-gray-50 transition-colors">
+              visibleConfigs.map((config, index) => (
+                <tr
+                  key={config.id}
+                  style={{
+                    borderBottom: '1px solid #EEF7F9',
+                    background: index % 2 === 0 ? '#fff' : '#FAFEFE',
+                  }}
+                  onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'}
+                  onMouseLeave={e => e.currentTarget.style.background = index % 2 === 0 ? '#fff' : '#FAFEFE'}
+                >
                   <td className={TD}>
-                    <span className="font-medium">{config.deptName}</span>
+                    <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: '#0BBECF' }}>
+                      {index + 1}
+                    </span>
+                  </td>
+                  <td className={TD + ' font-medium text-gray-800'}>
+                    {config.deptName}
                   </td>
                   <td className={TD}>
-                    <AuditCell enabled={config.upwardAuditEnabled} auditorName={config.upwardAuditorName} />
+                    <AuditorCell auditorName={config.downwardAuditorName} />
                   </td>
                   <td className={TD}>
-                    <AuditCell enabled={config.downwardAuditEnabled} auditorName={config.downwardAuditorName} />
+                    {config.enabled
+                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">启用</span>
+                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded">停用</span>
+                    }
                   </td>
-                  <td className={`${TD} text-gray-400 text-xs`}>
-                    <div>{config.updatedAt}</div>
-                    <div>{config.updatedBy}</div>
+                  <td className={`${TD} text-gray-500 text-xs`}>
+                    {config.updatedAt}
+                  </td>
+                  <td className={`${TD} text-gray-500`}>
+                    {config.updatedBy}
                   </td>
                   <td className={TD}>
-                    <div className="flex items-center justify-end gap-3">
-                      <CrossDeptWarning config={config} />
+                    <div className="flex items-center gap-3">
                       <button
                         onClick={() => openDrawer(config)}
+                        disabled={!config.enabled}
                         className="text-[#0BBECF] hover:text-[#09a8b8] text-sm font-medium"
                       >
                         编辑
+                      </button>
+                      <button
+                        onClick={() => handleToggleEnabled(config)}
+                        className={`text-sm font-medium transition-colors ${config.enabled ? 'text-red-500 hover:text-red-600' : 'text-green-600 hover:text-green-700'}`}
+                      >
+                        {config.enabled ? '停用' : '启用'}
                       </button>
                     </div>
                   </td>
@@ -384,12 +465,12 @@ export default function AuditRuleConfig() {
         </table>
       </div>
 
-      {/* 编辑抽屉 */}
+      {/* 编辑弹窗 */}
       {drawerOpen && editingConfig && (
-        <div className="fixed inset-0 z-50 flex">
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
           <div className="absolute inset-0 bg-black/30" onClick={() => setDrawerOpen(false)} />
-          <div className="absolute right-0 top-0 h-full w-[400px] bg-white shadow-2xl flex flex-col">
-            {/* 抽屉标题 */}
+          <div className="relative w-full max-w-[680px] max-h-[88vh] bg-white rounded-xl shadow-2xl flex flex-col overflow-hidden">
+            {/* 弹窗标题 */}
             <div className="px-6 py-4 border-b border-gray-200 flex items-center justify-between">
               <div>
                 <h3 className="text-base font-semibold text-gray-800">编辑审核规则</h3>
@@ -398,88 +479,23 @@ export default function AuditRuleConfig() {
               <button onClick={() => setDrawerOpen(false)} className="text-gray-400 hover:text-gray-600 text-xl leading-none">×</button>
             </div>
 
-            {/* 抽屉内容 */}
+            {/* 弹窗内容 */}
             <div className="flex-1 overflow-y-auto px-6 py-5 space-y-6">
-              {/* 上转审核 */}
-              <div>
-                <div className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
-                  转入审核配置
-                </div>
-                <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-700">开启院内审核</label>
-                    <Toggle
-                      value={form.upwardAuditEnabled}
-                      onChange={v => {
-                        setForm(f => ({ ...f, upwardAuditEnabled: v }))
-                        setErrors(e => ({ ...e, upwardAuditor: '' }))
-                      }}
-                    />
-                  </div>
-                  <div>
-                    <label className="block text-sm text-gray-700 mb-1">
-                      审核人 {form.upwardAuditEnabled && <span className="text-red-500">*</span>}
-                    </label>
-                    <select
-                      value={form.upwardAuditorUserId}
-                      disabled={!form.upwardAuditEnabled}
-                      onChange={e => handleAuditorChange('upward', e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0BBECF] ${
-                        !form.upwardAuditEnabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' :
-                        errors.upwardAuditor ? 'border-red-400' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">{upwardCandidates.length ? '请选择审核人' : '当前科室无可选审核人'}</option>
-                      {upwardOptions.map(u => (
-                        <option key={u.userId} value={u.userId}>{formatSsoUser(u)}</option>
-                      ))}
-                    </select>
-                    {upwardCandidates.length === 0 && (
-                      <p className="text-xs text-amber-600 mt-1">
-                        当前科室无可选审核人，请前往统一门户为该科室用户分配“县级科主任”或“基层负责人”角色 →
-                      </p>
-                    )}
-                    {errors.upwardAuditor && (
-                      <p className="text-xs text-red-500 mt-1">{errors.upwardAuditor}</p>
-                    )}
-                  </div>
-                </div>
-              </div>
-
-              {/* 下转审核 */}
               <div>
                 <div className="text-sm font-semibold text-gray-700 mb-3 pb-2 border-b border-gray-100">
                   转出审核配置
                 </div>
                 <div className="space-y-4">
-                  <div className="flex items-center justify-between">
-                    <label className="text-sm text-gray-700">开启院内审核</label>
-                    <Toggle
-                      value={form.downwardAuditEnabled}
-                      onChange={v => {
-                        setForm(f => ({ ...f, downwardAuditEnabled: v }))
-                        setErrors(e => ({ ...e, downwardAuditor: '' }))
-                      }}
-                    />
-                  </div>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">
-                      审核人 {form.downwardAuditEnabled && <span className="text-red-500">*</span>}
+                      审核人 <span className="text-red-500">*</span>
                     </label>
-                    <select
+                    <SearchableAuditorSelect
                       value={form.downwardAuditorUserId}
-                      disabled={!form.downwardAuditEnabled}
-                      onChange={e => handleAuditorChange('downward', e.target.value)}
-                      className={`w-full border rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-1 focus:ring-[#0BBECF] ${
-                        !form.downwardAuditEnabled ? 'bg-gray-100 text-gray-400 cursor-not-allowed border-gray-200' :
-                        errors.downwardAuditor ? 'border-red-400' : 'border-gray-300'
-                      }`}
-                    >
-                      <option value="">{downwardCandidates.length ? '请选择审核人' : '当前科室无可选审核人'}</option>
-                      {downwardOptions.map(u => (
-                        <option key={u.userId} value={u.userId}>{formatSsoUser(u)}</option>
-                      ))}
-                    </select>
+                      options={downwardCandidates}
+                      error={errors.downwardAuditor}
+                      onChange={userId => handleAuditorChange('downward', userId)}
+                    />
                     {downwardCandidates.length === 0 && (
                       <p className="text-xs text-amber-600 mt-1">
                         当前科室无可选审核人，请前往统一门户为该科室用户分配“县级科主任”或“基层负责人”角色 →
@@ -494,18 +510,16 @@ export default function AuditRuleConfig() {
 
               {/* 说明 */}
               <div className="px-4 py-3 bg-gray-50 border border-gray-200 rounded-lg text-xs text-gray-500 space-y-1">
-                <p>ℹ️ 开关关闭时审核人置灰，配置保留但不生效</p>
-                <p>ℹ️ 急诊转入无论此处配置如何，均自动豁免院内审核</p>
+                <p>ℹ️ 急诊转入自动豁免院内审核，不受本配置影响。</p>
               </div>
 
               <div className="px-4 py-3 bg-amber-50 border border-amber-200 rounded-lg text-xs text-amber-700 space-y-1">
                 <p className="font-medium text-amber-800">生效影响提示</p>
-                <p>保存后本科室后续新提交的转入/转出单将按当前审核配置执行，已进入流程的单据不回写原审核路径。</p>
-                <p>本次修改的审核人、开关状态与修改人将写入配置日志。</p>
+                <p>保存后，本科室后续新提交的转出申请将按当前审核配置执行；历史申请不受影响。本次修改将写入操作日志。</p>
               </div>
             </div>
 
-            {/* 抽屉底部按钮 */}
+            {/* 弹窗底部按钮 */}
             <div className="px-6 py-4 border-t border-gray-200 flex justify-end gap-3">
               <button
                 onClick={() => setDrawerOpen(false)}

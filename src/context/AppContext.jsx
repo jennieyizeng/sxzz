@@ -26,6 +26,7 @@ import {
   UPWARD_CLOSE_REASON_OPTIONS,
   UPWARD_REJECT_REASON_OPTIONS,
 } from '../constants/reasonCodes'
+import { buildPhoneCallLogEntry } from '../utils/phoneCall'
 
 // F-09 操作日志事件类型枚举（P2-2：补充新增类型）
 // eslint-disable-next-line react-refresh/only-export-components
@@ -1473,6 +1474,36 @@ export function AppProvider({ children }) {
     }))
   }, [currentUser.name])
 
+  const recordPhoneCallAction = useCallback((referralId, payload) => {
+    const entry = buildPhoneCallLogEntry({
+      ...payload,
+      actorId: payload?.actorId || currentUser.id,
+      actorRole: payload?.actorRole || currentRole,
+      referralId,
+      timestamp: payload?.timestamp || new Date().toISOString(),
+    })
+
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      return {
+        ...r,
+        updatedAt: entry.timestamp,
+        phoneCallLogs: [...(r.phoneCallLogs || []), entry],
+        logs: [
+          ...(r.logs || []),
+          {
+            time: entry.timestamp,
+            actor: currentUser.name,
+            action: entry.action,
+            note: `source=${entry.source || 'unknown'}；numberType=${entry.numberType || 'unknown'}`,
+          },
+        ],
+      }
+    }))
+
+    return entry
+  }, [currentRole, currentUser.id, currentUser.name])
+
   // CHG-32：基层医生提交院内审核（普通上转，F-02=ON时流程）→ PENDING_INTERNAL_REVIEW
   // 急诊/绿通仍走 submitReferral 直接到 PENDING
   // CHG-33：急诊无论开关状态直接跳过内审 → PENDING
@@ -2069,6 +2100,7 @@ export function AppProvider({ children }) {
       assignDoctorByAdmin,
       verifyAndConsumeAppointmentCode,
       recordReferralDocumentAction,
+      recordPhoneCallAction,
       escalateEmergencyAlert,
       renotifyEmergency,
       // CHG-29/30/32 新增

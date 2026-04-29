@@ -3,8 +3,8 @@ import {
   appendSystemOperationLog,
   SYSTEM_DISEASE_CATEGORIES,
   SYSTEM_DISEASE_CONFIGS,
-  SYSTEM_DISEASE_POLICY_SCOPE_OPTIONS,
-  SYSTEM_DISEASE_SPECIALTY_OPTIONS,
+  SYSTEM_DISEASE_GREEN_CENTER_OPTIONS,
+  SYSTEM_DISEASE_MANAGEMENT_TAG_OPTIONS,
   SYSTEM_TERMINOLOGY_ICD10_MASTER,
 } from '../../data/systemAdminConfig'
 
@@ -24,8 +24,8 @@ const CATEGORY_TAG = {
 
 const EMPTY_RULE_FORM = {
   greenChannel: false,
-  specialty: '',
-  policyScope: '',
+  greenCenter: '',
+  managementTags: [],
 }
 
 function SuccessToast({ message }) {
@@ -39,33 +39,39 @@ function SuccessToast({ message }) {
   )
 }
 
-function SourceHint() {
-  return (
-    <div className="mt-3 flex items-center gap-2 rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
-      <span className="text-sm">ℹ️</span>
-      主数据来自医共体术语信息管理系统
-    </div>
-  )
-}
-
 function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
   const isEdit = Boolean(disease?.id)
   const [form, setForm] = useState({
     greenChannel: Boolean(disease?.greenChannel),
-    specialty: disease?.specialty || '',
-    policyScope: disease?.policyScope || '',
+    greenCenter: disease?.greenCenter || '',
+    managementTags: Array.isArray(disease?.managementTags) ? disease.managementTags : [],
   })
   const [errors, setErrors] = useState({})
 
   const setField = (key, value) => {
-    setForm(prev => ({ ...prev, [key]: value }))
+    setForm(prev => {
+      const next = { ...prev, [key]: value }
+      if (key === 'greenChannel' && !value) {
+        return { ...next, greenCenter: '' }
+      }
+      return next
+    })
     if (errors[key]) setErrors(prev => ({ ...prev, [key]: '' }))
+  }
+
+  const toggleManagementTag = (tag) => {
+    setForm(prev => {
+      const exists = prev.managementTags.includes(tag)
+      const managementTags = exists
+        ? prev.managementTags.filter(item => item !== tag)
+        : [...prev.managementTags, tag]
+      return { ...prev, managementTags }
+    })
   }
 
   const validate = () => {
     const nextErrors = {}
-    if (!form.specialty) nextErrors.specialty = '请选择关联专科'
-    if (!form.policyScope) nextErrors.policyScope = '请选择政策范围'
+    if (form.greenChannel && !form.greenCenter) nextErrors.greenCenter = '请选择所属中心'
     setErrors(nextErrors)
     return Object.keys(nextErrors).length === 0
   }
@@ -81,8 +87,8 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onCancel} />
       <div className="fixed inset-0 z-50 flex items-center justify-center p-4">
-        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl p-6">
-          <div className="flex items-center justify-between mb-5">
+        <div className="bg-white rounded-xl shadow-xl w-full max-w-2xl overflow-hidden">
+          <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
             <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
             <button
               onClick={onCancel}
@@ -92,10 +98,10 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
             </button>
           </div>
 
-          <div className="space-y-5">
-            <section className="rounded-xl border border-gray-100 bg-gray-50 px-4 py-4">
-              <div className="text-sm font-medium text-gray-800 mb-3">ICD-10主数据区 - 只读</div>
-              <div className="grid grid-cols-3 gap-3 text-sm">
+          <div className="px-6 divide-y divide-gray-100">
+            <section className="py-4">
+              <div className="text-sm font-medium text-gray-800 mb-3">ICD-10主数据</div>
+              <div className="grid grid-cols-3 gap-5 text-sm">
                 <div>
                   <div className="text-xs text-gray-500 mb-1">ICD-10编码</div>
                   <div className="font-mono text-gray-800">{master.code}</div>
@@ -109,11 +115,10 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
                   <div className="text-gray-800">{master.category}</div>
                 </div>
               </div>
-              <SourceHint />
             </section>
 
-            <section className="rounded-xl border border-cyan-100 bg-white px-4 py-4">
-              <div className="text-sm font-medium text-gray-800 mb-3">双转业务标识 - 可编辑</div>
+            <section className="py-4">
+              <div className="text-sm font-medium text-gray-800 mb-3">双转业务标识</div>
               <div className="space-y-4">
                 <label className="flex items-center gap-2 text-sm text-gray-700 cursor-pointer">
                   <input
@@ -124,41 +129,52 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
                   />
                   <span>标记为绿色通道病种</span>
                 </label>
-
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">关联专科</label>
-                  <select
-                    value={form.specialty}
-                    onChange={e => setField('specialty', e.target.value)}
-                    className={inputCls('specialty')}
-                  >
-                    <option value="">请选择关联专科</option>
-                    {SYSTEM_DISEASE_SPECIALTY_OPTIONS.map(option => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  {errors.specialty && <p className="text-xs text-red-500 mt-1">{errors.specialty}</p>}
-                </div>
-
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">政策范围</label>
-                  <select
-                    value={form.policyScope}
-                    onChange={e => setField('policyScope', e.target.value)}
-                    className={inputCls('policyScope')}
-                  >
-                    <option value="">请选择政策范围</option>
-                    {SYSTEM_DISEASE_POLICY_SCOPE_OPTIONS.map(option => (
-                      <option key={option} value={option}>{option}</option>
-                    ))}
-                  </select>
-                  {errors.policyScope && <p className="text-xs text-red-500 mt-1">{errors.policyScope}</p>}
-                </div>
               </div>
+            </section>
+
+            {form.greenChannel && (
+              <section className="py-4">
+                <div className="text-sm font-medium text-gray-800 mb-3">绿色通道配置</div>
+                <div className="space-y-4">
+                  <div>
+                    <label className="block text-xs text-gray-500 mb-1">所属中心</label>
+                    <select
+                      value={form.greenCenter}
+                      onChange={e => setField('greenCenter', e.target.value)}
+                      className={inputCls('greenCenter')}
+                    >
+                      <option value="">请选择所属中心</option>
+                      {SYSTEM_DISEASE_GREEN_CENTER_OPTIONS.map(option => (
+                        <option key={option} value={option}>{option}</option>
+                      ))}
+                    </select>
+                    {errors.greenCenter && <p className="text-xs text-red-500 mt-1">{errors.greenCenter}</p>}
+                  </div>
+
+                </div>
+              </section>
+            )}
+
+            <section className="py-4">
+              <div className="text-sm font-medium text-gray-800 mb-3">管理属性标签</div>
+              <div className="grid grid-cols-2 gap-2">
+                {SYSTEM_DISEASE_MANAGEMENT_TAG_OPTIONS.map(option => (
+                  <label key={option} className="flex items-center gap-2 rounded-lg border border-gray-200 bg-gray-50 px-3 py-2 text-sm text-gray-700 cursor-pointer">
+                    <input
+                      type="checkbox"
+                      checked={form.managementTags.includes(option)}
+                      onChange={() => toggleManagementTag(option)}
+                      className="w-4 h-4 rounded border-gray-300 text-[#0BBECF] focus:ring-[#0BBECF]"
+                    />
+                    <span>{option}</span>
+                  </label>
+                ))}
+              </div>
+              <p className="text-xs text-gray-400 mt-2">管理属性标签仅用于转诊台账、统计分析和政策口径归类，不参与自动分诊、不推荐科室、不改变转诊流程。</p>
             </section>
           </div>
 
-          <div className="flex justify-end gap-2 mt-6">
+          <div className="flex justify-end gap-2 px-6 py-4 border-t border-gray-100 bg-white">
             <button
               onClick={onCancel}
               className="px-4 py-1.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
@@ -168,7 +184,10 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
             <button
               onClick={() => {
                 if (!validate()) return
-                onSave(form)
+                onSave({
+                  ...form,
+                  greenCenter: form.greenChannel ? form.greenCenter : '',
+                })
               }}
               className="px-4 py-1.5 rounded-lg text-sm font-medium text-white transition-colors"
               style={{ background: '#0BBECF' }}
@@ -392,7 +411,12 @@ export default function DiseaseDir() {
     if (disease.id) {
       setList(prev => prev.map(item => (
         item.id === disease.id
-          ? { ...item, greenChannel: formData.greenChannel, specialty: formData.specialty, policyScope: formData.policyScope }
+          ? {
+            ...item,
+            greenChannel: formData.greenChannel,
+            greenCenter: formData.greenCenter,
+            managementTags: formData.managementTags,
+          }
           : item
       )))
       appendSystemOperationLog({
@@ -403,8 +427,8 @@ export default function DiseaseDir() {
           配置项: '专病规则配置',
           操作: '编辑业务属性',
           绿色通道病种: `${disease.greenChannel ? '是' : '否'} → ${formData.greenChannel ? '是' : '否'}`,
-          关联专科: `${disease.specialty || '未配置'} → ${formData.specialty}`,
-          政策范围: `${disease.policyScope || '未配置'} → ${formData.policyScope}`,
+          所属中心: `${disease.greenCenter || '未配置'} → ${formData.greenCenter || '未配置'}`,
+          管理属性标签: `${disease.managementTags?.join('、') || '未配置'} → ${formData.managementTags.join('、') || '未配置'}`,
         },
       })
       showToast('业务属性已保存')
@@ -417,8 +441,8 @@ export default function DiseaseDir() {
         category: master.category,
         sourceSystem: master.sourceSystem,
         greenChannel: formData.greenChannel,
-        specialty: formData.specialty,
-        policyScope: formData.policyScope,
+        greenCenter: formData.greenCenter,
+        managementTags: formData.managementTags,
         enabled: true,
       }
       setList(prev => [newItem, ...prev])
@@ -433,8 +457,8 @@ export default function DiseaseDir() {
           诊断名称: master.name,
           疾病分类: master.category,
           绿色通道病种: formData.greenChannel ? '是' : '否',
-          关联专科: formData.specialty,
-          政策范围: formData.policyScope,
+          所属中心: formData.greenCenter || '未配置',
+          管理属性标签: formData.managementTags.join('、') || '未配置',
         },
       })
       showToast('业务病种已新增')
@@ -587,7 +611,7 @@ export default function DiseaseDir() {
           <table className="w-full text-sm" style={{ borderCollapse: 'collapse', minWidth: 980 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', 'ICD-10编码', '诊断名称', '疾病分类', '绿色通道病种', '关联专科', '政策范围', '状态', '操作'].map(label => (
+                {['序号', 'ICD-10编码', '诊断名称', '疾病分类', '绿色通道病种', '所属中心', '管理属性标签', '状态', '操作'].map(label => (
                   <th key={label} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{label}</th>
                 ))}
               </tr>
@@ -635,8 +659,8 @@ export default function DiseaseDir() {
                       : <span className="text-gray-300 text-sm">—</span>
                     }
                   </td>
-                  <td className={TD}>{item.specialty || <span className="text-gray-300">—</span>}</td>
-                  <td className={TD}>{item.policyScope || <span className="text-gray-300">—</span>}</td>
+                  <td className={TD}>{item.greenChannel && item.greenCenter ? item.greenCenter : <span className="text-gray-300">—</span>}</td>
+                  <td className={TD}>{item.managementTags?.length ? item.managementTags.join('、') : <span className="text-gray-300">—</span>}</td>
                   <td className={TD}>
                     {item.enabled
                       ? <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">启用</span>

@@ -3,6 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import ConsentOfflinePanel from '../../components/ConsentOfflinePanel'
 import { useApp } from '../../context/AppContext'
 import { ICD10_LIST, INSTITUTIONS } from '../../data/mockData'
+import { SYSTEM_DISEASE_CONFIGS } from '../../data/systemAdminConfig'
 import {
   buildEmergencyInitialSms,
   buildEmergencyUrgencyFeedback,
@@ -42,21 +43,6 @@ const EMERGENCY_TRANSPORT_NEED_OPTIONS = [
   '医护陪同',
   '120转运',
 ]
-
-const ICD10_DEPT_MAPPING = {
-  I10: ['内科', '心血管科'],
-  I21: ['心血管科'],
-  I22: ['心血管科'],
-  I63: ['神经内科'],
-  I61: ['神经内科'],
-  J18: ['呼吸科'],
-  K35: ['外科'],
-  N20: ['外科'],
-  E11: ['内分泌科'],
-  E14: ['内分泌科'],
-  M16: ['骨科'],
-  S72: ['骨科'],
-}
 
 const OUTPATIENT_CONDITION_ASSESSMENT_OPTIONS = [
   '病情稳定',
@@ -131,6 +117,16 @@ function getLinkedSpecialtySuggestion(diagnosisCode, institution) {
   )
 
   return match.find(item => departmentCandidates.includes(item)) || null
+}
+
+function getGreenChannelDiseaseMatch(diagnosisCode) {
+  const code = String(diagnosisCode || '').toUpperCase()
+  if (!code) return null
+  return SYSTEM_DISEASE_CONFIGS.find(item => (
+    item.enabled
+    && item.greenChannel
+    && (code === item.code.toUpperCase() || code.startsWith(item.code.toUpperCase()))
+  )) || null
 }
 
 function StepProgress({ steps, currentStep, accentColor = '#0BBECF' }) {
@@ -301,7 +297,6 @@ export default function CreateReferral() {
   const [emergencyTransportCondition, setEmergencyTransportCondition] = useState('')
   const [emergencyTransportNeeds, setEmergencyTransportNeeds] = useState([])
   const [admissionTypePref, setAdmissionTypePref] = useState('outpatient')
-  const [deptSuggestion, setDeptSuggestion] = useState(null)
   const [attachments, setAttachments] = useState([])
   // CHG-40: 护理记录附件与检查附件分开展示
   const [nursingAttachments, setNursingAttachments] = useState([])
@@ -354,6 +349,7 @@ export default function CreateReferral() {
 
   const selectedInstitution = INSTITUTIONS.find(item => item.id === form.toInstitutionId)
   const selectedDeptInfo = selectedInstitution?.departmentInfo?.[form.toDept]
+  const matchedGreenChannelDisease = getGreenChannelDiseaseMatch(form.diagnosis?.code)
   const selectedDeptFull = selectedDeptInfo && selectedDeptInfo.dailyQuota > 0
     && (selectedDeptInfo.dailyQuota - selectedDeptInfo.todayReserved) <= 0
 
@@ -409,13 +405,7 @@ export default function CreateReferral() {
 
   const handleDiagnosisChange = (diagnosis) => {
     setForm(prev => ({ ...prev, diagnosis }))
-    if (!diagnosis) {
-      setDeptSuggestion(null)
-      return
-    }
-    const prefix = diagnosis.code.slice(0, 3)
-    const suggested = ICD10_DEPT_MAPPING[prefix] || ICD10_DEPT_MAPPING[diagnosis.code]
-    setDeptSuggestion(suggested ? { depts: suggested } : null)
+    if (!diagnosis) return
     if (greenChannelSelected) {
       const suggestedSpecialty = getLinkedSpecialtySuggestion(diagnosis.code, selectedInstitution)
       if (suggestedSpecialty) setLinkedSpecialty(prev => prev || suggestedSpecialty)
@@ -1308,6 +1298,11 @@ export default function CreateReferral() {
                           <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
                         </div>
                       )}
+                      {matchedGreenChannelDisease && (
+                        <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                          该诊断已匹配绿色通道病种：【{matchedGreenChannelDisease.greenCenter}】。请结合患者病情判断是否启用急诊/绿通流程。
+                        </div>
+                      )}
                     </div>
 
                     <div>
@@ -1373,16 +1368,9 @@ export default function CreateReferral() {
                         <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
                       </div>
                     )}
-                    {deptSuggestion && (
-                      <div className="mt-2 flex items-center gap-2 px-3 py-2 rounded-lg text-sm" style={{ background: '#EFF6FF', border: '1px solid #BFDBFE' }}>
-                        <span style={{ color: '#2563EB' }}>💡 推荐科室：</span>
-                        {deptSuggestion.depts.map(dept => (
-                          <button key={dept} type="button"
-                            onClick={() => { setForm(prev => ({ ...prev, toDept: dept })); setDeptSuggestion(null) }}
-                            className="px-2 py-0.5 rounded text-xs font-medium"
-                            style={{ background: '#DBEAFE', color: '#1D4ED8' }}>{dept}</button>
-                        ))}
-                        <button type="button" onClick={() => setDeptSuggestion(null)} className="ml-auto text-xs text-gray-400 hover:text-gray-600">忽略</button>
+                    {matchedGreenChannelDisease && (
+                      <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
+                        该诊断已匹配绿色通道病种：【{matchedGreenChannelDisease.greenCenter}】。请结合患者病情判断是否启用急诊/绿通流程。
                       </div>
                     )}
                   </div>

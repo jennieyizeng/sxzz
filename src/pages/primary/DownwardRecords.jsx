@@ -4,6 +4,7 @@ import { useApp } from '../../context/AppContext'
 import { DOWNWARD_STATUS, ROLES } from '../../data/mockData'
 import StatusBadge from '../../components/StatusBadge'
 import { getDownwardDisplayStatus, matchesDownwardDisplayStatus } from '../../utils/downwardStatusPresentation'
+import { shouldShowDownwardReferralForPrimaryDoctor } from '../../utils/primaryDownwardScope'
 
 function fmt(iso) {
   if (!iso) return '—'
@@ -57,10 +58,7 @@ export default function PrimaryDownwardRecords() {
 
     if (isCoordinator) return true
 
-    return ref.downwardAssignedDoctorId === currentUser.id
-      || ref.designatedDoctorId === currentUser.id
-      || ref.toDoctor === currentUser.name
-      || ref.fromDoctor === currentUser.name
+    return shouldShowDownwardReferralForPrimaryDoctor(ref, currentUser)
   }), [currentUser.id, currentUser.institution, currentUser.name, isCoordinator, referrals])
 
   const data = scopedRecords.filter(ref => {

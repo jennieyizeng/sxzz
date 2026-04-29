@@ -14,8 +14,8 @@ export default function ArrangementModal({ referral, onClose, onSubmit, admissio
     visitTime: '',
     department: referral?.toDept || '',
     room: '',
-    floor: '',
-    departmentPhone: '',
+    floor: deptBedInfo?.outpatientLocation || '',
+    departmentPhone: deptBedInfo?.departmentPhone || '',
     doctorName: '',
     // J-4 床位字段（住院时使用）
     ward: deptBedInfo?.ward || '',
@@ -73,7 +73,7 @@ export default function ArrangementModal({ referral, onClose, onSubmit, admissio
 
         <div className="px-6 py-5 space-y-4">
           <div className="bg-blue-50 border border-blue-200 rounded-lg px-4 py-3 text-xs text-blue-700">
-            📋 填写并提交后，系统将自动生成预约取号码并发送至基层医生，请告知患者凭取号码到院取号就诊（到院仍需正常缴费）
+            📋 填写并提交后，系统将自动生成转诊预约码，并同步发送给基层医生和患者。
           </div>
 
           <div>
@@ -150,8 +150,7 @@ export default function ArrangementModal({ referral, onClose, onSubmit, admissio
 
           <div>
             <label className="block text-sm font-medium text-gray-700 mb-1">
-              接诊医生
-              <span className="text-gray-400 font-normal text-xs ml-1">（可选，仅供参考，患者到院后由科室安排）</span>
+              接诊医生（可选，仅供参考，患者到院后由科室安排）
             </label>
             <input
               type="text"
@@ -260,7 +259,7 @@ export default function ArrangementModal({ referral, onClose, onSubmit, admissio
           )}
 
           <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 text-xs text-gray-500">
-            ℹ️ 提交后系统自动生成6位预约取号码，有效期48小时。患者凭取号码到达挂号窗口优先取号，不免除挂号费用。
+            ℹ️ 患者凭预约码到指定窗口出示，按转诊流程优先排队；到院仍需按医院规定完成挂号缴费。
           </div>
         </div>
 
@@ -276,7 +275,7 @@ export default function ArrangementModal({ referral, onClose, onSubmit, admissio
             className="px-5 py-2 text-sm font-medium text-white rounded-lg"
             style={{ background: '#0BBECF' }}
           >
-            确认提交并生成取号码
+            确认提交并生成预约码
           </button>
         </div>
       </div>
