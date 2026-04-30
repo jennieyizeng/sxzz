@@ -51,6 +51,8 @@ export function resolveFollowupTaskMeta(referral) {
     proposedDoctorName: meta.proposedDoctorName || '',
     reassignAssignedAt: meta.reassignAssignedAt || null,
     reassignRejectedReason: meta.reassignRejectedReason || '',
+    reassignRejectedById: meta.reassignRejectedById || null,
+    reassignRejectedByName: meta.reassignRejectedByName || '',
     createdAt: meta.createdAt ?? linkedTask?.createdAt ?? referral?.completedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
     updatedAt: meta.updatedAt ?? linkedTask?.updatedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
   }
@@ -140,7 +142,8 @@ export function buildScopedFollowups(referrals, currentUser) {
 
       return referral.downwardAssignedDoctorId === currentUser.id ||
         referral.toDoctor === currentUser.name ||
-        (linkedTask.reassignStatus === 'assigned' && linkedTask.proposedDoctorId === currentUser.id)
+        (linkedTask.reassignStatus === 'assigned' && linkedTask.proposedDoctorId === currentUser.id) ||
+        (linkedTask.reassignStatus === 'rejected' && linkedTask.reassignRejectedById === currentUser.id)
     })
     .map(referral => {
       const linkedTask = resolveFollowupTaskMeta(referral)
@@ -172,6 +175,8 @@ export function buildScopedFollowups(referrals, currentUser) {
         proposedDoctorId: linkedTask.proposedDoctorId,
         proposedDoctorName: linkedTask.proposedDoctorName,
         reassignRejectedReason: linkedTask.reassignRejectedReason,
+        reassignRejectedById: linkedTask.reassignRejectedById,
+        reassignRejectedByName: linkedTask.reassignRejectedByName,
         downwardDate: toDateOnly(downwardDate),
         lastFollowupAt: lastFollowupAt ? toDateOnly(lastFollowupAt) : null,
         followupDate: referral.rehabPlan.followupDate,
@@ -216,6 +221,7 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     linkedTask,
     currentUser,
   )
+  const isRejectedReassignViewer = linkedTask.reassignStatus === 'rejected' && linkedTask.reassignRejectedById === currentUser.id
 
   return {
     ...resolvedTask,
@@ -233,6 +239,8 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     otherIndicators,
     historyRecords,
     draft: buildInitialRecordDraft(resolvedTask, referral),
+    isRejectedReassignViewer,
+    canRecordFollowup: !isRejectedReassignViewer,
   }
 }
 

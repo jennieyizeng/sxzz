@@ -16,8 +16,8 @@ function fmt(iso) {
   return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
 }
 
-const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
-const TD = 'px-3 py-2.5 text-sm'
+const TH = 'px-4 py-3 text-left text-xs font-medium whitespace-nowrap'
+const TD = 'px-4 py-3.5 text-sm align-top'
 
 const DEMO_PRIMARY_DOCTORS = [
   { id: 'u001', name: '王医生', institution: 'xx市拱星镇卫生院' },
@@ -78,6 +78,8 @@ export default function PrimaryFollowupList() {
   const [filter, setFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [assignDialog, setAssignDialog] = useState(null)
+  const [rejectDialog, setRejectDialog] = useState(null)
+  const [rejectReason, setRejectReason] = useState('')
   const [historyDialog, setHistoryDialog] = useState(null)
   const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [successTip, setSuccessTip] = useState('')
@@ -134,6 +136,15 @@ export default function PrimaryFollowupList() {
     setTimeout(() => setSuccessTip(''), 3000)
   }
 
+  function confirmRejectReassign() {
+    if (!rejectDialog || !rejectReason.trim()) return
+    rejectFollowupReassign(rejectDialog.referralId, rejectReason.trim())
+    setSuccessTip(`已拒绝「${rejectDialog.patient.name}」的随访转派任务`)
+    setRejectDialog(null)
+    setRejectReason('')
+    setTimeout(() => setSuccessTip(''), 3000)
+  }
+
   const pageTitle = isPrimaryHead ? '机构随访任务' : '我的随访任务'
   const emptyText = isPrimaryHead ? '当前机构暂无随访任务' : '暂无随访任务'
   const footerText = isPrimaryHead
@@ -141,19 +152,19 @@ export default function PrimaryFollowupList() {
     : 'ℹ️ 随访任务由系统在基层确认接收转入后自动创建并归属至您名下。如需申请转派，请联系负责人。'
 
   return (
-    <div className="p-5">
+    <div className="p-6">
       {successTip && (
         <div className="fixed top-4 left-1/2 -translate-x-1/2 z-50 px-5 py-2.5 rounded-lg shadow-lg text-sm font-medium text-white" style={{ background: '#059669', minWidth: '280px', textAlign: 'center' }}>
           {successTip}
         </div>
       )}
 
-      <div className="mb-4">
+      <div className="mb-5">
         <h2 className="text-base font-semibold text-gray-800">{pageTitle}</h2>
       </div>
 
       {/* 统计卡 */}
-      <div className="grid grid-cols-4 gap-3 mb-4">
+      <div className={`grid gap-4 mb-5 ${isPrimaryHead ? 'grid-cols-2 xl:grid-cols-5' : 'grid-cols-4'}`}>
         {[
           { id: 'all', label: '全部', count: counts.all, color: '#6366f1', bg: '#ede9fe' },
           { id: 'overdue', label: '已逾期', count: counts.overdue, color: '#ef4444', bg: '#fef2f2' },
@@ -164,17 +175,17 @@ export default function PrimaryFollowupList() {
           <div
             key={c.id}
             onClick={() => setFilter(c.id)}
-            className="bg-white rounded-xl px-4 py-3 cursor-pointer"
+            className="bg-white rounded-xl px-5 py-4 cursor-pointer"
             style={{ border: `2px solid ${filter === c.id ? c.color : '#DDF0F3'}` }}
           >
             <div className="text-xl font-bold" style={{ color: c.color }}>{c.count}</div>
-            <div className="text-xs text-gray-500 mt-0.5">{c.label}</div>
+            <div className="text-xs text-gray-500 mt-1">{c.label}</div>
           </div>
         ))}
       </div>
 
       {isPrimaryHead && (
-        <div className="mb-4 flex items-center gap-3">
+        <div className="mb-5 flex items-center gap-3 rounded-xl bg-white px-4 py-3" style={{ border: '1px solid #DDF0F3' }}>
           <div className="text-xs text-gray-500">负责人/执行医生</div>
           <select
             value={assigneeFilter}
@@ -191,7 +202,8 @@ export default function PrimaryFollowupList() {
 
       {/* 列表 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
-        <table className="w-full" style={{ borderCollapse: 'collapse' }}>
+        <div className="overflow-x-auto">
+        <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: isPrimaryHead ? 1120 : 960 }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
               {[
@@ -296,22 +308,22 @@ export default function PrimaryFollowupList() {
                   <div className="flex items-center gap-2 flex-wrap">
                     <button
                       onClick={() => navigate(`/primary/followup-task/${f.referralId}`)}
-                      className="text-xs font-medium"
-                      style={{ color: '#0892a0' }}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border"
+                      style={{ color: '#0892a0', borderColor: '#B6EDF2', background: '#F8FDFE' }}
                     >
                       记录随访
                     </button>
                     <button
                       onClick={() => openHistory(f)}
-                      className="text-xs font-medium"
-                      style={{ color: '#0BBECF' }}
+                      className="text-xs font-medium px-3 py-1.5 rounded-lg border"
+                      style={{ color: '#0BBECF', borderColor: '#B6EDF2', background: '#fff' }}
                     >
                       历史随访记录
                     </button>
                     {isPrimaryHead && (
                       <button
                         onClick={() => openAssign(f)}
-                        className="text-xs font-medium text-gray-500 hover:text-gray-700"
+                        className="text-xs font-medium text-gray-500 hover:text-gray-700 px-3 py-1.5 rounded-lg border border-gray-200 bg-white"
                       >
                         {['requested', 'rejected'].includes(f.reassignStatus) ? '处理转派' : '转派'}
                       </button>
@@ -331,9 +343,8 @@ export default function PrimaryFollowupList() {
                         </button>
                         <button
                           onClick={() => {
-                            rejectFollowupReassign(f.referralId, '暂不接收该随访任务')
-                            setSuccessTip(`已拒绝「${f.patient.name}」的随访转派任务`)
-                            setTimeout(() => setSuccessTip(''), 3000)
+                            setRejectDialog(f)
+                            setRejectReason('')
                           }}
                           className="text-xs font-medium text-red-500"
                         >
@@ -347,6 +358,7 @@ export default function PrimaryFollowupList() {
             ))}
           </tbody>
         </table>
+        </div>
       </div>
 
       <div className="mt-4 px-4 py-3 bg-blue-50 border border-blue-200 rounded-lg text-xs text-blue-600">
@@ -399,6 +411,59 @@ export default function PrimaryFollowupList() {
             <div className="px-5 py-4 flex items-center justify-end gap-3" style={{ borderTop: '1px solid #EEF7F9' }}>
               <button onClick={() => setHistoryDialog(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">关闭</button>
               <button onClick={() => navigate(`/primary/followup-task/${historyDialog.referralId}`)} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#0BBECF' }}>进入随访详情</button>
+            </div>
+          </div>
+        </div>
+      )}
+
+      {rejectDialog && (
+        <div className="fixed inset-0 z-40 flex items-center justify-center" style={{ background: 'rgba(0,0,0,0.35)' }}>
+          <div className="bg-white rounded-xl shadow-xl w-full max-w-md mx-4" style={{ border: '1px solid #DDF0F3' }}>
+            <div className="px-5 py-4" style={{ borderBottom: '1px solid #EEF7F9' }}>
+              <h3 className="text-sm font-semibold text-gray-800">拒绝转派</h3>
+              <div className="text-xs text-gray-400 mt-1">请填写无法接收该随访任务的原因，提交后将退回基层负责人重新转派。</div>
+            </div>
+            <div className="px-5 py-4 space-y-4">
+              <div className="rounded-lg px-4 py-3" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
+                <div className="flex items-center gap-2 mb-1">
+                  <span className="text-sm font-medium text-gray-800">{rejectDialog.patient.name}</span>
+                  <span className="text-xs text-gray-400">·</span>
+                  <span className="text-xs text-gray-500">{rejectDialog.diagnosis.name}</span>
+                </div>
+                <div className="text-xs text-gray-400">计划随访日期：{fmt(rejectDialog.followupDate)}</div>
+              </div>
+              <div>
+                <label className="block text-xs font-medium text-gray-700 mb-1.5">
+                  拒绝原因<span className="text-red-500 ml-1">*</span>
+                </label>
+                <textarea
+                  rows={4}
+                  value={rejectReason}
+                  onChange={e => setRejectReason(e.target.value)}
+                  placeholder="例如：近期外出下乡，无法按期完成该患者随访"
+                  className="w-full text-sm border rounded-lg px-3 py-2 outline-none resize-none focus:ring-2 focus:ring-cyan-100"
+                  style={{ borderColor: rejectReason.trim() ? '#0BBECF' : '#d1d5db' }}
+                />
+              </div>
+            </div>
+            <div className="px-5 py-4 flex items-center justify-end gap-3" style={{ borderTop: '1px solid #EEF7F9' }}>
+              <button
+                onClick={() => {
+                  setRejectDialog(null)
+                  setRejectReason('')
+                }}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+              >
+                取消
+              </button>
+              <button
+                onClick={confirmRejectReassign}
+                disabled={!rejectReason.trim()}
+                className={`px-4 py-2 text-sm rounded-lg text-white ${rejectReason.trim() ? '' : 'bg-gray-300 cursor-not-allowed'}`}
+                style={rejectReason.trim() ? { background: '#0BBECF' } : {}}
+              >
+                确认拒绝
+              </button>
             </div>
           </div>
         </div>

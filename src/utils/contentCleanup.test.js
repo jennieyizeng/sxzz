@@ -164,6 +164,32 @@ test('keeps followup reassignment visible to coordinators and confirmable by new
   assert.equal(followupDetailSource.includes('rejectFollowupReassign'), true)
 })
 
+test('keeps rejected followup reassignment viewers read-only and requires rejection reason', () => {
+  const followupListSource = fs.readFileSync(path.join(rootDir, 'pages/primary/FollowupList.jsx'), 'utf8')
+  const followupDetailSource = fs.readFileSync(path.join(rootDir, 'pages/primary/FollowupTaskDetail.jsx'), 'utf8')
+  const appContextSource = fs.readFileSync(path.join(rootDir, 'context/AppContext.jsx'), 'utf8')
+  const followupTaskSource = fs.readFileSync(path.join(rootDir, 'utils/followupTasks.js'), 'utf8')
+
+  assert.equal(appContextSource.includes('reassignRejectedById: currentUser.id'), true)
+  assert.equal(appContextSource.includes('reassignRejectedByName: currentUser.name'), true)
+
+  assert.equal(followupTaskSource.includes('isRejectedReassignViewer'), true)
+  assert.equal(followupTaskSource.includes('canRecordFollowup'), true)
+  assert.equal(followupTaskSource.includes("linkedTask.reassignStatus === 'rejected' && linkedTask.reassignRejectedById === currentUser.id"), true)
+
+  assert.equal(followupDetailSource.includes('const canRecordCurrentFollowup = detail.canRecordFollowup && !isPendingIncomingReassign'), true)
+  assert.equal(followupDetailSource.includes('您已拒绝本次转派，仅可查看随访信息。'), true)
+  assert.equal(followupDetailSource.includes('disabled={!canRecordCurrentFollowup}'), true)
+  assert.equal(followupDetailSource.includes("onClick={() => canRecordCurrentFollowup && setDialog('record')}"), true)
+
+  assert.equal(followupListSource.includes('rejectDialog'), true)
+  assert.equal(followupListSource.includes('rejectReason'), true)
+  assert.equal(followupListSource.includes('拒绝原因'), true)
+  assert.equal(followupListSource.includes('disabled={!rejectReason.trim()}'), true)
+  assert.equal(followupListSource.includes("rejectFollowupReassign(rejectDialog.referralId, rejectReason.trim())"), true)
+  assert.equal(followupListSource.includes("rejectFollowupReassign(f.referralId, '暂不接收该随访任务')"), false)
+})
+
 test('removes linked followup task block from referral detail and keeps followup-linked downward referrals completed', () => {
   const detailSource = fs.readFileSync(path.join(rootDir, 'pages/shared/ReferralDetail.jsx'), 'utf8')
   const mockDataSource = fs.readFileSync(path.join(rootDir, 'data/mockData.js'), 'utf8')
@@ -233,7 +259,7 @@ test('keeps ordinary upward status and outpatient referral summary copy aligned 
   assert.equal(createReferralSource.includes('转诊目的 <span className="text-red-500">*</span>'), true)
   assert.equal(createReferralSource.includes('grid grid-cols-2 gap-x-6 gap-y-3'), true)
   assert.equal(reasonCodesSource.includes("{ code: 'other', label: '其他' }"), true)
-  assert.equal(createReferralSource.includes("outpatientTransferPurpose.includes('other')"), true)
+  assert.equal(createReferralSource.includes("outpatientTransferPurpose === 'other'"), true)
   assert.equal(createReferralSource.includes('请填写其他转诊目的'), true)
   assert.equal(createReferralSource.includes('当前病情评估'), true)
   assert.equal(createReferralSource.includes('当前病情评估 <span className="text-gray-400 text-xs">（非必填）</span>'), false)
@@ -263,6 +289,28 @@ test('keeps ordinary upward status and outpatient referral summary copy aligned 
   assert.equal(upwardDisplaySource.includes('已上传资料清单'), true)
   assert.equal(upwardDisplaySource.includes('急诊信息'), true)
   assert.equal(upwardDisplaySource.includes('接收准备'), true)
+})
+
+test('keeps primary upward outpatient selection usable and referral purpose single-select', () => {
+  const createReferralSource = fs.readFileSync(path.join(rootDir, 'pages/primary/CreateReferral.jsx'), 'utf8')
+
+  assert.equal(createReferralSource.includes('setDeptSuggestion'), false)
+  assert.equal(createReferralSource.includes("const [outpatientTransferPurpose, setOutpatientTransferPurpose] = useState('')"), true)
+  assert.equal(createReferralSource.includes('name="outpatientTransferPurpose"'), true)
+  assert.equal(createReferralSource.includes('setOutpatientTransferPurpose(option.code)'), true)
+  assert.equal(createReferralSource.includes('referralPurposeCodes: outpatientTransferPurpose ? [outpatientTransferPurpose] : []'), true)
+  assert.equal(createReferralSource.includes('checked={outpatientTransferPurpose.includes(option.code)}'), false)
+  assert.equal(createReferralSource.includes("outpatientTransferPurpose.includes('other')"), false)
+})
+
+test('loosens primary head followup task management layout spacing', () => {
+  const followupListSource = fs.readFileSync(path.join(rootDir, 'pages/primary/FollowupList.jsx'), 'utf8')
+
+  assert.equal(followupListSource.includes("const TH = 'px-4 py-3 text-left text-xs font-medium whitespace-nowrap'"), true)
+  assert.equal(followupListSource.includes("const TD = 'px-4 py-3.5 text-sm align-top'"), true)
+  assert.equal(followupListSource.includes("className={`grid gap-4 mb-5 ${isPrimaryHead ? 'grid-cols-2 xl:grid-cols-5' : 'grid-cols-4'}`"), true)
+  assert.equal(followupListSource.includes('minWidth: isPrimaryHead ? 1120 : 960'), true)
+  assert.equal(followupListSource.includes('px-3 py-1.5 rounded-lg border'), true)
 })
 
 test('shows explicit consent upload guidance before normal referral can proceed', () => {

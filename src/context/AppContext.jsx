@@ -758,6 +758,8 @@ export function AppProvider({ children }) {
           proposedDoctorName: doctorName,
           reassignAssignedAt: nowIso,
           reassignRejectedReason: '',
+          reassignRejectedById: null,
+          reassignRejectedByName: '',
           updatedAt: nowIso,
         },
         logs: [
@@ -803,6 +805,8 @@ export function AppProvider({ children }) {
           proposedDoctorId: null,
           proposedDoctorName: '',
           reassignRejectedReason: '',
+          reassignRejectedById: null,
+          reassignRejectedByName: '',
           updatedAt: nowIso,
         },
         logs: [
@@ -829,6 +833,8 @@ export function AppProvider({ children }) {
           ...taskMeta,
           reassignStatus: 'rejected',
           reassignRejectedReason: reason || '目标医生拒绝接收',
+          reassignRejectedById: currentUser.id,
+          reassignRejectedByName: currentUser.name,
           proposedDoctorId: null,
           proposedDoctorName: '',
           updatedAt: nowIso,

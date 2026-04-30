@@ -248,6 +248,7 @@ export default function PrimaryFollowupTaskDetail() {
   const monitoredIndicators = detail.followupGoals.filter(item => item.monitored).map(item => item.label)
   const isPendingIncomingReassign = detail.reassignStatus === 'assigned' && detail.proposedDoctorId === currentUser.id
   const hasActiveReassignRequest = ['requested', 'assigned'].includes(detail.reassignStatus)
+  const canRecordCurrentFollowup = detail.canRecordFollowup && !isPendingIncomingReassign
   const rehabPlan = detail.referral.rehabPlan || {}
   const medicationList = [
     ...(rehabPlan.medications || []).map(item => item.displayText || [item.name, item.spec, item.usage].filter(Boolean).join(' · ')),
@@ -406,29 +407,33 @@ export default function PrimaryFollowupTaskDetail() {
 
         <InfoCard title="记录随访信息">
           <div className="rounded-xl px-4 py-4 mb-4" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
-            <div className="text-sm text-gray-700">优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。</div>
+            <div className="text-sm text-gray-700">
+              {detail.isRejectedReassignViewer
+                ? '您已拒绝本次转派，仅可查看随访信息。'
+                : '优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。'}
+            </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
             <button
-              onClick={() => !isPendingIncomingReassign && setDialog('record')}
-              disabled={isPendingIncomingReassign}
-              className={`px-4 py-2 text-sm rounded-lg text-white ${isPendingIncomingReassign ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => canRecordCurrentFollowup && setDialog('record')}
+              disabled={!canRecordCurrentFollowup}
+              className={`px-4 py-2 text-sm rounded-lg text-white ${!canRecordCurrentFollowup ? 'opacity-50 cursor-not-allowed' : ''}`}
               style={{ background: '#0BBECF' }}
             >
               记录本次随访
             </button>
             <button
-              onClick={() => !isPendingIncomingReassign && setDialog('unreachable')}
-              disabled={isPendingIncomingReassign}
-              className={`px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 ${isPendingIncomingReassign ? 'opacity-50 cursor-not-allowed' : ''}`}
+              onClick={() => canRecordCurrentFollowup && setDialog('unreachable')}
+              disabled={!canRecordCurrentFollowup}
+              className={`px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 ${!canRecordCurrentFollowup ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
               标记未联系上
             </button>
             <button
-              onClick={() => setDialog('reassign')}
-              disabled={hasActiveReassignRequest}
+              onClick={() => canRecordCurrentFollowup && setDialog('reassign')}
+              disabled={!canRecordCurrentFollowup || hasActiveReassignRequest}
               className="text-sm font-medium"
-              style={{ color: hasActiveReassignRequest ? '#9ca3af' : '#0892a0' }}
+              style={{ color: !canRecordCurrentFollowup || hasActiveReassignRequest ? '#9ca3af' : '#0892a0' }}
             >
               {hasActiveReassignRequest ? '已申请转派' : '申请转派'}
             </button>

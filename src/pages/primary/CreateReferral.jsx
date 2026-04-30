@@ -310,7 +310,7 @@ export default function CreateReferral() {
   const [signerType, setSignerType] = useState('patient')
   const [signerRelation, setSignerRelation] = useState('')
   const [signerReason, setSignerReason] = useState('')
-  const [outpatientTransferPurpose, setOutpatientTransferPurpose] = useState([])
+  const [outpatientTransferPurpose, setOutpatientTransferPurpose] = useState('')
   const [outpatientTransferPurposeOther, setOutpatientTransferPurposeOther] = useState('')
   const [outpatientConditionAssessment, setOutpatientConditionAssessment] = useState('')
   const [patientLinkMode, setPatientLinkMode] = useState(null)
@@ -361,16 +361,13 @@ export default function CreateReferral() {
   const visitTypeLabel = form.sourceVisitType === 'inpatient' ? '住院' : form.sourceVisitType === 'outpatient' ? '门诊' : '—'
   const isRetroEntry = selectedFlow === 'emergency' && emergencyEntryMode === 'retro'
   const admissionTypePrefLabel = ADMISSION_TYPE_PREFERENCE_OPTIONS.find(option => option.value === admissionTypePref)?.label || '—'
-  const outpatientTransferPurposeSummary = outpatientTransferPurpose.length > 0
-    ? outpatientTransferPurpose.map((code) => {
-      if (code === 'other') {
-        return outpatientTransferPurposeOther ? `其他：${outpatientTransferPurposeOther}` : '其他'
-      }
-      return getReasonOptionLabel(UPWARD_REFERRAL_PURPOSE_OPTIONS, code) || code
-    }).join('、')
+  const outpatientTransferPurposeSummary = outpatientTransferPurpose
+    ? outpatientTransferPurpose === 'other'
+      ? outpatientTransferPurposeOther ? `其他：${outpatientTransferPurposeOther}` : '其他'
+      : getReasonOptionLabel(UPWARD_REFERRAL_PURPOSE_OPTIONS, outpatientTransferPurpose) || outpatientTransferPurpose
     : '—'
   const outpatientReasonSummary = [
-    outpatientTransferPurpose.length > 0 ? `转诊目的：${outpatientTransferPurposeSummary}` : '',
+    outpatientTransferPurpose ? `转诊目的：${outpatientTransferPurposeSummary}` : '',
     outpatientConditionAssessment ? `当前病情评估：${outpatientConditionAssessment}` : '',
     form.reason ? `补充说明：${form.reason}` : '',
   ].filter(Boolean).join('；')
@@ -385,8 +382,8 @@ export default function CreateReferral() {
       && (isInpatientSource
         ? (inpatientTransferPurpose && conditionAssessment && transportSuitability && form.medicationSummary
           && (inpatientTransferPurpose !== '其他' || inpatientTransferPurposeOther))
-        : (outpatientTransferPurpose.length > 0
-          && (!outpatientTransferPurpose.includes('other') || outpatientTransferPurposeOther.trim()))),
+        : (outpatientTransferPurpose
+          && (outpatientTransferPurpose !== 'other' || outpatientTransferPurposeOther.trim()))),
     form.toInstitutionId && form.toDept,
     !!consentFile && (signerType !== 'family' || (signerRelation && signerReason)),
     true,
@@ -457,8 +454,7 @@ export default function CreateReferral() {
     }))
     setAttachments([])
     setNursingAttachments([])
-    setDeptSuggestion(null)
-    setOutpatientTransferPurpose([])
+    setOutpatientTransferPurpose('')
     setOutpatientTransferPurposeOther('')
     setOutpatientConditionAssessment('')
   }
@@ -477,7 +473,7 @@ export default function CreateReferral() {
       || form.outpatientVisitTime
       || form.outpatientDept
       || form.outpatientDoctor
-      || outpatientTransferPurpose.length > 0
+      || outpatientTransferPurpose
       || outpatientTransferPurposeOther
       || attachments.length > 0
       || nursingAttachments.length > 0
@@ -632,9 +628,9 @@ export default function CreateReferral() {
       outpatientDept: form.outpatientDept || '',
       outpatientDoctor: form.outpatientDoctor || '',
       outpatientTransferPurpose,
-      referralPurposeCodes: outpatientTransferPurpose,
-      outpatientTransferPurposeOther: outpatientTransferPurpose.includes('other') ? outpatientTransferPurposeOther.trim() : '',
-      referralPurposeText: outpatientTransferPurpose.includes('other') ? outpatientTransferPurposeOther.trim() || null : null,
+      referralPurposeCodes: outpatientTransferPurpose ? [outpatientTransferPurpose] : [],
+      outpatientTransferPurposeOther: outpatientTransferPurpose === 'other' ? outpatientTransferPurposeOther.trim() : '',
+      referralPurposeText: outpatientTransferPurpose === 'other' ? outpatientTransferPurposeOther.trim() || null : null,
       outpatientSupplementNote: form.reason || '',
       outpatientConditionAssessment: outpatientConditionAssessment || '',
       fromInstitution: currentUser.institution,
@@ -1380,24 +1376,22 @@ export default function CreateReferral() {
                       {UPWARD_REFERRAL_PURPOSE_OPTIONS.map(option => (
                         <label key={option.code} className="flex items-start gap-2 rounded-lg border border-gray-200 bg-white px-3 py-2 cursor-pointer text-sm">
                           <input
-                            type="checkbox"
-                            checked={outpatientTransferPurpose.includes(option.code)}
-                            onChange={() => setOutpatientTransferPurpose((prev) => {
-                              const nextPurposes = prev.includes(option.code)
-                                ? prev.filter(item => item !== option.code)
-                                : [...prev, option.code]
-                              if (!nextPurposes.includes('other')) {
+                            type="radio"
+                            name="outpatientTransferPurpose"
+                            checked={outpatientTransferPurpose === option.code}
+                            onChange={() => {
+                              setOutpatientTransferPurpose(option.code)
+                              if (option.code !== 'other') {
                                 setOutpatientTransferPurposeOther('')
                               }
-                              return nextPurposes
-                            })}
+                            }}
                             className="mt-0.5"
                           />
                           <span className="text-gray-700">{option.label}</span>
                         </label>
                       ))}
                     </div>
-                    {outpatientTransferPurpose.includes('other') && (
+                    {outpatientTransferPurpose === 'other' && (
                       <div>
                         <label className="block text-sm font-medium text-gray-700 mb-1.5">其他转诊目的 <span className="text-red-500">*</span></label>
                         <textarea
@@ -1688,7 +1682,7 @@ export default function CreateReferral() {
                       ['主诉', form.chiefComplaint],
                       ['转诊目的', outpatientTransferPurposeSummary],
                       ['当前病情评估', outpatientConditionAssessment || '未填写'],
-                      ...(outpatientTransferPurpose.includes('other') && outpatientTransferPurposeOther ? [['其他转诊目的', outpatientTransferPurposeOther]] : []),
+                      ...(outpatientTransferPurpose === 'other' && outpatientTransferPurposeOther ? [['其他转诊目的', outpatientTransferPurposeOther]] : []),
                       ...(form.reason ? [['补充说明', form.reason]] : []),
                       ['用药情况', form.medicationSummary || '—'],
                     ].map(([key, value]) => (
