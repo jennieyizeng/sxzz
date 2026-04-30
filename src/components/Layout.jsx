@@ -73,7 +73,6 @@ const NAV_CONFIG = {
     {
       label: '系统管理', icon: '⚙️', children: [
         { path: '/admin/institution-manage', label: '机构转诊能力配置' },
-        { path: '/admin/role-manage', label: '角色权限' },
         { path: '/admin/disease-dir', label: '专病规则配置' },
         { path: '/admin/timeout-config', label: '超时规则' },
         { path: '/admin/notify-template', label: '通知模板' },

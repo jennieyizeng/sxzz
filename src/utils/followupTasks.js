@@ -42,6 +42,15 @@ export function resolveFollowupTaskMeta(referral) {
     indicators: meta.indicators ?? linkedTask?.indicators ?? referral?.rehabPlan?.indicators ?? [],
     assignedDoctorName: meta.assignedDoctorName ?? linkedTask?.assignedDoctorName ?? referral?.downwardAssignedDoctorName ?? referral?.toDoctor ?? '—',
     assignedDoctorId: meta.assignedDoctorId ?? linkedTask?.assignedDoctorId ?? referral?.downwardAssignedDoctorId ?? null,
+    reassignStatus: meta.reassignStatus || 'none',
+    reassignRequestedById: meta.reassignRequestedById || null,
+    reassignRequestedByName: meta.reassignRequestedByName || '',
+    reassignRequestedAt: meta.reassignRequestedAt || null,
+    pendingReassignReason: meta.pendingReassignReason || '',
+    proposedDoctorId: meta.proposedDoctorId || null,
+    proposedDoctorName: meta.proposedDoctorName || '',
+    reassignAssignedAt: meta.reassignAssignedAt || null,
+    reassignRejectedReason: meta.reassignRejectedReason || '',
     createdAt: meta.createdAt ?? linkedTask?.createdAt ?? referral?.completedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
     updatedAt: meta.updatedAt ?? linkedTask?.updatedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
   }
@@ -129,7 +138,9 @@ export function buildScopedFollowups(referrals, currentUser) {
         return referral.toInstitution === currentUser.institution
       }
 
-      return referral.downwardAssignedDoctorId === currentUser.id || referral.toDoctor === currentUser.name
+      return referral.downwardAssignedDoctorId === currentUser.id ||
+        referral.toDoctor === currentUser.name ||
+        (linkedTask.reassignStatus === 'assigned' && linkedTask.proposedDoctorId === currentUser.id)
     })
     .map(referral => {
       const linkedTask = resolveFollowupTaskMeta(referral)
@@ -152,7 +163,15 @@ export function buildScopedFollowups(referrals, currentUser) {
         diagnosis: referral.diagnosis,
         fromInstitution: referral.fromInstitution,
         toInstitution: referral.toInstitution,
-        assignedDoctor: getAssignedDoctor(referral, currentUser),
+        assignedDoctor: linkedTask.assignedDoctorName || getAssignedDoctor(referral, currentUser),
+        assignedDoctorId: linkedTask.assignedDoctorId,
+        reassignStatus: linkedTask.reassignStatus,
+        reassignRequestedById: linkedTask.reassignRequestedById,
+        reassignRequestedByName: linkedTask.reassignRequestedByName,
+        pendingReassignReason: linkedTask.pendingReassignReason,
+        proposedDoctorId: linkedTask.proposedDoctorId,
+        proposedDoctorName: linkedTask.proposedDoctorName,
+        reassignRejectedReason: linkedTask.reassignRejectedReason,
         downwardDate: toDateOnly(downwardDate),
         lastFollowupAt: lastFollowupAt ? toDateOnly(lastFollowupAt) : null,
         followupDate: referral.rehabPlan.followupDate,

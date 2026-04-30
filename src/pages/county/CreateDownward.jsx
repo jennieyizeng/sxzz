@@ -1,7 +1,8 @@
-import { useEffect, useMemo, useState } from 'react'
+import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { INSTITUTIONS } from '../../data/mockData'
+import { SYSTEM_INSTITUTION_CONFIGS } from '../../data/systemAdminConfig'
 import ConsentOfflinePanel from '../../components/ConsentOfflinePanel'
 import { buildConsentFileRecord, validateConsentFile } from '../../utils/consentUpload'
 import { DOWNWARD_REASON_OPTIONS } from '../../constants/reasonCodes'
@@ -34,13 +35,6 @@ const EMPTY_CHINESE_MEDICATION = {
   source: 'manual',
   showMore: false,
   meta: { department: '', doctor: '', orderedAt: '', stoppedAt: '', orderType: '' },
-}
-const EMPTY_REVIEW_SUGGESTION = {
-  projectName: '',
-  specimenType: '',
-  schedule: '',
-  remark: '',
-  source: 'manual',
 }
 const DOWNWARD_MEDICAL_REASON_OPTIONS = DOWNWARD_REASON_OPTIONS.filter(option => option.code !== 'patient_preference')
 const DOWNWARD_TRIGGER_OPTIONS = [
@@ -145,6 +139,30 @@ const PRIMARY_RECEIVER_OPTIONS = {
     { id: 'u010', name: '周医生', team: '全科团队B', isFamilyDoctor: true, seenIn90d: false, recentCount30d: 10 },
     { id: 'u011', name: '陈医生', team: '慢病管理组', isFamilyDoctor: false, seenIn90d: true, recentCount30d: 4 },
   ],
+}
+
+const MISSING_PRIMARY_COORDINATOR_NOTICE = '当前基层机构未配置基层转诊负责人，暂不支持仅指定机构接收。请改为指定接收医生，或前往系统管理配置基层转诊负责人。'
+
+function normalizeMockInstitutionId(id) {
+  const match = String(id || '').match(/^inst(\d+)$/)
+  return match ? `I${match[1]}` : id
+}
+
+function getPrimaryCoordinatorConfig(institutionId) {
+  const mockInstitution = INSTITUTIONS.find(item => item.id === institutionId)
+  const systemInstitutionId = normalizeMockInstitutionId(institutionId)
+  return SYSTEM_INSTITUTION_CONFIGS.find(item =>
+    item.id === systemInstitutionId ||
+    item.name === mockInstitution?.name
+  )
+}
+
+function hasPrimaryReferralCoordinator(institutionId) {
+  if (!institutionId) return false
+  const mockInstitution = INSTITUTIONS.find(item => item.id === institutionId)
+  if (mockInstitution?.referralCoordinatorUserId || mockInstitution?.referralCoordinatorName) return true
+  const systemInstitution = getPrimaryCoordinatorConfig(institutionId)
+  return Boolean(systemInstitution?.referralCoordinatorUserId || systemInstitution?.referralCoordinatorName)
 }
 
 const PATIENT_SEARCH_RESULTS = [
@@ -595,6 +613,11 @@ export default function CreateDownward() {
   const derivedAge = useMemo(() => getAgeFromIdCard(form.patientIdCard) || form.patientAge, [form.patientAge, form.patientIdCard])
   const selectedInst = useMemo(() => INSTITUTIONS.find(item => item.id === form.toInstitutionId), [form.toInstitutionId])
   const receiverOptions = useMemo(() => PRIMARY_RECEIVER_OPTIONS[form.toInstitutionId] || [], [form.toInstitutionId])
+  const selectedInstitutionHasPrimaryCoordinator = useMemo(
+    () => hasPrimaryReferralCoordinator(form.toInstitutionId),
+    [form.toInstitutionId],
+  )
+  const coordinatorOptionDisabled = Boolean(form.toInstitutionId && !selectedInstitutionHasPrimaryCoordinator)
   const recommendedAttachments = form.attachments.filter(item => (item.category || 'recommended') === 'recommended')
   const supplementalAttachments = form.attachments.filter(item => item.category === 'supplemental')
   const archiveCheckStatus = {
@@ -605,7 +628,6 @@ export default function CreateDownward() {
     推荐附件: Boolean(recommendedAttachments.length),
   }
   const canEditMainSections = patientSearchState === 'manual' || patientSearchState === 'selected'
-  const isManualEntryMode = patientSearchState === 'manual'
   const showProxyRelationOther = form.consentProxyRelation === 'other'
   const showProxyReasonOther = form.consentProxyReason === 'other'
   const familyDoctorInstitutionMismatch = Boolean(
@@ -616,6 +638,15 @@ export default function CreateDownward() {
 
   function setField(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  function setDownwardReason(nextReason) {
+    const nextDays = FOLLOWUP_DAYS_BY_REASON[nextReason] || 7
+    setForm(prev => ({
+      ...prev,
+      downwardReason: nextReason,
+      followupDate: nextReason ? getDateAfterDays(nextDays) : prev.followupDate,
+    }))
   }
 
   function resetPatientFields(source = '') {
@@ -778,23 +809,6 @@ export default function CreateDownward() {
     setForm(prev => ({ ...prev, chineseMedications: prev.chineseMedications.filter((_, currentIndex) => currentIndex !== index) }))
   }
 
-  function addReviewSuggestion() {
-    setForm(prev => ({ ...prev, reviewSuggestions: [...prev.reviewSuggestions, { ...EMPTY_REVIEW_SUGGESTION }] }))
-  }
-
-  function updateReviewSuggestion(index, key, value) {
-    setForm(prev => ({
-      ...prev,
-      reviewSuggestions: prev.reviewSuggestions.map((item, currentIndex) => (
-        currentIndex === index ? { ...item, [key]: value } : item
-      )),
-    }))
-  }
-
-  function removeReviewSuggestion(index) {
-    setForm(prev => ({ ...prev, reviewSuggestions: prev.reviewSuggestions.filter((_, currentIndex) => currentIndex !== index) }))
-  }
-
   function handleUploadAttachment(event) {
     const files = Array.from(event.target.files || [])
     const next = files.map(file => ({
@@ -856,12 +870,6 @@ export default function CreateDownward() {
     }
   }
 
-  useEffect(() => {
-    if (!form.downwardReason) return
-    const nextDays = FOLLOWUP_DAYS_BY_REASON[form.downwardReason] || 7
-    setForm(prev => ({ ...prev, followupDate: getDateAfterDays(nextDays) }))
-  }, [form.downwardReason])
-
   const stepCanNext = [
     !!form.patientName && !!form.patientGender && !!derivedAge && !!form.patientIdCard && !!form.patientPhone && !!form.diagnosisText && !!form.clinicalSummary,
     !!form.downwardReason && (form.downwardReason !== 'other' || form.downwardReasonOther.trim())
@@ -870,7 +878,7 @@ export default function CreateDownward() {
       && !!form.followupDate
       && form.monitoringIndicators.length > 0
       && !!form.toInstitutionId
-      && (form.allocationMode === 'coordinator' || !!form.designatedDoctorId),
+      && ((form.allocationMode === 'coordinator' && !coordinatorOptionDisabled) || !!form.designatedDoctorId),
     consentFiles.length > 0 && consentConfirmed
       && (signerType !== 'family' || (
         !!form.consentProxyName.trim()
@@ -1496,7 +1504,7 @@ export default function CreateDownward() {
               <div className="grid grid-cols-2 gap-4">
                 <div className="col-span-2">
                   <FieldLabel required>下转原因</FieldLabel>
-                  <MultiSelectChips options={DOWNWARD_MEDICAL_REASON_OPTIONS} values={form.downwardReason ? [form.downwardReason] : []} onToggle={(value) => setField('downwardReason', form.downwardReason === value ? '' : value)} />
+                  <MultiSelectChips options={DOWNWARD_MEDICAL_REASON_OPTIONS} values={form.downwardReason ? [form.downwardReason] : []} onToggle={(value) => setDownwardReason(form.downwardReason === value ? '' : value)} />
                   {form.downwardReason === 'other' && (
                     <input className={`${inputCls} mt-3`} value={form.downwardReasonOther} onChange={event => setField('downwardReasonOther', event.target.value)} placeholder="请补充下转原因" />
                   )}
@@ -1610,7 +1618,21 @@ export default function CreateDownward() {
               <div className="space-y-4">
                 <div>
                   <FieldLabel required>目标基层机构</FieldLabel>
-                  <select className={inputCls} value={form.toInstitutionId} onChange={event => setForm(prev => ({ ...prev, toInstitutionId: event.target.value, designatedDoctorId: '', designatedDoctorName: '' }))}>
+                  <select
+                    className={inputCls}
+                    value={form.toInstitutionId}
+                    onChange={event => {
+                      const nextInstitutionId = event.target.value
+                      const nextHasPrimaryCoordinator = hasPrimaryReferralCoordinator(nextInstitutionId)
+                      setForm(prev => ({
+                        ...prev,
+                        toInstitutionId: nextInstitutionId,
+                        allocationMode: nextInstitutionId && !nextHasPrimaryCoordinator ? 'designated' : prev.allocationMode,
+                        designatedDoctorId: '',
+                        designatedDoctorName: '',
+                      }))
+                    }}
+                  >
                     <option value="">请选择目标基层机构</option>
                     {INSTITUTIONS.filter(item => item.type === 'primary').map(inst => (
                       <option key={inst.id} value={inst.id}>{inst.name}</option>
@@ -1641,16 +1663,33 @@ export default function CreateDownward() {
                       </div>
                     </label>
                     <label
-                      className="border-2 rounded-xl p-4 cursor-pointer transition-colors"
-                      style={form.allocationMode === 'coordinator'
+                      className={`border-2 rounded-xl p-4 transition-colors ${coordinatorOptionDisabled ? 'cursor-not-allowed opacity-75' : 'cursor-pointer'}`}
+                      style={coordinatorOptionDisabled
+                        ? { borderColor: '#e5e7eb', background: '#f9fafb' }
+                        : form.allocationMode === 'coordinator'
                         ? { borderColor: '#0BBECF', background: '#F0FBFC' }
                         : { borderColor: '#e5e7eb', background: '#fff' }}
                     >
                       <div className="flex items-start gap-3">
-                        <input type="radio" name="allocationMode" checked={form.allocationMode === 'coordinator'} onChange={() => setForm(prev => ({ ...prev, allocationMode: 'coordinator', designatedDoctorId: '', designatedDoctorName: '' }))} className="mt-1" />
+                        <input
+                          type="radio"
+                          name="allocationMode"
+                          checked={form.allocationMode === 'coordinator'}
+                          disabled={coordinatorOptionDisabled}
+                          onChange={() => {
+                            if (coordinatorOptionDisabled) return
+                            setForm(prev => ({ ...prev, allocationMode: 'coordinator', designatedDoctorId: '', designatedDoctorName: '' }))
+                          }}
+                          className="mt-1 disabled:cursor-not-allowed"
+                        />
                         <div>
                           <div className="text-sm font-medium text-gray-900">仅指定机构</div>
                           <div className="text-xs text-gray-500 mt-1">进入基层机构负责人待分配列表</div>
+                          {coordinatorOptionDisabled && (
+                            <div className="text-xs text-amber-700 mt-2 leading-relaxed">
+                              {MISSING_PRIMARY_COORDINATOR_NOTICE}
+                            </div>
+                          )}
                         </div>
                       </div>
                     </label>

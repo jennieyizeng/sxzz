@@ -29,7 +29,7 @@ const DEMO_PRIMARY_DOCTORS = [
 const PRIMARY_HEAD_MOCK_FOLLOWUPS = [
   {
     id: 'FU_MOCK_HEAD_1',
-    referralId: 'REF2026018',
+    referralId: 'REF_MOCK_REASSIGN',
     patient: { name: '吴建平', age: 59, gender: '男' },
     diagnosis: { name: '单侧原发性膝关节炎' },
     fromInstitution: 'xx市人民医院',
@@ -43,6 +43,9 @@ const PRIMARY_HEAD_MOCK_FOLLOWUPS = [
     daysLeft: 11,
     isOverdue: false,
     isUrgent: false,
+    reassignStatus: 'requested',
+    reassignRequestedByName: '王晓敏',
+    pendingReassignReason: '患者近期由家属接送至拱星镇，建议改派本机构医生继续随访',
   },
   {
     id: 'FU_MOCK_HEAD_2',
@@ -64,16 +67,23 @@ const PRIMARY_HEAD_MOCK_FOLLOWUPS = [
 ]
 
 export default function PrimaryFollowupList() {
-  const { referrals, currentUser } = useApp()
+  const {
+    referrals,
+    currentUser,
+    assignFollowupReassign,
+    acceptFollowupReassign,
+    rejectFollowupReassign,
+  } = useApp()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('all')
   const [assigneeFilter, setAssigneeFilter] = useState('all')
   const [assignDialog, setAssignDialog] = useState(null)
   const [historyDialog, setHistoryDialog] = useState(null)
-  const [selectedDoctor, setSelectedDoctor] = useState('')
+  const [selectedDoctorId, setSelectedDoctorId] = useState('')
   const [successTip, setSuccessTip] = useState('')
   const [assigneeOverrides, setAssigneeOverrides] = useState({})
   const isPrimaryHead = currentUser.role === ROLES.PRIMARY_HEAD
+  const primaryDoctorOptions = DEMO_PRIMARY_DOCTORS.filter(doctor => doctor.institution === currentUser.institution)
 
   const baseFollowups = buildScopedFollowups(referrals, currentUser)
   const mergedFollowups = isPrimaryHead
@@ -84,15 +94,19 @@ export default function PrimaryFollowupList() {
     assignedDoctor: assigneeOverrides[task.referralId] || task.assignedDoctor,
   }))
   const counts = getFollowupCounts(scopedFollowups)
-  const filteredByTab = filterFollowupsByTab(scopedFollowups, filter)
+  const pendingReassignCount = scopedFollowups.filter(task => ['requested', 'rejected'].includes(task.reassignStatus)).length
+  const filteredByTab = filter === 'reassign'
+    ? scopedFollowups.filter(task => ['requested', 'rejected'].includes(task.reassignStatus))
+    : filterFollowupsByTab(scopedFollowups, filter)
   const filtered = isPrimaryHead ? filterFollowupsByAssignee(filteredByTab, assigneeFilter) : filteredByTab
   const assigneeOptions = Array.from(new Set([
-    ...DEMO_PRIMARY_DOCTORS.filter(doctor => doctor.institution === currentUser.institution).map(doctor => doctor.name),
+    ...primaryDoctorOptions.map(doctor => doctor.name),
     ...scopedFollowups.map(task => task.assignedDoctor).filter(Boolean),
   ]))
 
   function openAssign(task) {
-    setSelectedDoctor(task.assignedDoctor && task.assignedDoctor !== '—' ? task.assignedDoctor : '')
+    const currentDoctor = primaryDoctorOptions.find(doctor => doctor.name === task.assignedDoctor)
+    setSelectedDoctorId(currentDoctor?.id || '')
     setAssignDialog(task)
   }
 
@@ -105,11 +119,18 @@ export default function PrimaryFollowupList() {
   }
 
   function confirmAssign() {
-    if (!assignDialog || !selectedDoctor) return
-    setAssigneeOverrides(prev => ({ ...prev, [assignDialog.referralId]: selectedDoctor }))
-    setSuccessTip(`已将「${assignDialog.patient.name}」的随访任务转派给 ${selectedDoctor}`)
+    if (!assignDialog || !selectedDoctorId) return
+    const selectedDoctor = primaryDoctorOptions.find(doctor => doctor.id === selectedDoctorId)
+    if (!selectedDoctor) return
+    const hasBackingReferral = referrals.some(referral => referral.id === assignDialog.referralId)
+    if (hasBackingReferral) {
+      assignFollowupReassign(assignDialog.referralId, selectedDoctor.id, selectedDoctor.name)
+    } else {
+      setAssigneeOverrides(prev => ({ ...prev, [assignDialog.referralId]: selectedDoctor.name }))
+    }
+    setSuccessTip(`已将「${assignDialog.patient.name}」的随访任务转派给 ${selectedDoctor.name}`)
     setAssignDialog(null)
-    setSelectedDoctor('')
+    setSelectedDoctorId('')
     setTimeout(() => setSuccessTip(''), 3000)
   }
 
@@ -138,6 +159,7 @@ export default function PrimaryFollowupList() {
           { id: 'overdue', label: '已逾期', count: counts.overdue, color: '#ef4444', bg: '#fef2f2' },
           { id: 'urgent', label: '即将到期（≤3天）', count: counts.urgent, color: '#f59e0b', bg: '#fef3c7' },
           { id: 'pending', label: '待随访', count: counts.pending, color: '#059669', bg: '#d1fae5' },
+          ...(isPrimaryHead ? [{ id: 'reassign', label: '待转派申请', count: pendingReassignCount, color: '#d97706', bg: '#fffbeb' }] : []),
         ].map(c => (
           <div
             key={c.id}
@@ -207,7 +229,20 @@ export default function PrimaryFollowupList() {
                 </td>
                 <td className={TD + ' text-xs text-gray-600'}>{f.diagnosis.name}</td>
                 <td className={TD + ' text-xs text-gray-500'}>{f.fromInstitution}</td>
-                {isPrimaryHead && <td className={TD + ' text-xs text-gray-600'}>{f.assignedDoctor}</td>}
+                {isPrimaryHead && (
+                  <td className={TD + ' text-xs text-gray-600'}>
+                    <div>{f.assignedDoctor}</div>
+                    {f.reassignStatus === 'requested' && (
+                      <div className="mt-1 text-[11px] text-amber-600">申请转派：{f.pendingReassignReason || '未填写原因'}</div>
+                    )}
+                    {f.reassignStatus === 'rejected' && (
+                      <div className="mt-1 text-[11px] text-red-500">转派被拒：{f.reassignRejectedReason || '未填写原因'}</div>
+                    )}
+                    {f.reassignStatus === 'assigned' && (
+                      <div className="mt-1 text-[11px] text-blue-600">等待 {f.proposedDoctorName || '目标医生'} 接收</div>
+                    )}
+                  </td>
+                )}
                 <td className={TD}>
                   <div className="flex flex-wrap gap-1">
                     {(f.indicators || []).slice(0, 3).map(ind => (
@@ -229,19 +264,31 @@ export default function PrimaryFollowupList() {
                   {f.isUrgent && !f.isOverdue && <div className="text-xs text-amber-500">还剩 {f.daysLeft} 天</div>}
                 </td>
                 <td className={TD}>
-                  {f.status === '已逾期' && (
+                  {f.reassignStatus === 'requested' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#fffbeb', color: '#b45309', border: '1px solid #fde68a' }}>申请转派</span>
+                  )}
+                  {f.reassignStatus === 'assigned' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#eff6ff', color: '#1d4ed8', border: '1px solid #bfdbfe' }}>待接收转派</span>
+                  )}
+                  {f.reassignStatus === 'rejected' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>转派被拒</span>
+                  )}
+                  {f.reassignStatus === 'accepted' && (
+                    <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>已接收转派</span>
+                  )}
+                  {!['requested', 'assigned', 'rejected', 'accepted'].includes(f.reassignStatus) && f.status === '已逾期' && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#fef2f2', color: '#b91c1c', border: '1px solid #fecaca' }}>已逾期</span>
                   )}
-                  {f.status === '待随访' && (
+                  {!['requested', 'assigned', 'rejected', 'accepted'].includes(f.reassignStatus) && f.status === '待随访' && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#d1fae5', color: '#047857', border: '1px solid #a7f3d0' }}>待随访</span>
                   )}
-                  {f.status === '随访中' && (
+                  {!['requested', 'assigned', 'rejected', 'accepted'].includes(f.reassignStatus) && f.status === '随访中' && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#e0f2fe', color: '#0369a1', border: '1px solid #bae6fd' }}>随访中</span>
                   )}
-                  {f.status === '已完成' && (
+                  {!['requested', 'assigned', 'rejected', 'accepted'].includes(f.reassignStatus) && f.status === '已完成' && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#ecfdf5', color: '#047857', border: '1px solid #a7f3d0' }}>已完成</span>
                   )}
-                  {f.status === '已失访' && (
+                  {!['requested', 'assigned', 'rejected', 'accepted'].includes(f.reassignStatus) && f.status === '已失访' && (
                     <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: '#f3f4f6', color: '#4b5563', border: '1px solid #d1d5db' }}>已失访</span>
                   )}
                 </td>
@@ -266,8 +313,33 @@ export default function PrimaryFollowupList() {
                         onClick={() => openAssign(f)}
                         className="text-xs font-medium text-gray-500 hover:text-gray-700"
                       >
-                        转派
+                        {['requested', 'rejected'].includes(f.reassignStatus) ? '处理转派' : '转派'}
                       </button>
+                    )}
+                    {!isPrimaryHead && f.reassignStatus === 'assigned' && f.proposedDoctorId === currentUser.id && (
+                      <>
+                        <button
+                          onClick={() => {
+                            acceptFollowupReassign(f.referralId)
+                            setSuccessTip(`已接收「${f.patient.name}」的随访转派任务`)
+                            setTimeout(() => setSuccessTip(''), 3000)
+                          }}
+                          className="text-xs font-medium"
+                          style={{ color: '#059669' }}
+                        >
+                          接受转派
+                        </button>
+                        <button
+                          onClick={() => {
+                            rejectFollowupReassign(f.referralId, '暂不接收该随访任务')
+                            setSuccessTip(`已拒绝「${f.patient.name}」的随访转派任务`)
+                            setTimeout(() => setSuccessTip(''), 3000)
+                          }}
+                          className="text-xs font-medium text-red-500"
+                        >
+                          拒绝转派
+                        </button>
+                      </>
                     )}
                   </div>
                 </td>
@@ -350,21 +422,21 @@ export default function PrimaryFollowupList() {
               <div>
                 <label className="block text-xs font-medium text-gray-700 mb-1.5">负责人/执行医生</label>
                 <select
-                  value={selectedDoctor}
-                  onChange={e => setSelectedDoctor(e.target.value)}
+                  value={selectedDoctorId}
+                  onChange={e => setSelectedDoctorId(e.target.value)}
                   className="w-full text-sm border rounded-lg px-3 py-2 outline-none"
-                  style={{ borderColor: selectedDoctor ? '#0BBECF' : '#d1d5db', color: selectedDoctor ? '#111827' : '#9ca3af' }}
+                  style={{ borderColor: selectedDoctorId ? '#0BBECF' : '#d1d5db', color: selectedDoctorId ? '#111827' : '#9ca3af' }}
                 >
                   <option value="">请选择</option>
-                  {assigneeOptions.map(name => (
-                    <option key={name} value={name}>{name}</option>
+                  {primaryDoctorOptions.map(doctor => (
+                    <option key={doctor.id} value={doctor.id}>{doctor.name}</option>
                   ))}
                 </select>
               </div>
             </div>
             <div className="px-5 py-4 flex items-center justify-end gap-3" style={{ borderTop: '1px solid #EEF7F9' }}>
               <button onClick={() => setAssignDialog(null)} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">取消</button>
-              <button onClick={confirmAssign} disabled={!selectedDoctor} className={`px-4 py-2 text-sm rounded-lg text-white ${selectedDoctor ? '' : 'bg-gray-300 cursor-not-allowed'}`} style={selectedDoctor ? { background: '#0BBECF' } : {}}>确认转派</button>
+              <button onClick={confirmAssign} disabled={!selectedDoctorId} className={`px-4 py-2 text-sm rounded-lg text-white ${selectedDoctorId ? '' : 'bg-gray-300 cursor-not-allowed'}`} style={selectedDoctorId ? { background: '#0BBECF' } : {}}>确认转派</button>
             </div>
           </div>
         </div>

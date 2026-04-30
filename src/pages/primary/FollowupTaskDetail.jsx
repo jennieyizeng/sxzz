@@ -233,6 +233,8 @@ export default function PrimaryFollowupTaskDetail() {
     recordFollowupVisit,
     markFollowupUnreachable,
     requestFollowupReassign,
+    acceptFollowupReassign,
+    rejectFollowupReassign,
   } = useApp()
   const detail = useMemo(() => buildFollowupTaskDetail(referrals, currentUser, id), [referrals, currentUser, id])
   const [notice, setNotice] = useState('')
@@ -244,6 +246,8 @@ export default function PrimaryFollowupTaskDetail() {
   }
 
   const monitoredIndicators = detail.followupGoals.filter(item => item.monitored).map(item => item.label)
+  const isPendingIncomingReassign = detail.reassignStatus === 'assigned' && detail.proposedDoctorId === currentUser.id
+  const hasActiveReassignRequest = ['requested', 'assigned'].includes(detail.reassignStatus)
   const rehabPlan = detail.referral.rehabPlan || {}
   const medicationList = [
     ...(rehabPlan.medications || []).map(item => item.displayText || [item.name, item.spec, item.usage].filter(Boolean).join(' · ')),
@@ -279,6 +283,17 @@ export default function PrimaryFollowupTaskDetail() {
     requestFollowupReassign(detail.referralId, reason)
     setDialog(null)
     flash(`已提交转派申请${reason ? `：${reason}` : ''}`)
+  }
+
+  function handleAcceptReassign() {
+    acceptFollowupReassign(detail.referralId)
+    flash('已接受转派，随访任务已转入您的待随访列表')
+  }
+
+  function handleRejectReassign(reason) {
+    rejectFollowupReassign(detail.referralId, reason)
+    setDialog(null)
+    flash('已拒绝转派，任务将退回基层负责人重新处理')
   }
 
   const recordDraft = {
@@ -324,6 +339,25 @@ export default function PrimaryFollowupTaskDetail() {
 
       <div className="space-y-4">
         <PatientSummaryStrip detail={detail} />
+
+        {isPendingIncomingReassign && (
+          <InfoCard title="转派确认">
+            <div className="rounded-xl px-4 py-4 mb-4" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
+              <div className="text-sm font-medium text-gray-800">有新的随访转派任务待您确认</div>
+              <div className="text-xs text-gray-500 mt-1">
+                转派原因：{detail.pendingReassignReason || '负责人转派'}
+              </div>
+            </div>
+            <div className="flex items-center gap-3">
+              <button onClick={handleAcceptReassign} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#059669' }}>
+                接受转派
+              </button>
+              <button onClick={() => setDialog('rejectReassign')} className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
+                拒绝转派
+              </button>
+            </div>
+          </InfoCard>
+        )}
 
         <InfoCard title="本次随访要点">
           <div className="grid grid-cols-2 gap-4">
@@ -375,18 +409,28 @@ export default function PrimaryFollowupTaskDetail() {
             <div className="text-sm text-gray-700">优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。</div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
-            <button onClick={() => setDialog('record')} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#0BBECF' }}>
+            <button
+              onClick={() => !isPendingIncomingReassign && setDialog('record')}
+              disabled={isPendingIncomingReassign}
+              className={`px-4 py-2 text-sm rounded-lg text-white ${isPendingIncomingReassign ? 'opacity-50 cursor-not-allowed' : ''}`}
+              style={{ background: '#0BBECF' }}
+            >
               记录本次随访
             </button>
-            <button onClick={() => setDialog('unreachable')} className="px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50">
+            <button
+              onClick={() => !isPendingIncomingReassign && setDialog('unreachable')}
+              disabled={isPendingIncomingReassign}
+              className={`px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 ${isPendingIncomingReassign ? 'opacity-50 cursor-not-allowed' : ''}`}
+            >
               标记未联系上
             </button>
             <button
               onClick={() => setDialog('reassign')}
+              disabled={hasActiveReassignRequest}
               className="text-sm font-medium"
-              style={{ color: '#0892a0' }}
+              style={{ color: hasActiveReassignRequest ? '#9ca3af' : '#0892a0' }}
             >
-              申请转派
+              {hasActiveReassignRequest ? '已申请转派' : '申请转派'}
             </button>
           </div>
         </InfoCard>
@@ -422,6 +466,19 @@ export default function PrimaryFollowupTaskDetail() {
           placeholder="例如：患者迁居外镇，建议改派更近机构继续随访"
           onCancel={() => setDialog(null)}
           onConfirm={handleReassign}
+        />
+      )}
+
+      {dialog === 'rejectReassign' && (
+        <ActionDialog
+          title="拒绝转派"
+          description="请填写无法接收该随访任务的原因，提交后将退回基层负责人重新转派。"
+          confirmText="确认拒绝"
+          reasonLabel="拒绝原因"
+          required
+          placeholder="例如：近期外出下乡，无法按期完成该患者随访"
+          onCancel={() => setDialog(null)}
+          onConfirm={handleRejectReassign}
         />
       )}
     </div>

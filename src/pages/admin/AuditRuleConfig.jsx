@@ -184,6 +184,7 @@ export default function AuditRuleConfig() {
   function openDrawer(config) {
     setEditingConfig(config)
     setForm({
+      enabled: config.enabled ?? Boolean(config.downwardAuditEnabled),
       downwardAuditorUserId: config.downwardAuditorUserId || '',
       downwardAuditorName: config.downwardAuditorName || '',
     })
@@ -198,9 +199,16 @@ export default function AuditRuleConfig() {
     setErrors(e => ({ ...e, [`${direction}Auditor`]: '' }))
   }
 
+  function handleAuditEnabledChange(nextEnabled) {
+    setForm(f => ({ ...f, enabled: nextEnabled }))
+    if (!nextEnabled) {
+      setErrors(e => ({ ...e, downwardAuditor: '' }))
+    }
+  }
+
   function validate() {
     const errs = {}
-    if (!form.downwardAuditorUserId) {
+    if (form.enabled && !form.downwardAuditorUserId) {
       errs.downwardAuditor = '请选择转出审核人'
     }
     return errs
@@ -208,7 +216,8 @@ export default function AuditRuleConfig() {
 
   function buildPatch() {
     return {
-      downwardAuditEnabled: true,
+      enabled: Boolean(form.enabled),
+      downwardAuditEnabled: Boolean(form.enabled),
       downwardAuditorUserId: form.downwardAuditorUserId || null,
       downwardAuditorName: form.downwardAuditorName || null,
     }
@@ -445,7 +454,6 @@ export default function AuditRuleConfig() {
                     <div className="flex items-center gap-3">
                       <button
                         onClick={() => openDrawer(config)}
-                        disabled={!config.enabled}
                         className="text-[#0BBECF] hover:text-[#09a8b8] text-sm font-medium"
                       >
                         编辑
@@ -486,6 +494,22 @@ export default function AuditRuleConfig() {
                   转出审核配置
                 </div>
                 <div className="space-y-4">
+                  <div className="flex items-center justify-between rounded-lg border border-gray-100 bg-gray-50 px-4 py-3">
+                    <span className="text-sm font-medium text-gray-700">开启院内审核</span>
+                    <div className="inline-flex items-center gap-3">
+                      <button
+                        type="button"
+                        role="switch"
+                        aria-label="开启院内审核"
+                        aria-checked={Boolean(form.enabled)}
+                        onClick={() => handleAuditEnabledChange(!form.enabled)}
+                        className={`relative inline-flex h-7 w-14 flex-shrink-0 items-center rounded-full transition-colors focus:outline-none focus:ring-2 focus:ring-[#0BBECF]/40 ${form.enabled ? 'bg-[#0BBECF]' : 'bg-gray-300'}`}
+                      >
+                        <span className={`absolute left-1 h-5 w-5 rounded-full bg-white shadow transition-transform ${form.enabled ? 'translate-x-7' : ''}`} />
+                      </button>
+                      <span className="w-8 text-sm font-medium text-gray-700">{form.enabled ? '开启' : '关闭'}</span>
+                    </div>
+                  </div>
                   <div>
                     <label className="block text-sm text-gray-700 mb-1">
                       审核人 <span className="text-red-500">*</span>
@@ -493,6 +517,7 @@ export default function AuditRuleConfig() {
                     <SearchableAuditorSelect
                       value={form.downwardAuditorUserId}
                       options={downwardCandidates}
+                      disabled={!form.enabled}
                       error={errors.downwardAuditor}
                       onChange={userId => handleAuditorChange('downward', userId)}
                     />

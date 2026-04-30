@@ -34,9 +34,17 @@ const LANDLINE_PHONE_REGEX = /^0\d{2,3}-?\d{7,8}$/
 const EMPTY_FORM = {
   name: '', code: '', type: '', contact: '', phone: '', address: '',
   referralConsultPhone: '', referralContactUserId: '', referralContactName: '', referralContactPhone: '',
-  referralCoordinatorPhone: '',
+  referralCoordinatorUserId: '', referralCoordinatorName: '',
   emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
   canUp: true, canDown: true, enabled: true,
+}
+
+function isCountyInstitutionType(type) {
+  return COUNTY_SERVICE_TYPES.includes(type)
+}
+
+function isPrimaryInstitutionType(type) {
+  return Boolean(type) && !isCountyInstitutionType(type)
 }
 
 // ── 辅助小组件 ─────────────────────────────────────────────
@@ -154,20 +162,39 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     referralContactUserId: initial?.referralContactUserId || '',
     referralContactName: initial?.referralContactName || '',
     referralContactPhone: initial?.referralContactPhone || '',
-    referralCoordinatorPhone: initial?.referralCoordinatorPhone || '',
+    referralCoordinatorUserId: initial?.referralCoordinatorUserId || '',
+    referralCoordinatorName: initial?.referralCoordinatorName || '',
     emergencyDutyContactId: initial?.emergencyDutyContactId || '',
     emergencyDutyContactName: initial?.emergencyDutyContactName || initial?.emergencyDutyContact || '',
   }))
   const [errors, setErrors] = useState({})
   const isEdit = mode === 'edit'
+  const isCountyInstitution = isCountyInstitutionType(form.type)
+  const isPrimaryInstitution = isPrimaryInstitutionType(form.type)
   const referralContactOptions = SYSTEM_SSO_USERS.filter(user =>
     user.enabled &&
     (form.id ? user.institutionId === form.id : true)
+  )
+  const primaryCoordinatorOptions = SYSTEM_SSO_USERS.filter(user =>
+    user.enabled &&
+    user.role === '基层负责人' &&
+    (form.id ? user.institutionId === form.id : (form.name ? user.institution === form.name : true))
   )
 
   const set = (key, val) => {
     setForm(f => ({ ...f, [key]: val }))
     if (errors[key]) setErrors(e => ({ ...e, [key]: '' }))
+  }
+
+  const setInstitutionType = (nextType) => {
+    setForm(f => ({
+      ...f,
+      type: nextType,
+      ...(isCountyInstitutionType(nextType)
+        ? { referralCoordinatorUserId: '', referralCoordinatorName: '' }
+        : { emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '' }),
+    }))
+    if (errors.type) setErrors(e => ({ ...e, type: '' }))
   }
 
   const validate = () => {
@@ -191,13 +218,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
         errs.referralContactPhone = '请填写正确的手机号或固话格式'
       }
     }
-    if (form.referralCoordinatorPhone?.trim()) {
-      const cleanedPhone = form.referralCoordinatorPhone.trim()
-      if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
-        errs.referralCoordinatorPhone = '请填写正确的手机号或固话格式'
-      }
-    }
-    if (form.emergencyDeptPhone?.trim()) {
+    if (isCountyInstitution && form.emergencyDeptPhone?.trim()) {
       const cleanedPhone = form.emergencyDeptPhone.trim()
       if (!MOBILE_PHONE_REGEX.test(cleanedPhone) && !LANDLINE_PHONE_REGEX.test(cleanedPhone)) {
         errs.emergencyDeptPhone = '请填写正确的手机号或固话格式'
@@ -210,9 +231,14 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   const handleSave = () => {
     if (!validate()) return
     const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === form.emergencyDutyContactId)
+    const selectedCoordinator = primaryCoordinatorOptions.find(user => user.userId === form.referralCoordinatorUserId)
     const normalized = {
       ...form,
-      emergencyDutyContactName: selectedDutyContact?.name || form.emergencyDutyContactName || '',
+      referralCoordinatorUserId: isPrimaryInstitution ? (selectedCoordinator?.userId || form.referralCoordinatorUserId || '') : '',
+      referralCoordinatorName: isPrimaryInstitution ? (selectedCoordinator?.name || form.referralCoordinatorName || '') : '',
+      emergencyDutyContactId: isCountyInstitution ? form.emergencyDutyContactId : '',
+      emergencyDutyContactName: isCountyInstitution ? (selectedDutyContact?.name || form.emergencyDutyContactName || '') : '',
+      emergencyDeptPhone: isCountyInstitution ? form.emergencyDeptPhone : '',
     }
     if (isEdit) {
       onSave({
@@ -220,7 +246,8 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
         referralContactUserId: normalized.referralContactUserId,
         referralContactName: normalized.referralContactName,
         referralContactPhone: normalized.referralContactPhone,
-        referralCoordinatorPhone: normalized.referralCoordinatorPhone,
+        referralCoordinatorUserId: normalized.referralCoordinatorUserId,
+        referralCoordinatorName: normalized.referralCoordinatorName,
         emergencyDutyContactId: normalized.emergencyDutyContactId,
         emergencyDutyContactName: normalized.emergencyDutyContactName,
         emergencyDeptPhone: normalized.emergencyDeptPhone,
@@ -250,7 +277,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               {mode === 'create' ? '新增机构' : '机构转诊配置'}
             </div>
             <div className="text-xs text-gray-400 mt-0.5">
-              {mode === 'create' ? '填写新机构基本信息与转诊能力配置' : '配置当前机构的双向转诊业务联系人、急诊联系人及相关业务参数'}
+              {mode === 'create' ? '填写新机构基本信息与转诊能力配置' : '配置当前机构的双向转诊联系人、基层转诊负责人及相关业务参数'}
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none">
@@ -303,7 +330,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               <DrawerField label="机构类别" required error={errors.type}>
                 <select
                   value={form.type}
-                  onChange={e => set('type', e.target.value)}
+                  onChange={e => setInstitutionType(e.target.value)}
                   className={inputCls('type') + ' bg-white'}
                 >
                   <option value="">请选择机构类别</option>
@@ -383,15 +410,29 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                 placeholder="手机号或固话"
               />
             </DrawerField>
-            <DrawerField label="基层转诊负责人电话" error={errors.referralCoordinatorPhone}>
-              <input
-                value={form.referralCoordinatorPhone || ''}
-                onChange={e => set('referralCoordinatorPhone', e.target.value)}
-                className={inputCls('referralCoordinatorPhone')}
-                placeholder="基层机构建议必填"
-              />
-              <p className="text-xs text-gray-400 mt-0.5">用于下转改派窗口的负责人兜底联系。</p>
-            </DrawerField>
+            {isPrimaryInstitution && (
+              <DrawerField label="基层转诊负责人">
+                <select
+                  value={form.referralCoordinatorUserId || ''}
+                  disabled={primaryCoordinatorOptions.length === 0}
+                  onChange={e => {
+                    const nextId = e.target.value
+                    const selectedCoordinator = primaryCoordinatorOptions.find(user => user.userId === nextId)
+                    setForm(prev => ({
+                      ...prev,
+                      referralCoordinatorUserId: nextId,
+                      referralCoordinatorName: selectedCoordinator?.name || '',
+                    }))
+                  }}
+                  className={inputCls('referralCoordinatorUserId') + ' bg-white'}
+                >
+                  <option value="">{primaryCoordinatorOptions.length ? '请选择基层转诊负责人' : '暂无可选基层负责人'}</option>
+                  {primaryCoordinatorOptions.map(user => (
+                    <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
+                  ))}
+                </select>
+              </DrawerField>
+            )}
           </div>
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
@@ -422,42 +463,46 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             </div>
           </div>
 
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            急诊转诊配置
-          </div>
+          {isCountyInstitution && (
+            <>
+              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+                急诊转诊配置
+              </div>
 
-          <div className="grid grid-cols-2 gap-4">
-            <DrawerField label="急诊科值班联系人">
-              <select
-                value={form.emergencyDutyContactId || ''}
-                onChange={e => {
-                  const nextId = e.target.value
-                  const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === nextId)
-                  setForm(prev => ({
-                    ...prev,
-                    emergencyDutyContactId: nextId,
-                    emergencyDutyContactName: selectedDutyContact?.name || '',
-                  }))
-                }}
-                className={inputCls('emergencyDutyContactId') + ' bg-white'}
-              >
-                <option value="">请选择值班联系人</option>
-                {EMERGENCY_DUTY_CONTACT_OPTIONS.map(item => (
-                  <option key={item.id} value={item.id}>{item.name}</option>
-                ))}
-              </select>
-              <p className="text-xs text-gray-400 mt-0.5">急诊转诊提交时将通知此联系人，使急诊科提前做好接诊准备</p>
-            </DrawerField>
-            <DrawerField label="急诊科联系电话" error={errors.emergencyDeptPhone}>
-              <input
-                value={form.emergencyDeptPhone || ''}
-                onChange={e => set('emergencyDeptPhone', e.target.value)}
-                className={inputCls('emergencyDeptPhone')}
-                placeholder="手机号或固话，如 13800138000 / 0838-6213200"
-              />
-              <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
-            </DrawerField>
-          </div>
+              <div className="grid grid-cols-2 gap-4">
+                <DrawerField label="急诊科值班联系人">
+                  <select
+                    value={form.emergencyDutyContactId || ''}
+                    onChange={e => {
+                      const nextId = e.target.value
+                      const selectedDutyContact = EMERGENCY_DUTY_CONTACT_OPTIONS.find(item => item.id === nextId)
+                      setForm(prev => ({
+                        ...prev,
+                        emergencyDutyContactId: nextId,
+                        emergencyDutyContactName: selectedDutyContact?.name || '',
+                      }))
+                    }}
+                    className={inputCls('emergencyDutyContactId') + ' bg-white'}
+                  >
+                    <option value="">请选择值班联系人</option>
+                    {EMERGENCY_DUTY_CONTACT_OPTIONS.map(item => (
+                      <option key={item.id} value={item.id}>{item.name}</option>
+                    ))}
+                  </select>
+                  <p className="text-xs text-gray-400 mt-0.5">急诊转诊提交时将通知此联系人，使急诊科提前做好接诊准备</p>
+                </DrawerField>
+                <DrawerField label="急诊科联系电话" error={errors.emergencyDeptPhone}>
+                  <input
+                    value={form.emergencyDeptPhone || ''}
+                    onChange={e => set('emergencyDeptPhone', e.target.value)}
+                    className={inputCls('emergencyDeptPhone')}
+                    placeholder="手机号或固话，如 13800138000 / 0838-6213200"
+                  />
+                  <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
+                </DrawerField>
+              </div>
+            </>
+          )}
 
         </div>
 
@@ -840,6 +885,7 @@ export default function InstitutionManage() {
   const handleSave = (formData) => {
     if (drawer.mode === 'create') {
       const newInst = { ...formData, id: `I${String(_nextId++).padStart(3, '0')}` }
+      const isCounty = isCountyInstitutionType(newInst.type)
       setList(prev => [newInst, ...prev])
       appendSystemOperationLog({
         domain: '机构配置',
@@ -853,7 +899,9 @@ export default function InstitutionManage() {
           转诊咨询专用电话: newInst.referralConsultPhone || '未设置',
           转诊联系人: newInst.referralContactName || '未设置',
           转诊联系电话: newInst.referralContactPhone || '未设置',
-          基层转诊负责人电话: newInst.referralCoordinatorPhone || '未设置',
+          基层转诊负责人: newInst.referralCoordinatorName || '未设置',
+          急诊科值班联系人: isCounty ? (newInst.emergencyDutyContactName || '未设置') : '不适用',
+          急诊科联系电话: isCounty ? (newInst.emergencyDeptPhone || '未设置') : '不适用',
           上转能力: newInst.canUp ? '开启' : '关闭',
           下转能力: newInst.canDown ? '开启' : '关闭',
         },
@@ -866,7 +914,8 @@ export default function InstitutionManage() {
         referralContactUserId: formData.referralContactUserId,
         referralContactName: formData.referralContactName,
         referralContactPhone: formData.referralContactPhone,
-        referralCoordinatorPhone: formData.referralCoordinatorPhone,
+        referralCoordinatorUserId: formData.referralCoordinatorUserId,
+        referralCoordinatorName: formData.referralCoordinatorName,
         emergencyDutyContactId: formData.emergencyDutyContactId,
         emergencyDutyContactName: formData.emergencyDutyContactName,
         emergencyDeptPhone: formData.emergencyDeptPhone,
@@ -884,7 +933,7 @@ export default function InstitutionManage() {
           转诊咨询专用电话: `${original.referralConsultPhone || '未设置'} → ${formData.referralConsultPhone || '未设置'}`,
           转诊联系人: `${original.referralContactName || '未设置'} → ${formData.referralContactName || '未设置'}`,
           转诊联系电话: `${original.referralContactPhone || '未设置'} → ${formData.referralContactPhone || '未设置'}`,
-          基层转诊负责人电话: `${original.referralCoordinatorPhone || '未设置'} → ${formData.referralCoordinatorPhone || '未设置'}`,
+          基层转诊负责人: `${original.referralCoordinatorName || '未设置'} → ${formData.referralCoordinatorName || '未设置'}`,
           急诊科值班联系人: `${original.emergencyDutyContactName || '未设置'} → ${formData.emergencyDutyContactName || '未设置'}`,
           急诊科联系电话: `${original.emergencyDeptPhone || '未设置'} → ${formData.emergencyDeptPhone || '未设置'}`,
           上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,

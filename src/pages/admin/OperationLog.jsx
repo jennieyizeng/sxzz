@@ -27,13 +27,25 @@ function ResultBadge({ result }) {
   )
 }
 
-function TypeBadge({ type }) {
+function buildActionTypeBadgeClass(type) {
   const colorMap = {
-    '角色权限变更': 'bg-purple-100 text-purple-700',
-    '机构信息变更': 'bg-yellow-100 text-yellow-700',
-    '系统配置变更': 'bg-gray-100 text-gray-600',
+    新增: 'bg-cyan-100 text-cyan-700',
+    编辑: 'bg-blue-100 text-blue-700',
+    删除: 'bg-red-100 text-red-700',
+    启用: 'bg-green-100 text-green-700',
+    停用: 'bg-gray-200 text-gray-700',
+    审核通过: 'bg-emerald-100 text-emerald-700',
+    审核拒绝: 'bg-rose-100 text-rose-700',
+    指派: 'bg-indigo-100 text-indigo-700',
+    催办: 'bg-amber-100 text-amber-700',
+    撤销: 'bg-orange-100 text-orange-700',
+    关闭: 'bg-slate-200 text-slate-700',
   }
-  const cls = colorMap[type] || 'bg-gray-100 text-gray-600'
+  return colorMap[type] || 'bg-gray-100 text-gray-600'
+}
+
+function TypeBadge({ type }) {
+  const cls = buildActionTypeBadgeClass(type)
   return <span className={`text-xs px-2 py-0.5 rounded ${cls}`}>{type}</span>
 }
 
@@ -189,7 +201,7 @@ export default function OperationLog() {
       {/* 页头 */}
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">操作日志</h2>
-        <div className="text-xs text-gray-400 mt-0.5">系统操作记录查询，涵盖敏感操作与配置变更 · 只读</div>
+        <div className="text-xs text-gray-400 mt-0.5">系统管理配置类操作记录查询，涵盖敏感配置、规则与权限变更 · 只读</div>
       </div>
 
       {/* 筛选区 */}
@@ -227,7 +239,7 @@ export default function OperationLog() {
             />
           </div>
 
-          {/* 操作类型 */}
+          {/* 配置域 */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">配置域</label>
             <select
@@ -286,6 +298,9 @@ export default function OperationLog() {
               导出日志
             </button>
           </div>
+        </div>
+        <div className="text-xs text-gray-400">
+          当前仅记录系统管理配置类操作；转诊业务过程仍在转诊单日志/台账中查看。
         </div>
       </div>
 

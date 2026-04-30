@@ -62,9 +62,9 @@ export const SYSTEM_INSTITUTION_OPTIONS = [
 
 export const SYSTEM_INSTITUTION_CONFIGS = [
   { id: 'I001', name: 'xx市人民医院', code: '5106820001', type: '综合医院', contact: '张主任', phone: '0838-6201234', address: 'xx市中心大道88号', referralConsultPhone: '0838-6213111', referralContactUserId: 'county_doc_004', referralContactName: '张主任', referralContactPhone: '0838-6213111', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: 'ed_duty_001', emergencyDutyContactName: '周主任', emergencyDeptPhone: '0838-6213200', patientNoticeTemplate: '1. 携带身份证、医保卡、本转诊短信及既往检查资料\n2. 到院后前往[接诊科室]挂号窗口，出示预约码[预约码]优先排队\n3. 住院患者请至[病区]办理，床位[床位号]，护士站电话[护士站电话]\n4. 到院后仍需正常挂号缴费，医保按分级诊疗政策执行' },
-  { id: 'I002', name: 'xx市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', address: 'xx市拱星镇卫生路12号', referralConsultPhone: '0838-6201010', referralContactUserId: 'primary_doc_001', referralContactName: '王医生', referralContactPhone: '0838-6201010', referralCoordinatorPhone: '0838-6201018', canUp: true, canDown: true, enabled: true },
-  { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', address: 'xx市汉旺镇健康街8号', referralConsultPhone: '0838-6202010', referralContactUserId: 'primary_doc_003', referralContactName: '李慧医生', referralContactPhone: '0838-6202010', referralCoordinatorPhone: '0838-6202018', canUp: true, canDown: false, enabled: true },
-  { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', address: 'xx市清平乡清平路6号', referralConsultPhone: '0838-6203010', referralContactUserId: 'primary_doc_005', referralContactName: '孙医生', referralContactPhone: '0838-6203010', referralCoordinatorPhone: '0838-6203018', canUp: true, canDown: true, enabled: true },
+  { id: 'I002', name: 'xx市拱星镇卫生院', code: '5106820012', type: '乡镇卫生院', contact: '王院长', phone: '0838-6201001', address: 'xx市拱星镇卫生路12号', referralConsultPhone: '0838-6201010', referralContactUserId: 'primary_doc_001', referralContactName: '王医生', referralContactPhone: '0838-6201010', referralCoordinatorUserId: 'primary_doc_002', referralCoordinatorName: '赵负责人', referralCoordinatorPhone: '0838-6201018', canUp: true, canDown: true, enabled: true },
+  { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', address: 'xx市汉旺镇健康街8号', referralConsultPhone: '0838-6202010', referralContactUserId: 'primary_doc_003', referralContactName: '李慧医生', referralContactPhone: '0838-6202010', referralCoordinatorUserId: '', referralCoordinatorName: '', referralCoordinatorPhone: '0838-6202018', canUp: true, canDown: false, enabled: true },
+  { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', address: 'xx市清平乡清平路6号', referralConsultPhone: '0838-6203010', referralContactUserId: 'primary_doc_005', referralContactName: '孙医生', referralContactPhone: '0838-6203010', referralCoordinatorUserId: '', referralCoordinatorName: '', referralCoordinatorPhone: '0838-6203018', canUp: true, canDown: true, enabled: true },
   { id: 'I005', name: 'xx市九龙镇卫生室', code: '5106820021', type: '社区卫生服务中心', contact: '赵医生', phone: '0838-6204001', address: 'xx市九龙镇便民服务点旁', referralConsultPhone: '', referralContactUserId: '', referralContactName: '', referralContactPhone: '0838-6204001', canUp: false, canDown: false, enabled: false },
 ]
 
@@ -229,8 +229,42 @@ export const SYSTEM_AUDIT_RULE_SEEDS = [
   },
 ]
 
-export const SYSTEM_OPERATION_LOG_TYPES = ['全部', '角色权限变更', '机构信息变更', '系统配置变更']
+export const SYSTEM_OPERATION_LOG_TYPES = ['全部', '新增', '编辑', '删除', '启用', '停用', '审核通过', '审核拒绝', '指派', '催办', '撤销', '关闭']
 export const SYSTEM_OPERATION_LOG_DOMAINS = ['全部', '机构配置', '角色管理', '专病规则配置', '通知模板', '审核规则', '超时规则']
+
+const LEGACY_OPERATION_TYPE_MAP = {
+  角色权限变更: '编辑',
+  机构信息变更: '编辑',
+  系统配置变更: '编辑',
+}
+
+function resolveOperationLogType(type, detail = {}) {
+  if (SYSTEM_OPERATION_LOG_TYPES.includes(type)) return type
+
+  const operationText = String(detail.操作 || detail.操作类型 || detail.变更字段 || '')
+  const newValueText = String(detail.新值 || '')
+  if (operationText.includes('新增') || operationText.includes('添加') || operationText.includes('创建')) return '新增'
+  if (operationText.includes('删除')) return '删除'
+  if (operationText.includes('启用') || operationText.includes('开启')) return '启用'
+  if (operationText.includes('停用') || operationText.includes('禁用') || operationText.includes('关闭')) return operationText.includes('关闭') ? '关闭' : '停用'
+  if (operationText.includes('审核通过')) return '审核通过'
+  if (operationText.includes('审核拒绝')) return '审核拒绝'
+  if (operationText.includes('指派') || operationText.includes('分配')) return '指派'
+  if (operationText.includes('催办')) return '催办'
+  if (operationText.includes('撤销')) return '撤销'
+  if (newValueText.includes('启用') || newValueText.includes('开启')) return '启用'
+  if (newValueText.includes('停用') || newValueText.includes('禁用')) return '停用'
+  if (newValueText.includes('关闭')) return '关闭'
+
+  return LEGACY_OPERATION_TYPE_MAP[type] || '编辑'
+}
+
+function normalizeOperationLog(log) {
+  return {
+    ...log,
+    type: resolveOperationLogType(log.type, log.detail),
+  }
+}
 
 export let SYSTEM_OPERATION_LOGS = [
   {
@@ -303,7 +337,7 @@ function nextOperationLogId() {
 }
 
 export function getSystemOperationLogs() {
-  return SYSTEM_OPERATION_LOGS
+  return SYSTEM_OPERATION_LOGS.map(normalizeOperationLog)
 }
 
 export function appendSystemOperationLog({
@@ -319,7 +353,7 @@ export function appendSystemOperationLog({
     operator: SYSTEM_ADMIN_OPERATOR,
     role: '系统管理员',
     domain,
-    type,
+    type: resolveOperationLogType(type, detail),
     target,
     result,
     detail,

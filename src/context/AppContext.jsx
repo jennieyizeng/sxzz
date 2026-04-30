@@ -27,6 +27,7 @@ import {
   UPWARD_REJECT_REASON_OPTIONS,
 } from '../constants/reasonCodes'
 import { buildPhoneCallLogEntry } from '../utils/phoneCall'
+import { formatPhoneCallLogAction, formatPhoneCallLogNote } from '../utils/referralOperationLogDisplay'
 
 // F-09 操作日志事件类型枚举（P2-2：补充新增类型）
 // eslint-disable-next-line react-refresh/only-export-components
@@ -707,6 +708,10 @@ export function AppProvider({ children }) {
           visitCount: taskMeta.visitCount || 0,
           lastFollowupAt: taskMeta.lastFollowupAt || null,
           records: [entry, ...(taskMeta.records || [])],
+          reassignStatus: 'requested',
+          reassignRequestedById: currentUser.id,
+          reassignRequestedByName: currentUser.name,
+          reassignRequestedAt: nowIso,
           pendingReassignReason: reason || '已提交转派申请',
           assignedDoctorId: r.downwardAssignedDoctorId || taskMeta.assignedDoctorId,
           assignedDoctorName: r.downwardAssignedDoctorName || taskMeta.assignedDoctorName,
@@ -731,7 +736,112 @@ export function AppProvider({ children }) {
     })
 
     return { success: true }
+  }, [addNotification, currentUser.id, currentUser.name, referrals])
+
+  const assignFollowupReassign = useCallback((referralId, doctorId, doctorName) => {
+    const nowIso = new Date().toISOString()
+    const referral = referrals.find(item => item.id === referralId)
+    if (!referral) return { success: false, error: 'NOT_FOUND' }
+
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const taskMeta = resolveFollowupTaskMeta(r)
+
+      return {
+        ...r,
+        updatedAt: nowIso,
+        followUpTaskMeta: {
+          ...taskMeta,
+          status: taskMeta.status || 'pending',
+          reassignStatus: 'assigned',
+          proposedDoctorId: doctorId,
+          proposedDoctorName: doctorName,
+          reassignAssignedAt: nowIso,
+          reassignRejectedReason: '',
+          updatedAt: nowIso,
+        },
+        logs: [
+          ...r.logs,
+          { time: nowIso, actor: currentUser.name, action: '处理随访转派申请', note: `转派给${doctorName}` },
+          { time: nowIso, actor: '系统', action: `通知${doctorName}：有新的随访转派任务待确认` },
+        ],
+      }
+    }))
+
+    addNotification({
+      type: 'followup_reassign_assigned',
+      title: '随访转派任务待确认',
+      content: `患者${referral.patient?.name || '—'}的随访任务已转派给您，请确认是否接收`,
+      targetRole: ROLES.PRIMARY,
+      targetUserId: doctorId,
+      targetInstitution: referral.toInstitution,
+      referralId,
+    })
+
+    return { success: true }
   }, [addNotification, currentUser.name, referrals])
+
+  const acceptFollowupReassign = useCallback((referralId) => {
+    const nowIso = new Date().toISOString()
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const taskMeta = resolveFollowupTaskMeta(r)
+      if (taskMeta.reassignStatus !== 'assigned' || taskMeta.proposedDoctorId !== currentUser.id) return r
+
+      return {
+        ...r,
+        downwardAssignedDoctorId: currentUser.id,
+        downwardAssignedDoctorName: currentUser.name,
+        toDoctor: currentUser.name,
+        updatedAt: nowIso,
+        followUpTaskMeta: {
+          ...taskMeta,
+          status: taskMeta.status || 'pending',
+          assignedDoctorId: currentUser.id,
+          assignedDoctorName: currentUser.name,
+          reassignStatus: 'accepted',
+          proposedDoctorId: null,
+          proposedDoctorName: '',
+          reassignRejectedReason: '',
+          updatedAt: nowIso,
+        },
+        logs: [
+          ...r.logs,
+          { time: nowIso, actor: currentUser.name, action: '接受随访转派任务' },
+          { time: nowIso, actor: '系统', action: `随访任务责任医生已变更为${currentUser.name}` },
+        ],
+      }
+    }))
+    return { success: true }
+  }, [currentUser.id, currentUser.name])
+
+  const rejectFollowupReassign = useCallback((referralId, reason) => {
+    const nowIso = new Date().toISOString()
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const taskMeta = resolveFollowupTaskMeta(r)
+      if (taskMeta.reassignStatus !== 'assigned' || taskMeta.proposedDoctorId !== currentUser.id) return r
+
+      return {
+        ...r,
+        updatedAt: nowIso,
+        followUpTaskMeta: {
+          ...taskMeta,
+          reassignStatus: 'rejected',
+          reassignRejectedReason: reason || '目标医生拒绝接收',
+          proposedDoctorId: null,
+          proposedDoctorName: '',
+          updatedAt: nowIso,
+        },
+        logs: [
+          ...r.logs,
+          { time: nowIso, actor: currentUser.name, action: '拒绝随访转派任务', note: reason || '目标医生拒绝接收' },
+          { time: nowIso, actor: '系统', action: '已退回基层负责人重新转派' },
+        ],
+      }
+    }))
+    return { success: true }
+  }, [currentUser.id, currentUser.name])
 
   // 县级发起下转（新建下转单）
   const createDownwardReferral = useCallback((data) => {
@@ -1010,7 +1120,7 @@ export function AppProvider({ children }) {
         },
         logs: [
           ...r.logs,
-          { time: updatedAt, actor: currentUser.name, action: 'EMERGENCY_MODIFY', note: `修改目标医院：${nextInstitutionName}；接诊入口固定为急诊科${nextLinkedSpecialty ? `；联动专科：${nextLinkedSpecialty}` : ''}` },
+          { time: updatedAt, actor: currentUser.name, action: '紧急修改转诊信息', note: `修改目标医院：${nextInstitutionName}；接诊入口固定为急诊科${nextLinkedSpecialty ? `；联动专科：${nextLinkedSpecialty}` : ''}` },
           { time: updatedAt, actor: '系统', action: '紧急修改后已重新通知相关方，原通知作废，并重新发送患者短信' },
         ],
       }
@@ -1494,8 +1604,8 @@ export function AppProvider({ children }) {
           {
             time: entry.timestamp,
             actor: currentUser.name,
-            action: entry.action,
-            note: `source=${entry.source || 'unknown'}；numberType=${entry.numberType || 'unknown'}`,
+            action: formatPhoneCallLogAction(entry.action),
+            note: formatPhoneCallLogNote(entry),
           },
         ],
       }
@@ -2116,6 +2226,9 @@ export function AppProvider({ children }) {
       recordFollowupVisit,
       markFollowupUnreachable,
       requestFollowupReassign,
+      assignFollowupReassign,
+      acceptFollowupReassign,
+      rejectFollowupReassign,
     }}>
       {children}
     </AppContext.Provider>

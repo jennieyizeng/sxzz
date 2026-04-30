@@ -16,6 +16,7 @@ import { canCurrentCountyDoctorHandleOrdinaryUpward, canViewCountyUpwardReferral
 import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
 import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
 import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
+import { formatReferralLogAction, formatReferralLogNote } from '../../utils/referralOperationLogDisplay'
 import { matchDocumentTemplate } from '../../data/documentTemplateConfig'
 import {
   DEFAULT_PATIENT_NOTICE_TEMPLATE,
@@ -338,7 +339,7 @@ function EmergencyPatientContactDialog({ referral, currentUser, currentRole, onL
               variant="emergency"
               source="emergency_modify_patient"
               numberType="patient"
-              action={PHONE_CALL_ACTIONS.EMERGENCY_MODIFY_PATIENT_CALLED}
+              action={PHONE_CALL_ACTIONS.EMERGENCY_PATIENT_CONTACT}
               actorId={currentUser?.id}
               actorRole={currentRole}
               referralId={referral.id}
@@ -1216,17 +1217,6 @@ export default function ReferralDetail() {
       actionType,
     })
 
-    if (actionType === '预览') {
-      setDialog({
-        type: 'notice',
-        title: canGenerateFormalDocument ? '双向转诊单预览' : '申请信息预览',
-        description: canGenerateFormalDocument
-          ? `当前使用模板：${documentTemplate.title}（${documentTemplate.id} ${documentTemplate.version}）。`
-          : '当前尚未完成接收确认，仅可预览申请信息，不能正式打印给患者使用。',
-      })
-      return
-    }
-
     if (actionType === '下载') {
       setDialog({
         type: 'notice',
@@ -1437,15 +1427,6 @@ export default function ReferralDetail() {
 
           {/* 操作按钮区 */}
           <div className="flex flex-col gap-2 ml-4 flex-shrink-0">
-            {!canGenerateFormalDocument && (
-              <button
-                onClick={() => handleDocumentAction('预览')}
-                className="self-end px-3 py-1 text-xs border rounded-lg hover:bg-gray-50 transition-colors"
-                style={{ borderColor: '#DDF0F3', color: '#6b7280' }}
-              >
-                预览申请信息
-              </button>
-            )}
             {isEmergencyReferral && isUpward && !isRetroEntry && (
               <PhoneCallButton
                 number={emergencyDeptPhone}
@@ -2301,9 +2282,9 @@ export default function ReferralDetail() {
                       <div className="flex-1 pt-1">
                         <div className="flex items-baseline gap-2 flex-wrap">
                           <span className="font-medium text-gray-800 text-sm">{log.actor}</span>
-                          <span className="text-gray-600 text-sm">{log.action}</span>
-                          {log.note && (
-                            <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">{log.note}</span>
+                          <span className="text-gray-600 text-sm">{formatReferralLogAction(log.action)}</span>
+                          {formatReferralLogNote(log.note) && (
+                            <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">{formatReferralLogNote(log.note)}</span>
                           )}
                         </div>
                         <div className="text-xs text-gray-400 mt-0.5">{formatTime(log.time)}</div>
@@ -2616,7 +2597,7 @@ export default function ReferralDetail() {
           onLog={handlePhoneLog}
           onOtherContact={() => {
             recordPhoneCallAction(id, {
-              action: PHONE_CALL_ACTIONS.EMERGENCY_MODIFY_OTHER_CONTACT,
+              action: PHONE_CALL_ACTIONS.EMERGENCY_OTHER_CONTACT,
               source: 'emergency_modify_patient',
               numberType: 'patient',
             })
