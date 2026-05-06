@@ -8,6 +8,7 @@ import {
   filterFollowupsByAssignee,
   filterFollowupsByTab,
   getFollowupCounts,
+  getPrimaryHeadFollowupActions,
 } from '../../utils/followupTasks.js'
 
 function fmt(iso) {
@@ -19,7 +20,7 @@ function fmt(iso) {
 const TH = 'px-4 py-3 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-4 py-3.5 text-sm align-middle whitespace-nowrap'
 const TASK_STATUS_LABELS = ['待随访', '已结束']
-const REASSIGN_STATUS_LABELS = ['转派待处理', '已转派', '已拒绝', '—']
+const REASSIGN_STATUS_LABELS = ['转派待处理', '已转派', '转派已拒绝', '—']
 const textActionCls = 'text-xs font-medium bg-transparent border-0 p-0 hover:underline'
 
 const DEMO_PRIMARY_DOCTORS = [
@@ -187,6 +188,60 @@ export default function PrimaryFollowupList() {
     setTimeout(() => setSuccessTip(''), 3000)
   }
 
+  function renderPrimaryHeadActions(task) {
+    return getPrimaryHeadFollowupActions(task).map(action => {
+      if (action === 'detail') {
+        return (
+          <button
+            key={action}
+            onClick={() => navigate(`/primary/followup-task/${task.referralId}`)}
+            className={textActionCls}
+            style={{ color: '#0892a0' }}
+          >
+            查看详情
+          </button>
+        )
+      }
+      if (action === 'history') {
+        return (
+          <button
+            key={action}
+            onClick={() => openHistory(task)}
+            className={textActionCls}
+            style={{ color: '#0BBECF' }}
+          >
+            历史记录
+          </button>
+        )
+      }
+      if (action === 'handleReassign') {
+        return (
+          <button
+            key={action}
+            onClick={() => openAssign(task)}
+            className={textActionCls}
+            style={{ color: '#d97706' }}
+          >
+            处理转派
+          </button>
+        )
+      }
+      if (action === 'transfer') {
+        return (
+          <button
+            key={action}
+            onClick={() => openAssign(task)}
+            className={textActionCls}
+            style={{ color: '#6b7280' }}
+          >
+            转派
+          </button>
+        )
+      }
+      return null
+    })
+  }
+
   const pageTitle = isPrimaryHead ? '机构随访任务' : '我的随访任务'
   const emptyText = isPrimaryHead ? '当前机构暂无随访任务' : '暂无随访任务'
   const canConfirmAssignDialog = assignMode === 'assign'
@@ -346,13 +401,15 @@ export default function PrimaryFollowupList() {
                         记录随访
                       </button>
                     )}
-                    <button
-                      onClick={() => openHistory(f)}
-                      className={textActionCls}
-                      style={{ color: '#0BBECF' }}
-                    >
-                      历史记录
-                    </button>
+                    {!isPrimaryHead && (
+                      <button
+                        onClick={() => openHistory(f)}
+                        className={textActionCls}
+                        style={{ color: '#0BBECF' }}
+                      >
+                        历史记录
+                      </button>
+                    )}
                     {f.taskStatus !== 'ended' && !isPrimaryHead && !f.reassignmentPending && (
                       <button
                         onClick={() => openReassignRequest(f)}
@@ -362,28 +419,7 @@ export default function PrimaryFollowupList() {
                         申请转派
                       </button>
                     )}
-                    {isPrimaryHead && (
-                      <>
-                        {f.reassignDisplayStatus === '转派待处理' && (
-                          <button
-                            onClick={() => openAssign(f)}
-                            className={textActionCls}
-                            style={{ color: '#d97706' }}
-                          >
-                            处理转派
-                          </button>
-                        )}
-                        {f.taskStatus !== 'ended' && f.reassignDisplayStatus !== '转派待处理' && (
-                          <button
-                            onClick={() => openAssign(f)}
-                            className={textActionCls}
-                            style={{ color: '#6b7280' }}
-                          >
-                            转派
-                          </button>
-                        )}
-                      </>
-                    )}
+                    {isPrimaryHead && renderPrimaryHeadActions(f)}
                   </div>
                 </td>
               </tr>

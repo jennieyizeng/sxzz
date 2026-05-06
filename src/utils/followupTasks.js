@@ -57,9 +57,15 @@ function deriveReassignDisplayStatus(taskMeta = {}) {
   if (taskMeta.taskStatus === 'ended') return '—'
   if (taskMeta.reassignmentPending) return '转派待处理'
   const latest = Array.isArray(taskMeta.reassignmentLog) ? taskMeta.reassignmentLog.at(-1) : null
-  if (latest?.triggeredBy === 'doctor_request_rejected') return '已拒绝'
+  if (latest?.triggeredBy === 'doctor_request_rejected') return '转派已拒绝'
   if (latest?.toDoctorId) return '已转派'
   return '—'
+}
+
+export function getPrimaryHeadFollowupActions(task = {}) {
+  if (task.reassignDisplayStatus === '转派待处理') return ['detail', 'handleReassign']
+  if (task.taskStatus === 'ended') return ['detail', 'history']
+  return ['detail', 'history', 'transfer']
 }
 
 function getLinkedTaskByReferralId(referralId) {

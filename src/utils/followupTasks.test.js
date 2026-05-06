@@ -1,7 +1,13 @@
 import test from 'node:test'
 import assert from 'node:assert/strict'
-import { ROLES } from '../data/mockData.js'
-import { buildFollowupTaskDetail, buildScopedFollowups, filterFollowupsByAssignee, getFollowupCounts } from './followupTasks.js'
+import { MOCK_REFERRALS_INIT, ROLES } from '../data/mockData.js'
+import {
+  buildFollowupTaskDetail,
+  buildScopedFollowups,
+  filterFollowupsByAssignee,
+  getFollowupCounts,
+  getPrimaryHeadFollowupActions,
+} from './followupTasks.js'
 
 const referrals = [
   {
@@ -292,6 +298,43 @@ test('shows reassigned followup tasks to the newly assigned primary doctor', () 
   assert.equal(result[0].referralId, 'REF_REASSIGNED')
   assert.equal(result[0].assignedDoctor, '李慧医生')
   assert.equal(result[0].reassignDisplayStatus, '已转派')
+})
+
+test('maps primary head followup management actions from task and reassignment status', () => {
+  const activeTask = { taskStatus: 'active', reassignDisplayStatus: '—' }
+  const pendingReassignTask = { taskStatus: 'active', reassignDisplayStatus: '转派待处理' }
+  const rejectedReassignTask = { taskStatus: 'active', reassignDisplayStatus: '转派已拒绝' }
+  const endedTask = { taskStatus: 'ended', reassignDisplayStatus: '—' }
+
+  assert.deepEqual(getPrimaryHeadFollowupActions(activeTask), ['detail', 'history', 'transfer'])
+  assert.deepEqual(getPrimaryHeadFollowupActions({ ...activeTask, isUrgent: true }), ['detail', 'history', 'transfer'])
+  assert.deepEqual(getPrimaryHeadFollowupActions({ ...activeTask, isOverdue: true }), ['detail', 'history', 'transfer'])
+  assert.deepEqual(getPrimaryHeadFollowupActions(pendingReassignTask), ['detail', 'handleReassign'])
+  assert.deepEqual(getPrimaryHeadFollowupActions(rejectedReassignTask), ['detail', 'history', 'transfer'])
+  assert.deepEqual(getPrimaryHeadFollowupActions(endedTask), ['detail', 'history'])
+})
+
+test('includes overdue and urgent followup mock tasks for primary doctor and primary head', () => {
+  const primaryUser = {
+    id: 'u001',
+    name: '王医生',
+    role: ROLES.PRIMARY,
+    institution: 'xx市拱星镇卫生院',
+  }
+  const primaryHeadUser = {
+    id: 'u001_head',
+    name: '赵负责人',
+    role: ROLES.PRIMARY_HEAD,
+    institution: 'xx市拱星镇卫生院',
+  }
+
+  const primaryTasks = buildScopedFollowups(MOCK_REFERRALS_INIT, primaryUser)
+  const primaryHeadTasks = buildScopedFollowups(MOCK_REFERRALS_INIT, primaryHeadUser)
+
+  assert.equal(primaryTasks.some(task => task.referralId === 'REF_MOCK_FOLLOWUP_OVERDUE' && task.isOverdue), true)
+  assert.equal(primaryTasks.some(task => task.referralId === 'REF_MOCK_FOLLOWUP_URGENT' && task.isUrgent && !task.isOverdue), true)
+  assert.equal(primaryHeadTasks.some(task => task.referralId === 'REF_MOCK_FOLLOWUP_OVERDUE' && task.isOverdue), true)
+  assert.equal(primaryHeadTasks.some(task => task.referralId === 'REF_MOCK_FOLLOWUP_URGENT' && task.isUrgent && !task.isOverdue), true)
 })
 
 test('builds followup task detail from current scoped referral and task meta', () => {
