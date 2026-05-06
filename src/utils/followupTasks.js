@@ -12,15 +12,54 @@ function toDateOnly(value) {
   return normalized.includes('T') ? normalized.split('T')[0] : normalized
 }
 
-function normalizeFollowupStatus(rawStatus, visitCount, isOverdue) {
-  if (rawStatus === '已完成' || rawStatus === 'completed') return '已完成'
-  if (rawStatus === '已失访' || rawStatus === 'lost' || rawStatus === 'lost_contact') return '已失访'
-  if (rawStatus === '待随访' || rawStatus === 'pending' || rawStatus === 'active') {
-    return isOverdue ? '已逾期' : '待随访'
+const ENDED_REASON_BY_LEGACY_STATUS = {
+  completed: 'completed_plan',
+  '已完成': 'completed_plan',
+  lost: 'lost_contact',
+  lost_contact: 'lost_contact',
+  unreachable: 'lost_contact',
+  '已失访': 'lost_contact',
+}
+
+const ASSESSMENT_LABELS = {
+  stable: '稳定',
+  improving: '好转',
+  worsening: '恶化加重',
+  稳定: '稳定',
+  好转: '好转',
+  需关注: '恶化加重',
+  需上转: '恶化加重',
+}
+
+const CHANNEL_LABELS = {
+  phone: '电话',
+  wechat: '微信',
+  in_person: '上门',
+  电话: '电话',
+  微信: '微信',
+  上门: '上门',
+  门诊复诊: '门诊复诊',
+}
+
+function deriveTaskLifecycle(meta = {}) {
+  const rawStatus = meta.taskStatus || meta.status || 'active'
+  const endedReason = meta.endedReason || ENDED_REASON_BY_LEGACY_STATUS[rawStatus] || null
+  const taskStatus = rawStatus === 'ended' || endedReason ? 'ended' : 'active'
+
+  return {
+    taskStatus,
+    statusLabel: taskStatus === 'ended' ? '已结束' : '待随访',
+    endedReason: taskStatus === 'ended' ? endedReason || 'completed_plan' : null,
   }
-  if (isOverdue) return '已逾期'
-  if (visitCount > 0 || rawStatus === '随访中' || rawStatus === 'in_progress') return '随访中'
-  return '待随访'
+}
+
+function deriveReassignDisplayStatus(taskMeta = {}) {
+  if (taskMeta.taskStatus === 'ended') return '—'
+  if (taskMeta.reassignmentPending) return '转派待处理'
+  const latest = Array.isArray(taskMeta.reassignmentLog) ? taskMeta.reassignmentLog.at(-1) : null
+  if (latest?.triggeredBy === 'doctor_request_rejected') return '已拒绝'
+  if (latest?.toDoctorId) return '已转派'
+  return '—'
 }
 
 function getLinkedTaskByReferralId(referralId) {
@@ -30,11 +69,31 @@ function getLinkedTaskByReferralId(referralId) {
 export function resolveFollowupTaskMeta(referral) {
   const linkedTask = getLinkedTaskByReferralId(referral?.id)
   const meta = referral?.followUpTaskMeta || {}
+  const lifecycle = deriveTaskLifecycle({ ...linkedTask, ...meta })
+  const legacyReassignStatus = meta.reassignStatus || linkedTask?.reassignStatus || 'none'
+  const reassignmentPending = meta.reassignmentPending || linkedTask?.reassignmentPending || (
+    legacyReassignStatus === 'requested'
+      ? {
+          requestedBy: meta.reassignRequestedById || linkedTask?.reassignRequestedById || null,
+          requestedByName: meta.reassignRequestedByName || linkedTask?.reassignRequestedByName || '',
+          requestedAt: meta.reassignRequestedAt || linkedTask?.reassignRequestedAt || null,
+          requestReason: meta.pendingReassignReason || linkedTask?.pendingReassignReason || '',
+          targetSuggestion: meta.proposedDoctorId || linkedTask?.proposedDoctorId || null,
+          targetSuggestionName: meta.proposedDoctorName || linkedTask?.proposedDoctorName || '',
+        }
+      : null
+  )
 
   return {
     id: meta.id || referral?.followUpTaskId || linkedTask?.id || `FU${referral?.id || Date.now()}`,
-    status: meta.status || linkedTask?.status || 'active',
-    nextVisitDate: meta.nextVisitDate || linkedTask?.nextVisitDate || referral?.rehabPlan?.followupDate || referral?.suggestedFirstVisitDate || '',
+    status: lifecycle.statusLabel,
+    taskStatus: lifecycle.taskStatus,
+    endedReason: meta.endedReason || linkedTask?.endedReason || lifecycle.endedReason,
+    endedReasonText: meta.endedReasonText || linkedTask?.endedReasonText || '',
+    endedBy: meta.endedBy || linkedTask?.endedBy || null,
+    endedByName: meta.endedByName || linkedTask?.endedByName || '',
+    endedAt: meta.endedAt || linkedTask?.endedAt || (lifecycle.taskStatus === 'ended' ? (meta.updatedAt || linkedTask?.updatedAt || null) : null),
+    nextVisitDate: meta.nextScheduledDate || meta.nextVisitDate || linkedTask?.nextScheduledDate || linkedTask?.nextVisitDate || referral?.rehabPlan?.followupDate || referral?.suggestedFirstVisitDate || '',
     visitCount: meta.visitCount ?? linkedTask?.visitCount ?? 0,
     lastFollowupAt: meta.lastFollowupAt ?? linkedTask?.lastFollowupAt ?? null,
     records: Array.isArray(meta.records) ? meta.records : (Array.isArray(linkedTask?.records) ? linkedTask.records : []),
@@ -42,17 +101,15 @@ export function resolveFollowupTaskMeta(referral) {
     indicators: meta.indicators ?? linkedTask?.indicators ?? referral?.rehabPlan?.indicators ?? [],
     assignedDoctorName: meta.assignedDoctorName ?? linkedTask?.assignedDoctorName ?? referral?.downwardAssignedDoctorName ?? referral?.toDoctor ?? '—',
     assignedDoctorId: meta.assignedDoctorId ?? linkedTask?.assignedDoctorId ?? referral?.downwardAssignedDoctorId ?? null,
-    reassignStatus: meta.reassignStatus || 'none',
-    reassignRequestedById: meta.reassignRequestedById || null,
-    reassignRequestedByName: meta.reassignRequestedByName || '',
-    reassignRequestedAt: meta.reassignRequestedAt || null,
-    pendingReassignReason: meta.pendingReassignReason || '',
-    proposedDoctorId: meta.proposedDoctorId || null,
-    proposedDoctorName: meta.proposedDoctorName || '',
-    reassignAssignedAt: meta.reassignAssignedAt || null,
-    reassignRejectedReason: meta.reassignRejectedReason || '',
-    reassignRejectedById: meta.reassignRejectedById || null,
-    reassignRejectedByName: meta.reassignRejectedByName || '',
+    reassignStatus: reassignmentPending ? 'requested' : 'none',
+    reassignmentPending,
+    reassignmentLog: Array.isArray(meta.reassignmentLog) ? meta.reassignmentLog : (Array.isArray(linkedTask?.reassignmentLog) ? linkedTask.reassignmentLog : []),
+    reassignRequestedById: reassignmentPending?.requestedBy || null,
+    reassignRequestedByName: reassignmentPending?.requestedByName || '',
+    reassignRequestedAt: reassignmentPending?.requestedAt || null,
+    pendingReassignReason: reassignmentPending?.requestReason || '',
+    proposedDoctorId: reassignmentPending?.targetSuggestion || null,
+    proposedDoctorName: reassignmentPending?.targetSuggestionName || '',
     createdAt: meta.createdAt ?? linkedTask?.createdAt ?? referral?.completedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
     updatedAt: meta.updatedAt ?? linkedTask?.updatedAt ?? referral?.updatedAt ?? referral?.createdAt ?? null,
   }
@@ -99,9 +156,46 @@ function buildInitialRecordDraft(task, referral) {
   }
 }
 
+function normalizeHistoryRecord(record, currentUser) {
+  const outcome = record.outcome || (record.type === 'unreachable' ? 'not_contacted' : 'contacted')
+  const visitDate = toDateOnly(record.visitDate || record.followupDate || record.createdAt)
+  const channelLabel = CHANNEL_LABELS[record.channel] || CHANNEL_LABELS[record.method] || record.method || '电话'
+  const attemptedByName = record.attemptedByName || record.doctorName || currentUser?.name || '—'
+  const assessmentLabel = outcome === 'not_contacted'
+    ? '未联系上'
+    : ASSESSMENT_LABELS[record.assessment] || ASSESSMENT_LABELS[record.patientStatus] || record.patientStatus || '稳定'
+  const nextScheduledDate = record.nextScheduledDate || record.nextFollowupDate || ''
+
+  return {
+    ...record,
+    id: record.visitId || record.id,
+    outcome,
+    visitDate,
+    followupDate: visitDate,
+    channelLabel,
+    method: channelLabel,
+    attemptedByName,
+    doctorName: attemptedByName,
+    assessmentLabel,
+    patientStatus: assessmentLabel,
+    status: outcome === 'not_contacted' ? '未联系上' : '随访已记录',
+    summary: outcome === 'not_contacted'
+      ? (record.notReachedNote || record.summary || '本次尝试联系未成功')
+      : (record.summary || '—'),
+    advice: outcome === 'not_contacted'
+      ? ''
+      : (record.advice || '按医嘱继续居家观察与康复训练。'),
+    nextScheduledDate,
+    nextFollowupDate: nextScheduledDate,
+  }
+}
+
 function buildHistoryRecords(task, currentUser) {
   if (Array.isArray(task?.records) && task.records.length > 0) {
-    return [...task.records].sort((a, b) => new Date(b.followupDate || b.createdAt || 0) - new Date(a.followupDate || a.createdAt || 0))
+    return task.records
+      .filter(record => record.outcome || ['followup', 'unreachable'].includes(record.type))
+      .map(record => normalizeHistoryRecord(record, currentUser))
+      .sort((a, b) => new Date(b.visitDate || b.createdAt || 0) - new Date(a.visitDate || a.createdAt || 0))
   }
 
   if (task?.lastFollowupAt) {
@@ -117,7 +211,7 @@ function buildHistoryRecords(task, currentUser) {
       advice: '按既定计划继续下一次随访。',
       nextFollowupDate: task.nextVisitDate || task.followupDate || '',
       doctorName: task.assignedDoctorName || currentUser?.name || '—',
-    }]
+    }].map(record => normalizeHistoryRecord(record, currentUser))
   }
 
   return []
@@ -142,8 +236,9 @@ export function buildScopedFollowups(referrals, currentUser) {
 
       return referral.downwardAssignedDoctorId === currentUser.id ||
         referral.toDoctor === currentUser.name ||
-        (linkedTask.reassignStatus === 'assigned' && linkedTask.proposedDoctorId === currentUser.id) ||
-        (linkedTask.reassignStatus === 'rejected' && linkedTask.reassignRejectedById === currentUser.id)
+        linkedTask.assignedDoctorId === currentUser.id ||
+        linkedTask.assignedDoctorName === currentUser.name ||
+        linkedTask.reassignmentPending?.requestedBy === currentUser.id
     })
     .map(referral => {
       const linkedTask = resolveFollowupTaskMeta(referral)
@@ -153,11 +248,6 @@ export function buildScopedFollowups(referrals, currentUser) {
       const visitCount = linkedTask?.visitCount ?? 0
       const lastFollowupAt = linkedTask?.lastFollowupAt ?? (visitCount > 0 ? linkedTask?.updatedAt : null)
       const downwardDate = referral.completedAt || referral.transferredAt || referral.updatedAt || referral.createdAt
-      const status = normalizeFollowupStatus(
-        linkedTask?.status,
-        visitCount,
-        daysLeft < 0,
-      )
 
       return {
         id: `FU${referral.id}`,
@@ -168,7 +258,14 @@ export function buildScopedFollowups(referrals, currentUser) {
         toInstitution: referral.toInstitution,
         assignedDoctor: linkedTask.assignedDoctorName || getAssignedDoctor(referral, currentUser),
         assignedDoctorId: linkedTask.assignedDoctorId,
+        taskStatus: linkedTask.taskStatus,
+        endedReason: linkedTask.endedReason,
+        endedReasonText: linkedTask.endedReasonText,
+        endedAt: linkedTask.endedAt,
         reassignStatus: linkedTask.reassignStatus,
+        reassignmentPending: linkedTask.reassignmentPending,
+        reassignmentLog: linkedTask.reassignmentLog,
+        reassignDisplayStatus: deriveReassignDisplayStatus(linkedTask),
         reassignRequestedById: linkedTask.reassignRequestedById,
         reassignRequestedByName: linkedTask.reassignRequestedByName,
         pendingReassignReason: linkedTask.pendingReassignReason,
@@ -179,13 +276,13 @@ export function buildScopedFollowups(referrals, currentUser) {
         reassignRejectedByName: linkedTask.reassignRejectedByName,
         downwardDate: toDateOnly(downwardDate),
         lastFollowupAt: lastFollowupAt ? toDateOnly(lastFollowupAt) : null,
-        followupDate: referral.rehabPlan.followupDate,
+        followupDate: linkedTask.nextVisitDate || referral.rehabPlan.followupDate,
         visitCount,
         indicators: referral.rehabPlan?.indicators || [],
         daysLeft,
         isOverdue: daysLeft < 0,
         isUrgent: daysLeft >= 0 && daysLeft <= 3,
-        status,
+        status: linkedTask.status,
       }
     })
 }
@@ -213,7 +310,11 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     daysLeft: 0,
     isOverdue: false,
     isUrgent: false,
-    status: '待随访',
+    taskStatus: linkedTask.taskStatus,
+    endedReason: linkedTask.endedReason,
+    endedReasonText: linkedTask.endedReasonText,
+    endedAt: linkedTask.endedAt,
+    status: linkedTask.status,
   }
 
   const { coreGoals, otherIndicators } = buildFollowupGoals(resolvedTask.indicators)
@@ -221,8 +322,6 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     linkedTask,
     currentUser,
   )
-  const isRejectedReassignViewer = linkedTask.reassignStatus === 'rejected' && linkedTask.reassignRejectedById === currentUser.id
-
   return {
     ...resolvedTask,
     referral,
@@ -239,8 +338,9 @@ export function buildFollowupTaskDetail(referrals, currentUser, taskId) {
     otherIndicators,
     historyRecords,
     draft: buildInitialRecordDraft(resolvedTask, referral),
-    isRejectedReassignViewer,
-    canRecordFollowup: !isRejectedReassignViewer,
+    reassignmentPending: linkedTask.reassignmentPending,
+    reassignmentLog: linkedTask.reassignmentLog,
+    canRecordFollowup: linkedTask.taskStatus === 'active',
   }
 }
 
@@ -249,14 +349,14 @@ export function getFollowupCounts(followups) {
     all: followups.length,
     overdue: followups.filter(task => task.isOverdue).length,
     urgent: followups.filter(task => task.isUrgent && !task.isOverdue).length,
-    pending: followups.filter(task => task.status === '待随访').length,
+    pending: followups.filter(task => task.taskStatus !== 'ended' && !task.isOverdue && !task.isUrgent).length,
   }
 }
 
 export function filterFollowupsByTab(followups, tab) {
-  if (tab === 'overdue') return followups.filter(task => task.isOverdue)
-  if (tab === 'urgent') return followups.filter(task => task.isUrgent && !task.isOverdue)
-  if (tab === 'pending') return followups.filter(task => !task.isOverdue)
+  if (tab === 'overdue') return followups.filter(task => task.taskStatus !== 'ended' && task.isOverdue)
+  if (tab === 'urgent') return followups.filter(task => task.taskStatus !== 'ended' && task.isUrgent && !task.isOverdue)
+  if (tab === 'pending') return followups.filter(task => task.taskStatus !== 'ended' && !task.isOverdue && !task.isUrgent)
   return followups
 }
 

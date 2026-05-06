@@ -562,8 +562,9 @@ export function AppProvider({ children }) {
         followUpTaskMeta: {
           ...taskMeta,
           id: r.followUpTaskId || taskMeta.id,
-          status: 'pending',
+          taskStatus: 'active',
           nextVisitDate: r.rehabPlan?.followupDate || taskMeta.nextVisitDate,
+          nextScheduledDate: r.rehabPlan?.followupDate || taskMeta.nextVisitDate,
           visitCount: taskMeta.visitCount ?? 0,
           lastFollowupAt: taskMeta.lastFollowupAt ?? null,
           records: taskMeta.records ?? [],
@@ -588,12 +589,20 @@ export function AppProvider({ children }) {
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
+      if (taskMeta.taskStatus !== 'active') return r
       const entry = {
+        visitId: `fur-${Date.now()}`,
         id: `fur-${Date.now()}`,
         type: 'followup',
+        outcome: 'contacted',
         status: '随访已记录',
+        channel: payload.method,
         method: payload.method,
+        visitDate: toDateOnly(payload.followupDate),
         followupDate: toDateOnly(payload.followupDate),
+        attemptedBy: currentUser.id,
+        attemptedByName: currentUser.name,
+        assessment: payload.patientStatus === '好转' ? 'improving' : payload.patientStatus === '需关注' || payload.patientStatus === '需上转' ? 'worsening' : 'stable',
         patientStatus: payload.patientStatus,
         metricSummary: Object.entries(payload.metrics || {})
           .filter(([, value]) => value)
@@ -604,7 +613,9 @@ export function AppProvider({ children }) {
           ? '建议尽快复诊并评估是否重新发起转诊。'
           : (payload.nextFollowupDate ? `建议于 ${toDateOnly(payload.nextFollowupDate)} 前完成下一次随访。` : '按医嘱继续居家观察与康复训练。'),
         nextFollowupDate: payload.nextFollowupDate || '',
+        nextScheduledDate: payload.nextFollowupDate || '',
         doctorName: currentUser.name,
+        createdAt: nowIso,
       }
 
       return {
@@ -612,8 +623,9 @@ export function AppProvider({ children }) {
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          status: 'in_progress',
+          taskStatus: 'active',
           nextVisitDate: payload.nextFollowupDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
+          nextScheduledDate: payload.nextFollowupDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
           visitCount: (taskMeta.visitCount || 0) + 1,
           lastFollowupAt: toDateOnly(payload.followupDate),
           records: [entry, ...(taskMeta.records || [])],
@@ -630,25 +642,38 @@ export function AppProvider({ children }) {
       }
     }))
     return { success: true }
-  }, [currentUser.name])
+  }, [currentUser.id, currentUser.name])
 
-  const markFollowupUnreachable = useCallback((referralId, reason) => {
+  const markFollowupUnreachable = useCallback((referralId, payload) => {
     const nowIso = new Date().toISOString()
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
+      if (taskMeta.taskStatus !== 'active') return r
+      const note = typeof payload === 'string' ? payload : payload?.note
+      const method = typeof payload === 'object' ? payload.method : '电话'
+      const nextDate = typeof payload === 'object' ? payload.nextFollowupDate : ''
       const entry = {
+        visitId: `fur-unreachable-${Date.now()}`,
         id: `fur-unreachable-${Date.now()}`,
         type: 'unreachable',
+        outcome: 'not_contacted',
         status: '未联系上',
-        method: '电话',
+        channel: method,
+        method,
+        visitDate: toDateOnly(nowIso),
         followupDate: toDateOnly(nowIso),
+        attemptedBy: currentUser.id,
+        attemptedByName: currentUser.name,
         patientStatus: '未联系上',
         metricSummary: '',
-        summary: reason || '本次尝试联系未成功',
+        notReachedNote: note || '',
+        summary: note || '本次尝试联系未成功',
         advice: '任务保持待随访，请后续继续联系患者。',
-        nextFollowupDate: taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
+        nextFollowupDate: nextDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
+        nextScheduledDate: nextDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
         doctorName: currentUser.name,
+        createdAt: nowIso,
       }
 
       return {
@@ -656,10 +681,11 @@ export function AppProvider({ children }) {
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          status: 'pending',
-          nextVisitDate: taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
-          visitCount: taskMeta.visitCount || 0,
-          lastFollowupAt: taskMeta.lastFollowupAt || null,
+          taskStatus: 'active',
+          nextVisitDate: nextDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
+          nextScheduledDate: nextDate || taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
+          visitCount: (taskMeta.visitCount || 0) + 1,
+          lastFollowupAt: toDateOnly(nowIso),
           records: [entry, ...(taskMeta.records || [])],
           assignedDoctorId: r.downwardAssignedDoctorId || taskMeta.assignedDoctorId,
           assignedDoctorName: r.downwardAssignedDoctorName || taskMeta.assignedDoctorName,
@@ -669,12 +695,12 @@ export function AppProvider({ children }) {
         },
         logs: [
           ...r.logs,
-          { time: nowIso, actor: currentUser.name, action: '记录一次未联系随访，任务保持待随访', note: reason || '本次尝试联系未成功' },
+          { time: nowIso, actor: currentUser.name, action: '记录一次未联系随访，任务保持待随访', note: note || '本次尝试联系未成功' },
         ],
       }
     }))
     return { success: true }
-  }, [currentUser.name])
+  }, [currentUser.id, currentUser.name])
 
   const requestFollowupReassign = useCallback((referralId, reason) => {
     const nowIso = new Date().toISOString()
@@ -684,31 +710,27 @@ export function AppProvider({ children }) {
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
-      const entry = {
-        id: `fur-reassign-${Date.now()}`,
-        type: 'reassign',
-        status: '已申请转派',
-        method: '系统提交',
-        followupDate: toDateOnly(nowIso),
-        patientStatus: '待负责人处理',
-        metricSummary: '',
-        summary: reason || '已提交转派申请',
-        advice: '等待基层负责人处理转派申请。',
-        nextFollowupDate: taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
-        doctorName: currentUser.name,
-      }
+      if (taskMeta.taskStatus !== 'active' || taskMeta.reassignmentPending) return r
 
       return {
         ...r,
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          status: taskMeta.status || 'pending',
+          taskStatus: 'active',
           nextVisitDate: taskMeta.nextVisitDate || r.rehabPlan?.followupDate || '',
           visitCount: taskMeta.visitCount || 0,
           lastFollowupAt: taskMeta.lastFollowupAt || null,
-          records: [entry, ...(taskMeta.records || [])],
+          records: taskMeta.records || [],
           reassignStatus: 'requested',
+          reassignmentPending: {
+            requestedBy: currentUser.id,
+            requestedByName: currentUser.name,
+            requestedAt: nowIso,
+            requestReason: reason || '已提交转派申请',
+            targetSuggestion: null,
+            targetSuggestionName: '',
+          },
           reassignRequestedById: currentUser.id,
           reassignRequestedByName: currentUser.name,
           reassignRequestedAt: nowIso,
@@ -738,7 +760,7 @@ export function AppProvider({ children }) {
     return { success: true }
   }, [addNotification, currentUser.id, currentUser.name, referrals])
 
-  const assignFollowupReassign = useCallback((referralId, doctorId, doctorName) => {
+  const assignFollowupReassign = useCallback((referralId, doctorId, doctorName, reason = '') => {
     const nowIso = new Date().toISOString()
     const referral = referrals.find(item => item.id === referralId)
     if (!referral) return { success: false, error: 'NOT_FOUND' }
@@ -746,34 +768,52 @@ export function AppProvider({ children }) {
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
+      if (taskMeta.taskStatus !== 'active') return r
+      const previousDoctorId = taskMeta.assignedDoctorId || r.downwardAssignedDoctorId || null
+      const previousDoctorName = taskMeta.assignedDoctorName || r.downwardAssignedDoctorName || r.toDoctor || ''
+      const triggeredBy = taskMeta.reassignmentPending ? 'doctor_request_approved' : 'coordinator_direct'
 
       return {
         ...r,
+        downwardAssignedDoctorId: doctorId,
+        downwardAssignedDoctorName: doctorName,
+        toDoctor: doctorName,
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          status: taskMeta.status || 'pending',
-          reassignStatus: 'assigned',
-          proposedDoctorId: doctorId,
-          proposedDoctorName: doctorName,
-          reassignAssignedAt: nowIso,
-          reassignRejectedReason: '',
-          reassignRejectedById: null,
-          reassignRejectedByName: '',
+          taskStatus: 'active',
+          assignedDoctorId: doctorId,
+          assignedDoctorName: doctorName,
+          reassignStatus: 'none',
+          reassignmentPending: null,
+          reassignmentLog: [
+            ...(taskMeta.reassignmentLog || []),
+            {
+              at: nowIso,
+              fromDoctorId: previousDoctorId,
+              fromDoctorName: previousDoctorName,
+              toDoctorId: doctorId,
+              toDoctorName: doctorName,
+              triggeredBy,
+              reason: reason || '负责人指派',
+            },
+          ],
+          proposedDoctorId: null,
+          proposedDoctorName: '',
           updatedAt: nowIso,
         },
         logs: [
           ...r.logs,
-          { time: nowIso, actor: currentUser.name, action: '处理随访转派申请', note: `转派给${doctorName}` },
-          { time: nowIso, actor: '系统', action: `通知${doctorName}：有新的随访转派任务待确认` },
+          { time: nowIso, actor: currentUser.name, action: taskMeta.reassignmentPending ? '批准随访转派申请' : '直接转派随访任务', note: `转派给${doctorName}；${reason || '负责人指派'}` },
+          { time: nowIso, actor: '系统', action: `随访任务责任医生已变更为${doctorName}` },
         ],
       }
     }))
 
     addNotification({
       type: 'followup_reassign_assigned',
-      title: '随访转派任务待确认',
-      content: `患者${referral.patient?.name || '—'}的随访任务已转派给您，请确认是否接收`,
+      title: '随访任务已转派',
+      content: `患者${referral.patient?.name || '—'}的随访任务已转派给您，请及时处理`,
       targetRole: ROLES.PRIMARY,
       targetUserId: doctorId,
       targetInstitution: referral.toInstitution,
@@ -783,66 +823,71 @@ export function AppProvider({ children }) {
     return { success: true }
   }, [addNotification, currentUser.name, referrals])
 
-  const acceptFollowupReassign = useCallback((referralId) => {
+  const rejectFollowupReassignRequest = useCallback((referralId, reason = '') => {
     const nowIso = new Date().toISOString()
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
-      if (taskMeta.reassignStatus !== 'assigned' || taskMeta.proposedDoctorId !== currentUser.id) return r
+      if (taskMeta.taskStatus !== 'active' || !taskMeta.reassignmentPending) return r
 
       return {
         ...r,
-        downwardAssignedDoctorId: currentUser.id,
-        downwardAssignedDoctorName: currentUser.name,
-        toDoctor: currentUser.name,
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          status: taskMeta.status || 'pending',
-          assignedDoctorId: currentUser.id,
-          assignedDoctorName: currentUser.name,
-          reassignStatus: 'accepted',
-          proposedDoctorId: null,
-          proposedDoctorName: '',
-          reassignRejectedReason: '',
-          reassignRejectedById: null,
-          reassignRejectedByName: '',
+          taskStatus: 'active',
+          reassignStatus: 'none',
+          reassignmentPending: null,
+          reassignmentLog: [
+            ...(taskMeta.reassignmentLog || []),
+            {
+              at: nowIso,
+              fromDoctorId: taskMeta.assignedDoctorId || r.downwardAssignedDoctorId || null,
+              fromDoctorName: taskMeta.assignedDoctorName || r.downwardAssignedDoctorName || r.toDoctor || '',
+              toDoctorId: null,
+              toDoctorName: null,
+              triggeredBy: 'doctor_request_rejected',
+              reason: reason || '负责人拒绝转派申请',
+            },
+          ],
           updatedAt: nowIso,
         },
         logs: [
           ...r.logs,
-          { time: nowIso, actor: currentUser.name, action: '接受随访转派任务' },
-          { time: nowIso, actor: '系统', action: `随访任务责任医生已变更为${currentUser.name}` },
+          { time: nowIso, actor: currentUser.name, action: '拒绝随访转派申请', note: reason || '负责人拒绝转派申请' },
         ],
       }
     }))
     return { success: true }
-  }, [currentUser.id, currentUser.name])
+  }, [currentUser.name])
 
-  const rejectFollowupReassign = useCallback((referralId, reason) => {
+  const endFollowupTask = useCallback((referralId, reason) => {
     const nowIso = new Date().toISOString()
     setReferrals(prev => prev.map(r => {
       if (r.id !== referralId) return r
       const taskMeta = resolveFollowupTaskMeta(r)
-      if (taskMeta.reassignStatus !== 'assigned' || taskMeta.proposedDoctorId !== currentUser.id) return r
+      if (taskMeta.taskStatus !== 'active') return r
 
       return {
         ...r,
         updatedAt: nowIso,
         followUpTaskMeta: {
           ...taskMeta,
-          reassignStatus: 'rejected',
-          reassignRejectedReason: reason || '目标医生拒绝接收',
-          reassignRejectedById: currentUser.id,
-          reassignRejectedByName: currentUser.name,
+          taskStatus: 'ended',
+          endedReason: 'other',
+          endedReasonText: reason || '',
+          endedBy: currentUser.id,
+          endedByName: currentUser.name,
+          endedAt: nowIso,
+          reassignmentPending: null,
+          reassignStatus: 'none',
           proposedDoctorId: null,
           proposedDoctorName: '',
           updatedAt: nowIso,
         },
         logs: [
           ...r.logs,
-          { time: nowIso, actor: currentUser.name, action: '拒绝随访转派任务', note: reason || '目标医生拒绝接收' },
-          { time: nowIso, actor: '系统', action: '已退回基层负责人重新转派' },
+          { time: nowIso, actor: currentUser.name, action: '结束随访任务', note: reason || '未填写原因' },
         ],
       }
     }))
@@ -2233,8 +2278,8 @@ export function AppProvider({ children }) {
       markFollowupUnreachable,
       requestFollowupReassign,
       assignFollowupReassign,
-      acceptFollowupReassign,
-      rejectFollowupReassign,
+      rejectFollowupReassignRequest,
+      endFollowupTask,
     }}>
       {children}
     </AppContext.Provider>

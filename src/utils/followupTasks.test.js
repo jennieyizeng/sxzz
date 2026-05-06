@@ -61,7 +61,8 @@ test('shows only personal followup tasks for primary doctor', () => {
   assert.equal(result[0].assignedDoctor, '王医生')
   assert.equal(result[0].downwardDate, '2099-04-01')
   assert.equal(result[0].lastFollowupAt, '2099-04-05')
-  assert.equal(result[0].status, '随访中')
+  assert.equal(result[0].taskStatus, 'active')
+  assert.equal(result[0].status, '待随访')
 })
 
 test('includes in-transit downward referrals after a followup task has already been created', () => {
@@ -108,7 +109,7 @@ test('shows all institution followup tasks for primary head', () => {
   assert.deepEqual(result.map(task => task.assignedDoctor), ['王医生', '李慧医生'])
 })
 
-test('derives followup status variants for overdue, completed, and lost tasks', () => {
+test('derives CHG-43 followup task statuses without mixing overdue or visit outcome into the status column', () => {
   const currentUser = {
     id: 'u001_head',
     name: '赵负责人',
@@ -157,7 +158,10 @@ test('derives followup status variants for overdue, completed, and lost tasks', 
     },
   ], currentUser)
 
-  assert.deepEqual(result.map(task => task.status), ['已逾期', '已完成', '已失访'])
+  assert.deepEqual(result.map(task => task.status), ['待随访', '已结束', '已结束'])
+  assert.deepEqual(result.map(task => task.taskStatus), ['active', 'ended', 'ended'])
+  assert.deepEqual(result.map(task => task.endedReason), [null, 'completed_plan', 'lost_contact'])
+  assert.equal(result[0].isOverdue, true)
 })
 
 test('filters institution tasks by assigned doctor', () => {
@@ -174,11 +178,11 @@ test('filters institution tasks by assigned doctor', () => {
 
 test('counts followup cards by current scope', () => {
   const followups = [
-    { status: '待随访', isOverdue: false, isUrgent: false },
-    { status: '已逾期', isOverdue: true, isUrgent: false },
-    { status: '随访中', isOverdue: false, isUrgent: true },
-    { status: '已完成', isOverdue: false, isUrgent: false },
-    { status: '已失访', isOverdue: false, isUrgent: false },
+    { taskStatus: 'active', status: '待随访', isOverdue: false, isUrgent: false },
+    { taskStatus: 'active', status: '待随访', isOverdue: true, isUrgent: false },
+    { taskStatus: 'active', status: '待随访', isOverdue: false, isUrgent: true },
+    { taskStatus: 'ended', status: '已结束', isOverdue: false, isUrgent: false },
+    { taskStatus: 'ended', status: '已结束', isOverdue: false, isUrgent: false },
   ]
 
   const counts = getFollowupCounts(followups)
@@ -189,6 +193,105 @@ test('counts followup cards by current scope', () => {
     urgent: 1,
     pending: 1,
   })
+})
+
+test('normalizes followup visit records into contacted and not-contacted outcomes', () => {
+  const currentUser = {
+    id: 'u001',
+    name: '王医生',
+    role: ROLES.PRIMARY,
+    institution: 'xx市拱星镇卫生院',
+  }
+
+  const detail = buildFollowupTaskDetail([
+    {
+      id: 'REF_OUTCOME',
+      type: 'downward',
+      status: '已完成',
+      toInstitution: 'xx市拱星镇卫生院',
+      fromInstitution: 'xx市人民医院',
+      toDoctor: '王医生',
+      downwardAssignedDoctorId: 'u001',
+      patient: { name: '赵九', age: 69, gender: '男' },
+      diagnosis: { name: '脑梗死' },
+      rehabPlan: { followupDate: '2099-04-16', indicators: ['血压'] },
+      followUpTaskMeta: {
+        taskStatus: 'active',
+        records: [
+          {
+            id: 'visit-1',
+            outcome: 'not_contacted',
+            channel: 'phone',
+            visitDate: '2099-04-08',
+            notReachedNote: '无人接听',
+            nextScheduledDate: '2099-04-10',
+            attemptedByName: '王医生',
+          },
+          {
+            id: 'visit-2',
+            outcome: 'contacted',
+            channel: 'wechat',
+            visitDate: '2099-04-09',
+            assessment: 'improving',
+            summary: '恢复较好',
+            advice: '继续训练',
+            nextScheduledDate: '2099-04-16',
+            attemptedByName: '王医生',
+          },
+        ],
+      },
+    },
+  ], currentUser, 'REF_OUTCOME')
+
+  assert.deepEqual(detail?.historyRecords.map(item => item.outcome), ['contacted', 'not_contacted'])
+  assert.equal(detail?.historyRecords[0].assessmentLabel, '好转')
+  assert.equal(detail?.historyRecords[1].assessmentLabel, '未联系上')
+  assert.equal(detail?.historyRecords[1].summary, '无人接听')
+})
+
+test('shows reassigned followup tasks to the newly assigned primary doctor', () => {
+  const currentUser = {
+    id: 'u101',
+    name: '李慧医生',
+    role: ROLES.PRIMARY,
+    institution: 'xx市拱星镇卫生院',
+  }
+
+  const result = buildScopedFollowups([
+    {
+      id: 'REF_REASSIGNED',
+      type: 'downward',
+      status: '已完成',
+      toInstitution: 'xx市拱星镇卫生院',
+      fromInstitution: 'xx市人民医院',
+      toDoctor: '王医生',
+      downwardAssignedDoctorId: 'u001',
+      patient: { name: '钱十', age: 66, gender: '女' },
+      diagnosis: { name: '高血压' },
+      rehabPlan: { followupDate: '2099-04-18', indicators: ['血压'] },
+      followUpTaskMeta: {
+        taskStatus: 'active',
+        assignedDoctorId: 'u101',
+        assignedDoctorName: '李慧医生',
+        reassignmentLog: [
+          {
+            at: '2099-04-12T08:00:00.000Z',
+            fromDoctorId: 'u001',
+            fromDoctorName: '王医生',
+            toDoctorId: 'u101',
+            toDoctorName: '李慧医生',
+            triggeredBy: 'doctor_request_approved',
+            reason: '患者居住地调整',
+          },
+        ],
+      },
+    },
+  ], currentUser)
+
+  assert.equal(result.length, 1)
+  assert.equal(result[0].referralId, 'REF_REASSIGNED')
+  assert.equal(result[0].assignedDoctor, '李慧医生')
+  assert.equal(result[0].reassignDisplayStatus, '已转派')
 })
 
 test('builds followup task detail from current scoped referral and task meta', () => {

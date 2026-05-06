@@ -6,6 +6,8 @@ import StatusBadge from '../../components/StatusBadge'
 import { buildFollowupTaskDetail } from '../../utils/followupTasks'
 
 const inputCls = 'w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-cyan-100'
+const headerActionCls = 'px-3.5 py-2 text-sm rounded-lg font-medium transition-colors'
+const endTaskButtonCls = `${headerActionCls} text-white shadow-sm hover:shadow-md`
 
 function fmtDate(value) {
   if (!value || value === '—') return '—'
@@ -224,6 +226,62 @@ function ActionDialog({ title, description, confirmText, onCancel, onConfirm, pl
   )
 }
 
+function NotContactedDialog({ initialDate, onCancel, onConfirm }) {
+  const [form, setForm] = useState({
+    method: '电话',
+    note: '',
+    nextFollowupDate: initialDate || '',
+  })
+  const canConfirm = form.method && form.nextFollowupDate
+
+  function update(field, value) {
+    setForm(prev => ({ ...prev, [field]: value }))
+  }
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center">
+      <div className="absolute inset-0 bg-black/40" onClick={onCancel} />
+      <div className="relative bg-white rounded-xl shadow-2xl w-full max-w-md mx-4 overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
+        <div className="px-5 py-4 border-b border-gray-100">
+          <div className="text-base font-semibold text-gray-800">本次未联系上</div>
+          <div className="text-sm text-gray-500 mt-1">记录本次尝试结果，任务仍保持待随访。</div>
+        </div>
+        <div className="p-5 space-y-4">
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">联系方式<span className="text-red-500 ml-1">*</span></label>
+            <select value={form.method} onChange={event => update('method', event.target.value)} className={inputCls}>
+              <option value="电话">电话</option>
+              <option value="微信">微信</option>
+              <option value="上门">上门</option>
+            </select>
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">备注</label>
+            <textarea rows={3} value={form.note} onChange={event => update('note', event.target.value)} className={`${inputCls} resize-none`} placeholder="例如：电话无人接听，计划明日上午再次联系" />
+          </div>
+          <div>
+            <label className="block text-sm font-medium text-gray-700 mb-2">下次尝试日期<span className="text-red-500 ml-1">*</span></label>
+            <input type="date" value={form.nextFollowupDate} onChange={event => update('nextFollowupDate', event.target.value)} className={inputCls} />
+          </div>
+          <div className="flex items-center justify-end gap-3">
+            <button onClick={onCancel} className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50">
+              取消
+            </button>
+            <button
+              disabled={!canConfirm}
+              onClick={() => canConfirm && onConfirm(form)}
+              className={`px-4 py-2 text-sm rounded-lg text-white ${canConfirm ? '' : 'opacity-50 cursor-not-allowed'}`}
+              style={{ background: '#0BBECF' }}
+            >
+              确认记录
+            </button>
+          </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
 export default function PrimaryFollowupTaskDetail() {
   const { id } = useParams()
   const navigate = useNavigate()
@@ -232,9 +290,7 @@ export default function PrimaryFollowupTaskDetail() {
     currentUser,
     recordFollowupVisit,
     markFollowupUnreachable,
-    requestFollowupReassign,
-    acceptFollowupReassign,
-    rejectFollowupReassign,
+    endFollowupTask,
   } = useApp()
   const detail = useMemo(() => buildFollowupTaskDetail(referrals, currentUser, id), [referrals, currentUser, id])
   const [notice, setNotice] = useState('')
@@ -246,9 +302,7 @@ export default function PrimaryFollowupTaskDetail() {
   }
 
   const monitoredIndicators = detail.followupGoals.filter(item => item.monitored).map(item => item.label)
-  const isPendingIncomingReassign = detail.reassignStatus === 'assigned' && detail.proposedDoctorId === currentUser.id
-  const hasActiveReassignRequest = ['requested', 'assigned'].includes(detail.reassignStatus)
-  const canRecordCurrentFollowup = detail.canRecordFollowup && !isPendingIncomingReassign
+  const canRecordCurrentFollowup = detail.canRecordFollowup
   const rehabPlan = detail.referral.rehabPlan || {}
   const medicationList = [
     ...(rehabPlan.medications || []).map(item => item.displayText || [item.name, item.spec, item.usage].filter(Boolean).join(' · ')),
@@ -274,27 +328,16 @@ export default function PrimaryFollowupTaskDetail() {
     flash('已记录本次随访，并写入历次随访记录')
   }
 
-  function handleUnreachable(reason) {
-    markFollowupUnreachable(detail.referralId, reason)
+  function handleUnreachable(payload) {
+    markFollowupUnreachable(detail.referralId, payload)
     setDialog(null)
-    flash('已记录“未联系上”，任务仍保持待随访')
+    flash('已记录“本次未联系上”，任务仍保持待随访')
   }
 
-  function handleReassign(reason) {
-    requestFollowupReassign(detail.referralId, reason)
+  function handleEndTask(reason) {
+    endFollowupTask(detail.referralId, reason)
     setDialog(null)
-    flash(`已提交转派申请${reason ? `：${reason}` : ''}`)
-  }
-
-  function handleAcceptReassign() {
-    acceptFollowupReassign(detail.referralId)
-    flash('已接受转派，随访任务已转入您的待随访列表')
-  }
-
-  function handleRejectReassign(reason) {
-    rejectFollowupReassign(detail.referralId, reason)
-    setDialog(null)
-    flash('已拒绝转派，任务将退回基层负责人重新处理')
+    flash('已结束随访任务')
   }
 
   const recordDraft = {
@@ -314,51 +357,38 @@ export default function PrimaryFollowupTaskDetail() {
         </div>
       )}
 
-      <div className="mb-4 flex items-start gap-4">
-        <div>
-          <h2 className="text-base font-semibold text-gray-800">随访任务详情</h2>
-          <div className="text-xs text-gray-400 mt-0.5">
-            基层医生执行单个随访任务的工作页，转诊单作为参考资料子入口
-          </div>
+      <div className="mb-5 flex items-center gap-4">
+        <div className="min-w-0">
+          <h2 className="text-xl font-semibold text-gray-900">随访任务详情</h2>
         </div>
-        <div className="ml-auto flex items-center gap-2">
+        <div className="ml-auto flex items-center gap-2.5">
           <button
             onClick={() => navigate('/primary/followup')}
-            className="px-2.5 py-1.5 text-xs rounded-lg border border-gray-200 text-gray-600 hover:bg-gray-50"
+            className={`${headerActionCls} border border-gray-200 text-gray-600 bg-white hover:bg-gray-50`}
           >
             返回任务列表
           </button>
           <button
             onClick={() => navigate(`/referral/${detail.referralId}`)}
-            className="px-3 py-1.5 text-xs rounded-lg text-white"
+            className={`${headerActionCls} text-white`}
             style={{ background: '#0BBECF' }}
           >
             查看关联转诊单
           </button>
+          {detail.taskStatus === 'active' && (
+            <button
+              onClick={() => setDialog('endTask')}
+              className={endTaskButtonCls}
+              style={{ background: '#dc2626', boxShadow: '0 8px 18px rgba(220, 38, 38, 0.22)' }}
+            >
+              结束任务
+            </button>
+          )}
         </div>
       </div>
 
       <div className="space-y-4">
         <PatientSummaryStrip detail={detail} />
-
-        {isPendingIncomingReassign && (
-          <InfoCard title="转派确认">
-            <div className="rounded-xl px-4 py-4 mb-4" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
-              <div className="text-sm font-medium text-gray-800">有新的随访转派任务待您确认</div>
-              <div className="text-xs text-gray-500 mt-1">
-                转派原因：{detail.pendingReassignReason || '负责人转派'}
-              </div>
-            </div>
-            <div className="flex items-center gap-3">
-              <button onClick={handleAcceptReassign} className="px-4 py-2 text-sm rounded-lg text-white" style={{ background: '#059669' }}>
-                接受转派
-              </button>
-              <button onClick={() => setDialog('rejectReassign')} className="px-4 py-2 text-sm rounded-lg border border-red-200 text-red-600 hover:bg-red-50">
-                拒绝转派
-              </button>
-            </div>
-          </InfoCard>
-        )}
 
         <InfoCard title="本次随访要点">
           <div className="grid grid-cols-2 gap-4">
@@ -408,9 +438,7 @@ export default function PrimaryFollowupTaskDetail() {
         <InfoCard title="记录随访信息">
           <div className="rounded-xl px-4 py-4 mb-4" style={{ background: '#F8FDFE', border: '1px solid #DDF0F3' }}>
             <div className="text-sm text-gray-700">
-              {detail.isRejectedReassignViewer
-                ? '您已拒绝本次转派，仅可查看随访信息。'
-                : '优先记录本次随访；若本次未联系上患者，请直接标记未联系上并保留任务为待随访。'}
+              优先记录本次随访；若本次未联系上患者，请直接记录本次未联系上并保留任务为待随访。
             </div>
           </div>
           <div className="flex items-center gap-3 flex-wrap">
@@ -427,15 +455,7 @@ export default function PrimaryFollowupTaskDetail() {
               disabled={!canRecordCurrentFollowup}
               className={`px-4 py-2 text-sm rounded-lg border border-gray-300 text-gray-700 hover:bg-gray-50 ${!canRecordCurrentFollowup ? 'opacity-50 cursor-not-allowed' : ''}`}
             >
-              标记未联系上
-            </button>
-            <button
-              onClick={() => canRecordCurrentFollowup && setDialog('reassign')}
-              disabled={!canRecordCurrentFollowup || hasActiveReassignRequest}
-              className="text-sm font-medium"
-              style={{ color: !canRecordCurrentFollowup || hasActiveReassignRequest ? '#9ca3af' : '#0892a0' }}
-            >
-              {hasActiveReassignRequest ? '已申请转派' : '申请转派'}
+              本次未联系上
             </button>
           </div>
         </InfoCard>
@@ -451,41 +471,26 @@ export default function PrimaryFollowupTaskDetail() {
       )}
 
       {dialog === 'unreachable' && (
-        <ActionDialog
-          title="标记未联系上"
-          description="请填写本次未联系上的情况说明。系统将新增一条历史记录，但任务仍保持待随访。"
-          confirmText="确认记录"
-          placeholder="例如：电话无人接听，计划明日上午再次联系"
+        <NotContactedDialog
+          initialDate={detail.followupDate}
           onCancel={() => setDialog(null)}
           onConfirm={handleUnreachable}
         />
       )}
 
-      {dialog === 'reassign' && (
+      {dialog === 'endTask' && (
         <ActionDialog
-          title="申请转派"
-          description="请填写转派申请原因，提交后由负责人继续处理。"
-          confirmText="提交申请"
-          reasonLabel="转派原因"
+          title="结束任务"
+          description="结束后任务不可撤销，请填写结束原因。若选择其他原因，请在文本中说明。"
+          confirmText="确认结束任务，此操作不可撤销"
+          reasonLabel="结束原因"
           required
-          placeholder="例如：患者迁居外镇，建议改派更近机构继续随访"
+          placeholder="可填写：完成计划、患者康复、转回县级、失联、死亡或其他说明"
           onCancel={() => setDialog(null)}
-          onConfirm={handleReassign}
+          onConfirm={handleEndTask}
         />
       )}
 
-      {dialog === 'rejectReassign' && (
-        <ActionDialog
-          title="拒绝转派"
-          description="请填写无法接收该随访任务的原因，提交后将退回基层负责人重新转派。"
-          confirmText="确认拒绝"
-          reasonLabel="拒绝原因"
-          required
-          placeholder="例如：近期外出下乡，无法按期完成该患者随访"
-          onCancel={() => setDialog(null)}
-          onConfirm={handleRejectReassign}
-        />
-      )}
     </div>
   )
 }
