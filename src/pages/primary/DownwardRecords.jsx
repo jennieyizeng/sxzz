@@ -9,7 +9,7 @@ import { shouldShowDownwardReferralForPrimaryDoctor } from '../../utils/primaryD
 function fmt(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
-  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')}`
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
 }
 
 function RowNo({ n }) {
@@ -41,6 +41,10 @@ function getCurrentOwner(ref) {
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
+
+function getReferralNo(ref) {
+  return ref.referralCode || ref.referralNo || ref.id || '—'
+}
 
 export default function PrimaryDownwardRecords() {
   const navigate = useNavigate()
@@ -129,7 +133,7 @@ export default function PrimaryDownwardRecords() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者', '性别/年龄', '当前诊断（ICD-10）', '转出机构', '接收方式', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
+              {['序号', '患者信息', '当前诊断（ICD-10）', '转诊单号', '转出机构', '接收方式', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
@@ -146,12 +150,32 @@ export default function PrimaryDownwardRecords() {
                 onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFEFE'}
               >
                 <td className={TD}><RowNo n={i + 1} /></td>
-                <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}</td>
-                <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender}/{ref.patient.age}岁</td>
+                <td className={TD}>
+                  <div className="flex items-center gap-1.5 whitespace-nowrap">
+                    {ref.is_emergency && (
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+                        {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                      </span>
+                    )}
+                    {ref.referral_type === 'green_channel' && (
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+                    )}
+                    {ref.isRetroEntry && (
+                      <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">
+                        补录
+                      </span>
+                    )}
+                    <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                  </div>
+                  <div className="mt-0.5 text-xs text-gray-400">
+                    {ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}
+                  </div>
+                </td>
                 <td className={TD + ' text-xs'}>
                   <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>
                   {ref.diagnosis.name}
                 </td>
+                <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                 <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution || '—'}</td>
                 <td className={TD + ' text-xs text-gray-600'}>{getAllocationLabel(ref)}</td>
                 <td className={TD}>

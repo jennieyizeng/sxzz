@@ -170,7 +170,7 @@ function DiseaseRuleModal({ disease, master, onCancel, onSave }) {
                   </label>
                 ))}
               </div>
-              <p className="text-xs text-gray-400 mt-2">管理属性标签仅用于转诊台账、统计分析和政策口径归类，不参与自动分诊、不推荐科室、不改变转诊流程。</p>
+              <p className="text-xs text-gray-400 mt-2">管理属性标签用于转诊台账、统计分析和政策口径归类；绿色通道病种标识可在发起上转时触发风险提示，但不自动改变转诊类型、不自动分诊。</p>
             </section>
           </div>
 

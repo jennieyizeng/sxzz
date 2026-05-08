@@ -754,6 +754,7 @@ export const SYSTEM_TERMINOLOGY_ICD10_MASTER = [
   { id: 'ICD006', code: 'E11.9', name: '2型糖尿病不伴并发症', category: '内分泌系统', sourceSystem: '医共体术语信息管理系统' },
   { id: 'ICD007', code: 'I48.9', name: '心房颤动', category: '循环系统', sourceSystem: '医共体术语信息管理系统' },
   { id: 'ICD008', code: 'K92.1', name: '黑粪', category: '消化系统', sourceSystem: '医共体术语信息管理系统' },
+  { id: 'ICD009', code: 'S72.0', name: '股骨颈骨折', category: '其他', sourceSystem: '医共体术语信息管理系统' },
 ]
 
 export const SYSTEM_DISEASE_CONFIGS = [
@@ -811,5 +812,16 @@ export const SYSTEM_DISEASE_CONFIGS = [
     greenCenter: '',
     managementTags: ['慢病管理'],
     enabled: false,
+  },
+  {
+    id: 'D006',
+    terminologyId: 'ICD009',
+    code: 'S72.0',
+    name: '股骨颈骨折',
+    category: '其他',
+    greenChannel: true,
+    greenCenter: '创伤中心',
+    managementTags: ['分级诊疗重点病种'],
+    enabled: true,
   },
 ]

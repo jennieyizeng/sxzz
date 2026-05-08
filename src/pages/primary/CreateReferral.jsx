@@ -2,8 +2,8 @@ import { useState } from 'react'
 import { useNavigate, useLocation } from 'react-router-dom'
 import ConsentOfflinePanel from '../../components/ConsentOfflinePanel'
 import { useApp } from '../../context/AppContext'
-import { ICD10_LIST, INSTITUTIONS } from '../../data/mockData'
-import { SYSTEM_DISEASE_CONFIGS } from '../../data/systemAdminConfig'
+import { INSTITUTIONS } from '../../data/mockData'
+import { SYSTEM_DISEASE_CONFIGS, SYSTEM_TERMINOLOGY_ICD10_MASTER } from '../../data/systemAdminConfig'
 import {
   buildEmergencyInitialSms,
   buildEmergencyUrgencyFeedback,
@@ -99,26 +99,6 @@ const MOCK_INPATIENT_PATIENTS = [
   },
 ]
 
-function getLinkedSpecialtySuggestion(diagnosisCode, institution) {
-  const code = String(diagnosisCode || '').toUpperCase()
-  const departmentCandidates = institution?.departments || []
-  const match = (
-    code.startsWith('I21') || code.startsWith('I22')
-      ? ['心内科', '心血管科']
-      : code.startsWith('I63') || code.startsWith('I61')
-        ? ['神经内科']
-        : code.startsWith('S') || code.startsWith('T')
-          ? ['骨科', '外科', '骨伤科']
-          : code.startsWith('O')
-            ? ['妇产科']
-            : code.startsWith('P')
-              ? ['儿科']
-              : []
-  )
-
-  return match.find(item => departmentCandidates.includes(item)) || null
-}
-
 function getGreenChannelDiseaseMatch(diagnosisCode) {
   const code = String(diagnosisCode || '').toUpperCase()
   if (!code) return null
@@ -177,7 +157,7 @@ function ICD10Search({ value, onChange, required = false, placeholder = '输入�
   const [open, setOpen] = useState(false)
 
   const filtered = query.length >= 1
-    ? ICD10_LIST.filter(item =>
+    ? SYSTEM_TERMINOLOGY_ICD10_MASTER.filter(item =>
       item.name.includes(query) || item.code.toLowerCase().includes(query.toLowerCase())
     )
     : []
@@ -315,6 +295,8 @@ export default function CreateReferral() {
   const [outpatientConditionAssessment, setOutpatientConditionAssessment] = useState('')
   const [patientLinkMode, setPatientLinkMode] = useState(null)
   const [linkedPatient, setLinkedPatient] = useState(null)
+  const [greenChannelPrompt, setGreenChannelPrompt] = useState(null)
+  const [greenChannelNormalChoice, setGreenChannelNormalChoice] = useState(null)
   const [form, setForm] = useState({
     patientId: prefill?.patient?.id || '',
     patientName: prefill?.patient?.name || '',
@@ -349,7 +331,11 @@ export default function CreateReferral() {
 
   const selectedInstitution = INSTITUTIONS.find(item => item.id === form.toInstitutionId)
   const selectedDeptInfo = selectedInstitution?.departmentInfo?.[form.toDept]
-  const matchedGreenChannelDisease = getGreenChannelDiseaseMatch(form.diagnosis?.code)
+  const greenChannelNormalChoiceMatchesDiagnosis = Boolean(
+    greenChannelNormalChoice
+    && form.diagnosis
+    && greenChannelNormalChoice.diagnosisCode === form.diagnosis.code
+  )
   const selectedDeptFull = selectedDeptInfo && selectedDeptInfo.dailyQuota > 0
     && (selectedDeptInfo.dailyQuota - selectedDeptInfo.todayReserved) <= 0
 
@@ -402,11 +388,32 @@ export default function CreateReferral() {
 
   const handleDiagnosisChange = (diagnosis) => {
     setForm(prev => ({ ...prev, diagnosis }))
-    if (!diagnosis) return
-    if (greenChannelSelected) {
-      const suggestedSpecialty = getLinkedSpecialtySuggestion(diagnosis.code, selectedInstitution)
-      if (suggestedSpecialty) setLinkedSpecialty(prev => prev || suggestedSpecialty)
+    if (!diagnosis) {
+      setGreenChannelPrompt(null)
+      setGreenChannelNormalChoice(null)
+      return
     }
+    setGreenChannelNormalChoice(null)
+    const greenChannelDisease = getGreenChannelDiseaseMatch(diagnosis.code)
+    if (selectedFlow === 'normal' && greenChannelDisease) {
+      setGreenChannelPrompt({ diagnosis, disease: greenChannelDisease })
+    }
+  }
+
+  const continueNormalAfterGreenChannelPrompt = () => {
+    if (!greenChannelPrompt) return
+    setGreenChannelNormalChoice({
+      diagnosisCode: greenChannelPrompt.diagnosis.code,
+      diagnosisName: greenChannelPrompt.diagnosis.name,
+      greenCenter: greenChannelPrompt.disease.greenCenter,
+    })
+    setGreenChannelPrompt(null)
+  }
+
+  const switchToEmergencyAfterGreenChannelPrompt = () => {
+    setGreenChannelPrompt(null)
+    setGreenChannelNormalChoice(null)
+    handleSelectFlow('emergency')
   }
 
   const toAttachmentRecord = (file) => ({
@@ -515,6 +522,8 @@ export default function CreateReferral() {
 
   const handleSelectFlow = (flow) => {
     setSelectedFlow(flow)
+    setGreenChannelPrompt(null)
+    setGreenChannelNormalChoice(null)
     // CHG-39: 切换流程时重置知情同意演示状态
     setConsentMethod(flow === 'emergency' ? 'pending_upload' : 'offline_upload')
     setConsentError('')
@@ -656,9 +665,14 @@ export default function CreateReferral() {
       consentProxyRelation: signerType === 'family' ? signerRelation : null,
       consentProxyReason: signerType === 'family' ? signerReason : null,
       consentDeferred: false,
-      logs: consentFile
-        ? [{ time: new Date().toISOString(), actor: currentUser.name, action: '上传已签署知情同意书', note: `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name} · 基层就诊类型：${visitTypeLabel}` }]
-        : [],
+      logs: [
+        ...(consentFile
+          ? [{ time: new Date().toISOString(), actor: currentUser.name, action: '上传已签署知情同意书', note: `${consentSignedBy === 'family' ? '家属代签' : '患者本人'} · ${consentFile.name} · 基层就诊类型：${visitTypeLabel}` }]
+          : []),
+        ...(greenChannelNormalChoiceMatchesDiagnosis
+          ? [{ time: new Date().toISOString(), actor: currentUser.name, action: '已提示绿通病种，医生选择普通转诊', note: `${greenChannelNormalChoice.diagnosisCode} ${greenChannelNormalChoice.diagnosisName} · ${greenChannelNormalChoice.greenCenter || '未配置中心'}` }]
+          : []),
+      ],
     }
 
     const newId = submitForInternalReview(referralPayload)
@@ -1294,9 +1308,9 @@ export default function CreateReferral() {
                           <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
                         </div>
                       )}
-                      {matchedGreenChannelDisease && (
+                      {greenChannelNormalChoiceMatchesDiagnosis && (
                         <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                          该诊断已匹配绿色通道病种：【{matchedGreenChannelDisease.greenCenter}】。请结合患者病情判断是否启用急诊/绿通流程。
+                          已提示绿通病种，医生选择普通转诊
                         </div>
                       )}
                     </div>
@@ -1364,9 +1378,9 @@ export default function CreateReferral() {
                         <span>已选：<strong>{form.diagnosis.code}</strong> {form.diagnosis.name}</span>
                       </div>
                     )}
-                    {matchedGreenChannelDisease && (
+                    {greenChannelNormalChoiceMatchesDiagnosis && (
                       <div className="mt-2 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-sm text-amber-800">
-                        该诊断已匹配绿色通道病种：【{matchedGreenChannelDisease.greenCenter}】。请结合患者病情判断是否启用急诊/绿通流程。
+                        已提示绿通病种，医生选择普通转诊
                       </div>
                     )}
                   </div>
@@ -2048,15 +2062,7 @@ export default function CreateReferral() {
                   <button
                     key={level.level}
                     type="button"
-                    onClick={() => {
-                      setUrgencyLevel(level.level)
-                      if (level.level === 1) {
-                        const suggestedSpecialty = getLinkedSpecialtySuggestion(form.diagnosis?.code, selectedInstitution)
-                        if (suggestedSpecialty) {
-                          setLinkedSpecialty(prev => prev || suggestedSpecialty)
-                        }
-                      }
-                    }}
+                    onClick={() => setUrgencyLevel(level.level)}
                     className="rounded-xl border px-3 py-4 text-left transition-colors"
                     style={urgencyLevel === level.level
                       ? { borderColor: level.color, background: level.bg, boxShadow: `0 0 0 2px ${level.color}22` }
@@ -2531,6 +2537,38 @@ export default function CreateReferral() {
       {!selectedFlow && renderEntrySelector()}
       {selectedFlow === 'normal' && renderNormalFlow()}
       {selectedFlow === 'emergency' && renderEmergencyFlow()}
+      {greenChannelPrompt && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4" style={{ background: 'rgba(0,0,0,0.36)' }}>
+          <div className="w-full max-w-lg rounded-xl bg-white shadow-xl overflow-hidden">
+            <div className="px-6 py-5" style={{ borderBottom: '1px solid #FDE68A', background: '#FFFBEB' }}>
+              <div className="text-base font-semibold text-amber-900">检测到绿色通道病种</div>
+              <div className="text-xs text-amber-700 mt-1">
+                {greenChannelPrompt.diagnosis.code} {greenChannelPrompt.diagnosis.name}
+              </div>
+            </div>
+            <div className="px-6 py-5 text-sm text-gray-700 leading-6">
+              当前诊断属于绿色通道病种，请结合患者当前病情判断是否需要急诊/绿通转诊。若患者病情稳定，可继续普通转诊；若存在急危重情况，建议切换为急诊/绿通转诊。
+            </div>
+            <div className="px-6 py-4 flex justify-end gap-3 bg-gray-50" style={{ borderTop: '1px solid #F3F4F6' }}>
+              <button
+                type="button"
+                onClick={continueNormalAfterGreenChannelPrompt}
+                className="px-4 py-2 text-sm rounded-lg border border-gray-200 text-gray-700 hover:bg-white"
+              >
+                继续普通转诊
+              </button>
+              <button
+                type="button"
+                onClick={switchToEmergencyAfterGreenChannelPrompt}
+                className="px-4 py-2 text-sm rounded-lg text-white"
+                style={{ background: '#dc2626' }}
+              >
+                切换为急诊/绿通
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
     </div>
   )

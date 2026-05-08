@@ -8,7 +8,7 @@ import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation
 function fmt(iso) {
   if (!iso) return '—'
   const d = new Date(iso)
-  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')}`
+  return `${d.getFullYear()}/${String(d.getMonth()+1).padStart(2,'0')}/${String(d.getDate()).padStart(2,'0')} ${String(d.getHours()).padStart(2,'0')}:${String(d.getMinutes()).padStart(2,'0')}`
 }
 function RowNo({ n }) {
   return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: '#0BBECF' }}>{n}</span>
@@ -16,18 +16,8 @@ function RowNo({ n }) {
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
-function getDownwardAllocationLabel(ref) {
-  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
-  if (mode === 'designated') return `定向指派${ref.designatedDoctorName ? ` · ${ref.designatedDoctorName}` : ''}`
-  if (mode === 'coordinator_reassign') return '负责人改派中'
-  if (mode === 'coordinator') return '负责人待分配'
-  return '—'
-}
-
-function getProcessingLabel(ref) {
-  if (ref.type === 'downward') return getDownwardAllocationLabel(ref)
-  if (ref.is_emergency) return ref.referral_type === 'green_channel' ? '急诊绿通协同' : '急诊协同处理'
-  return '常规上转流转'
+function getReferralNo(ref) {
+  return ref.referralNo || ref.referralCode || ref.id || '—'
 }
 
 export default function AdminLedger() {
@@ -81,7 +71,7 @@ export default function AdminLedger() {
     <div className="p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">转诊台账</h2>
-        <div className="text-xs text-gray-400 mt-0.5">覆盖上转、下转、急诊与绿通的过程台账</div>
+        <div className="text-xs text-gray-400 mt-0.5">覆盖基层至县级、县级至基层、急诊与绿通的过程台账</div>
       </div>
 
       {/* 概览卡 */}
@@ -112,9 +102,9 @@ export default function AdminLedger() {
               placeholder="患者姓名 / 转诊单号 / 诊断" />
           </div>
           <div>
-            <label className="block text-xs text-gray-500 mb-1">转诊类型</label>
+            <label className="block text-xs text-gray-500 mb-1">转诊方向</label>
             <div className="flex gap-2">
-              {[['all', '全部'], ['upward', '上转'], ['downward', '下转']].map(([v, l]) => (
+              {[['all', '全部'], ['upward', '基层至县级'], ['downward', '县级至基层']].map(([v, l]) => (
                 <button key={v} onClick={() => setFilters(f => ({ ...f, type: v }))}
                   className="flex-1 py-1.5 rounded-lg text-xs border transition-colors"
                   style={filters.type === v ? { background: '#0BBECF', color: '#fff', borderColor: '#0BBECF' } : { color: '#4b5563', borderColor: '#e5e7eb' }}>
@@ -162,17 +152,17 @@ export default function AdminLedger() {
       {/* 台账表格 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 900 }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 980 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号','类型','患者','性别/年龄','诊断','转出机构','转入机构','处理方式','状态','创建时间','操作'].map(h => (
+                {['序号','转诊方向','患者信息','诊断（ICD-10）','转诊单号','转出机构','转入机构','状态','创建时间','操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pageData.length === 0 ? (
-                <tr><td colSpan={11} className="py-12 text-center text-gray-400">暂无数据</td></tr>
+                <tr><td colSpan={10} className="py-12 text-center text-gray-400">暂无数据</td></tr>
               ) : pageData.map((ref, i) => (
                 <tr key={ref.id}
                   style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE', cursor: 'pointer' }}
@@ -185,35 +175,39 @@ export default function AdminLedger() {
                       style={ref.type === 'upward'
                         ? { background: '#E0F6F9', color: '#0892a0' }
                         : { background: '#ecfdf5', color: '#047857' }}>
-                      {ref.type === 'upward' ? '⬆ 上转' : '⬇ 下转'}
+                      {ref.type === 'upward' ? '基层至县级' : '县级至基层'}
                     </span>
-                    {ref.is_emergency && (
-                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
-                        {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
-                      </span>
-                    )}
-                    {ref.isRetroEntry && (
-                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-300">
-                        补录
-                      </span>
-                    )}
-                    {ref.referral_type === 'green_channel' && (
-                      <span className="ml-1 text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#10b981' }}>
-                        绿通
-                      </span>
-                    )}
                   </td>
-                  <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}</td>
-                  <td className={TD + ' text-gray-500 text-xs'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
+                  <td className={TD}>
+                    <div className="flex items-center gap-1.5 whitespace-nowrap">
+                      <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                      {ref.is_emergency && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-red-100 text-red-700 border border-red-200">
+                          {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                        </span>
+                      )}
+                      {ref.referral_type === 'green_channel' && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full text-white" style={{ background: '#10b981' }}>
+                          绿通
+                        </span>
+                      )}
+                      {ref.isRetroEntry && (
+                        <span className="text-xs font-bold px-2 py-0.5 rounded-full bg-gray-100 text-gray-700 border border-gray-300">
+                          补录
+                        </span>
+                      )}
+                    </div>
+                    <div className="mt-0.5 text-xs text-gray-400">
+                      {ref.patient.gender || '未知'} / {ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}
+                    </div>
+                  </td>
                   <td className={TD + ' text-xs text-gray-600'}>
                     <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>
                     {ref.diagnosis.name}
                   </td>
+                  <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                   <td className={TD + ' text-xs text-gray-400 max-w-[100px] truncate'}>{ref.fromInstitution}</td>
                   <td className={TD + ' text-xs text-gray-400 max-w-[100px] truncate'}>{ref.toInstitution || '—'}</td>
-                  <td className={TD + ' text-xs text-gray-600'}>
-                    {getProcessingLabel(ref)}
-                  </td>
                   <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref)} size="sm" /></td>
                   <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.createdAt)}</td>
                   <td className={TD} onClick={e => e.stopPropagation()}>

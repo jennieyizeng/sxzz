@@ -454,6 +454,10 @@ export function AppProvider({ children }) {
     }))
   }, [currentUser])
 
+  const deleteDraftReferral = useCallback((referralId) => {
+    setReferrals(prev => prev.filter(r => !(r.id === referralId && r.type === 'upward' && r.status === UPWARD_STATUS.DRAFT)))
+  }, [])
+
   // 转诊中心完成接诊确认（转诊中→已完成）
   // CHG-35：接诊确认权从县级医生转移给转诊管理员
   const completeReferral = useCallback((referralId) => {
@@ -1285,11 +1289,42 @@ export function AppProvider({ children }) {
         updatedAt: confirmedAt,
         logs: [
           ...r.logs,
-          { time: confirmedAt, actor: currentUser.name, action: 'PATIENT_NOTIFIED_CONFIRMED', note: '转诊中心确认患者已知晓最新就诊信息' },
+          { time: confirmedAt, actor: currentUser.name, action: '确认已联系患者', note: '已联系患者/家属，已告知最新就诊地点' },
         ],
       }
     }))
   }, [currentUser])
+
+  const recordEmergencyPatientContactAction = useCallback((referralId, payload = {}) => {
+    const operatedAt = new Date().toISOString()
+    const isConfirm = payload.action === 'confirm'
+    setReferrals(prev => prev.map(r => {
+      if (r.id !== referralId) return r
+      const referralNo = r.referralNo || r.referralCode || r.id
+      const log = isConfirm
+        ? {
+            time: operatedAt,
+            actor: currentUser.name,
+            action: '确认已联系患者',
+            note: '已联系患者/家属，已告知最新就诊地点',
+          }
+        : {
+            time: operatedAt,
+            actor: currentUser.name,
+            action: '拨打患者电话',
+            note: `转诊单号：${referralNo}；患者电话：${payload.patientPhone || '患者电话未填写'}`,
+          }
+      return {
+        ...r,
+        emergencyModifyNotifiedAt: isConfirm ? operatedAt : r.emergencyModifyNotifiedAt,
+        updatedAt: operatedAt,
+        logs: [
+          ...(r.logs || []),
+          log,
+        ],
+      }
+    }))
+  }, [currentUser.name])
 
   // 拒绝下转（待接收→已拒绝）
   const rejectDownwardReferral = useCallback((referralId, reason) => {
@@ -2246,6 +2281,7 @@ export function AppProvider({ children }) {
       acceptReferral,
       rejectReferral,
       cancelReferral,
+      deleteDraftReferral,
       closeReferral,
       collaborativeCloseReferral,
       reopenReferral,
@@ -2273,6 +2309,7 @@ export function AppProvider({ children }) {
       emergencyModifyReferral,
       markEmergencyFirstViewed,
       confirmEmergencyPatientNotified,
+      recordEmergencyPatientContactAction,
       claimDownwardReferral,
       recordFollowupVisit,
       markFollowupUnreachable,

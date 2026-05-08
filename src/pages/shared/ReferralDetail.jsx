@@ -16,7 +16,7 @@ import { canCurrentCountyDoctorHandleOrdinaryUpward, canViewCountyUpwardReferral
 import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
 import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
 import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
-import { formatReferralLogAction, formatReferralLogNote } from '../../utils/referralOperationLogDisplay'
+import { buildKeyReferralOperationLogs, formatReferralLogAction, formatReferralLogNote } from '../../utils/referralOperationLogDisplay'
 import { matchDocumentTemplate } from '../../data/documentTemplateConfig'
 import {
   DEFAULT_PATIENT_NOTICE_TEMPLATE,
@@ -738,12 +738,12 @@ export default function ReferralDetail() {
   const location = useLocation()
   const {
     currentRole, currentUser, referrals,
-    acceptReferral, rejectReferral, cancelReferral, closeReferral, collaborativeCloseReferral, reopenReferral, completeReferral, completeRetroEmergencyReferral,
+    acceptReferral, rejectReferral, cancelReferral, deleteDraftReferral, closeReferral, collaborativeCloseReferral, reopenReferral, completeReferral, completeRetroEmergencyReferral,
     acceptDownwardReferral, completeDownwardReferral, rejectDownwardReferral, cancelDownwardReferral,
     reassignDownwardReferral, selfAcceptDownwardReferral, rejectDownwardByCoordinator,
     approveInternalReview, rejectInternalReview, fillAdmissionArrangement, supplementEmergencyAdmission, emergencyModifyReferral,
     markEmergencyFirstViewed, confirmEmergencyPatientNotified,
-    recordReferralDocumentAction, recordPhoneCallAction,
+    recordReferralDocumentAction, recordPhoneCallAction, recordEmergencyPatientContactAction,
   } = useApp()
 
   const ref = referrals.find(r => r.id === id)
@@ -752,7 +752,6 @@ export default function ReferralDetail() {
   const [admissionType, setAdmissionType] = useState('outpatient') // P0-3 承接方式
   // S-02：知情同意记录折叠状态
   const [showConsentRecord, setShowConsentRecord] = useState(false)
-  const [showAuditHistory, setShowAuditHistory] = useState(true) // 默认展开
   const [showMessageRecord, setShowMessageRecord] = useState(false)
   // M-7：管理员填写接诊安排 Modal
   const [showArrangementModal, setShowArrangementModal] = useState(false)
@@ -813,11 +812,12 @@ export default function ReferralDetail() {
   const arrangementVisibility = getAdmissionArrangementVisibility({ currentRole, isUpward })
   const appointmentCodeVisibility = getAppointmentCodeVisibility({ currentRole, isUpward, isEmergencyReferral })
   const showLogsTab = true
+  const keyReferralLogs = buildKeyReferralOperationLogs(ref)
   const patientNoticeTemplate = INSTITUTIONS.find(item => item.name === ref.toInstitution)?.patientNoticeTemplate || DEFAULT_PATIENT_NOTICE_TEMPLATE
   const detailTabs = [
     { key: 'detail', label: '申请详情' },
     { key: 'attachments', label: '转诊附件资料' },
-    showLogsTab ? { key: 'logs', label: `操作日志 (${ref.logs?.length || 0})` } : null,
+    showLogsTab ? { key: 'logs', label: `操作日志 (${keyReferralLogs.length})` } : null,
     { key: 'history', label: '患者历史转诊' },
   ].filter(Boolean)
   const currentTab = activeTab
@@ -832,7 +832,6 @@ export default function ReferralDetail() {
   const isCountyScopedRole = [ROLES.COUNTY, ROLES.COUNTY2].includes(currentRole)
   const upwardDisplayLabel = isPrimaryScopedRole ? '转出' : isCountyScopedRole ? '转入' : '上转'
   const downwardDisplayLabel = isPrimaryScopedRole ? '转入' : isCountyScopedRole ? '转出' : '下转'
-  const currentTransferLabel = isUpward ? '上转' : '下转'
   const displayedStatus = getReferralDisplayStatus(ref, { role: currentRole, userId: currentUser?.id })
   const isCountyInitiator = isCountyDoctor && currentUser?.name === ref.fromDoctor
   const isCountyInitiatingInstitution = isCountyScopedRole && currentUser?.institution === ref.fromInstitution
@@ -931,6 +930,9 @@ export default function ReferralDetail() {
   )
   const canResubmitAfterInternalReject = currentRole === ROLES.PRIMARY && isUpward &&
     ref.status === UPWARD_STATUS.DRAFT && hasInternalRejection
+  const canManageDraftReferral = isPrimaryDoctor && isUpward &&
+    ref.status === UPWARD_STATUS.DRAFT &&
+    currentUser?.name === ref.fromDoctor
   const canRejectedFollowUpDownward = isCountyDoctor && isDownward && displayedStatus === DOWNWARD_STATUS.RETURNED
 
   // 修复 C：管理员介入按钮
@@ -1087,6 +1089,29 @@ export default function ReferralDetail() {
           }
         })
         break
+      case 'editDraft':
+        navigate('/primary/create-referral', {
+          state: {
+            prefill: {
+              patient: ref.patient,
+              diagnosis: ref.diagnosis,
+              chiefComplaint: ref.chiefComplaint,
+              reason: ref.reason,
+              toInstitution: ref.toInstitution,
+              toDept: ref.toDept,
+              originalDraftId: ref.id,
+            }
+          }
+        })
+        break
+      case 'deleteDraft':
+        setDialog({ type: 'deleteDraft' })
+        break
+      case 'deleteDraftConfirm':
+        deleteDraftReferral(id)
+        setDialog(null)
+        navigate('/primary/referral-list')
+        break
 
       case 'terminateRejected':
         setDialog({ type: 'terminateRejected' })
@@ -1128,6 +1153,7 @@ export default function ReferralDetail() {
   const emergencyElapsedMinutes = isEmergencyReferral ? Math.max(0, Math.floor((nowTs - new Date(ref.createdAt).getTime()) / 60000)) : 0
   const emergencyElapsedHours = Math.floor(emergencyElapsedMinutes / 60)
   const emergencyElapsedRemainMinutes = emergencyElapsedMinutes % 60
+  const patientPhone = String(ref.patient?.phone || '').trim()
   const maskedPatientPhone = maskPhoneNumber(ref.patient?.phone)
   const targetInstitutionConfig = INSTITUTIONS.find(item => item.name === ref.toInstitution)
   const emergencyDeptPhone = targetInstitutionConfig?.emergencyDeptPhone || targetInstitutionConfig?.departmentInfo?.['急诊科']?.nurseStationPhone || ''
@@ -1169,6 +1195,22 @@ export default function ReferralDetail() {
     ref.closeReasonText || ref.closeReason,
     ref.closeReason || '—',
   )
+
+  function handleDialPatientPhone() {
+    if (!patientPhone) return
+    recordEmergencyPatientContactAction(id, {
+      action: 'dial',
+      patientPhone,
+    })
+  }
+
+  function handleConfirmPatientContact() {
+    recordEmergencyPatientContactAction(id, {
+      action: 'confirm',
+      patientPhone,
+    })
+    setDialog(null)
+  }
   const showTransferUpCloseActions = isUpward
     && ref.status === UPWARD_STATUS.CLOSED
     && ((ref.closeReasonCode === 'need_higher_level') || ref.closeReason === '需转诊至上级机构')
@@ -1347,16 +1389,46 @@ export default function ReferralDetail() {
       )}
 
       {isEmergencyReferral && hasPendingEmergencyModifyNotice && !isRetroEntry && currentRole === ROLES.PRIMARY && (
-        <div className="mb-4 rounded-xl border border-red-300 bg-red-50 px-5 py-4">
-          <div className="text-sm font-semibold text-red-700">⚠️ 重要提示</div>
-          <div className="text-sm text-red-700 mt-2">
-            目标信息已修改，但无法确认患者是否已收到更新短信。请立即电话联系患者，告知新的就诊地点：
+        <div
+          className="mb-4 rounded-xl border px-5 py-4"
+          style={{ background: '#FEF2F2', borderColor: '#FECACA' }}
+        >
+          <div className="text-base font-semibold text-red-800">⚠️ 目标信息已修改，请确认患者是否知晓</div>
+          <div className="mt-2 text-sm leading-6 text-gray-700">
+            系统已重新发送短信，但无法确认患者/家属是否收到。请联系患者/家属，告知最新就诊地点。
           </div>
-          <div className="text-sm font-medium text-red-800 mt-2">
-            {ref.toInstitution} · {ref.toDept}
+          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
+            <div>
+              <span className="text-gray-500">最新就诊地点：</span>
+              <span className="font-semibold text-gray-900">{ref.toInstitution} · {ref.toDept}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">急诊科电话：</span>
+              <span className="font-mono text-gray-900">{emergencyDeptPhone || '—'}</span>
+            </div>
+            <div>
+              <span className="text-gray-500">患者电话：</span>
+              <span className="font-mono text-gray-900">{patientPhone || '患者电话未填写'}</span>
+            </div>
           </div>
-          <div className="text-xs text-red-600 mt-1">
-            急诊科电话：{INSTITUTIONS.find(item => item.name === ref.toInstitution)?.emergencyDeptPhone || '—'}
+          <div className="mt-4 flex flex-wrap items-center gap-2">
+            {patientPhone && (
+              <button
+                type="button"
+                onClick={handleDialPatientPhone}
+                className="inline-flex items-center justify-center rounded-lg bg-transparent px-0 py-2 text-sm font-medium text-red-700 hover:text-red-800"
+              >
+                拨打患者电话
+              </button>
+            )}
+            <button
+              type="button"
+              onClick={() => setDialog({ type: 'confirmPatientContact' })}
+              className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-white"
+              style={{ background: '#0BBECF' }}
+            >
+              已联系患者
+            </button>
           </div>
         </div>
       )}
@@ -1366,9 +1438,8 @@ export default function ReferralDetail() {
         <div className="px-6 py-4 flex items-start justify-between">
           <div>
             <div className="flex items-center gap-3 mb-2">
-              <span className="text-lg">{isUpward ? '⬆️' : '⬇️'}</span>
               <h1 className="text-lg font-semibold text-gray-800">
-                {currentTransferLabel}申请 · {ref.patient.name}
+                {ref.patient.name}
               </h1>
               <StatusBadge status={displayedStatus} />
               {/* CHG-30：绿色通道标识 */}
@@ -1529,12 +1600,6 @@ export default function ReferralDetail() {
                 )}
               </div>
             )}
-            {emergencyModifyLocked && (
-              <div className="px-4 py-2 rounded-lg text-xs text-gray-500 border border-gray-200 bg-gray-50">
-                提交后15分钟修改窗口已关闭
-              </div>
-            )}
-
             {/* 基层医生：撤销上转 */}
             {canCancelUpward && (
               <button
@@ -1663,6 +1728,24 @@ export default function ReferralDetail() {
               </button>
             )}
 
+            {canManageDraftReferral && (
+              <div className="flex gap-2">
+                <button
+                  onClick={() => handleAction('editDraft')}
+                  className="px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+                  style={{ background: '#0BBECF' }}
+                >
+                  编辑草稿
+                </button>
+                <button
+                  onClick={() => handleAction('deleteDraft')}
+                  className="px-4 py-2 rounded-lg text-sm font-medium border border-red-200 text-red-600 bg-red-50 hover:bg-red-100 transition-colors"
+                >
+                  删除草稿
+                </button>
+              </div>
+            )}
+
             {canGenerateFormalDocument && (
               <>
                 <button
@@ -1778,7 +1861,7 @@ export default function ReferralDetail() {
             <div className="flex-1">
               <div className="font-medium text-orange-800 text-sm mb-1">院内审核未通过，申请已退回</div>
               <div className="text-xs text-orange-600 mb-3">
-                请查看上方「院内审核记录」了解拒绝原因，修改后可重新提交至院内审核。
+                请根据退回原因修改后重新提交至院内审核。
               </div>
               <div className="flex gap-3">
                 <button
@@ -2268,88 +2351,42 @@ export default function ReferralDetail() {
           {/* 操作日志 Tab */}
           {currentTab === 'logs' && (
             <div>
-              <div className="relative">
-                <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
-                <div className="space-y-0">
-                  {(ref.logs || []).map((log, i) => (
-                    <div key={i} className="flex gap-4 pb-5 relative">
-                      <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold z-10 flex-shrink-0 ${log.actor === '系统' ? 'bg-gray-200 text-gray-500' :
-                        log.actor.includes('医生') || log.actor.includes('管理员') ? 'bg-blue-100 text-blue-600' :
-                          'bg-green-100 text-green-600'
-                        }`}>
-                        {log.actor === '系统' ? '⚙' : log.actor.charAt(0)}
-                      </div>
-                      <div className="flex-1 pt-1">
-                        <div className="flex items-baseline gap-2 flex-wrap">
-                          <span className="font-medium text-gray-800 text-sm">{log.actor}</span>
-                          <span className="text-gray-600 text-sm">{formatReferralLogAction(log.action)}</span>
-                          {formatReferralLogNote(log.note) && (
-                            <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">{formatReferralLogNote(log.note)}</span>
-                          )}
-                        </div>
-                        <div className="text-xs text-gray-400 mt-0.5">{formatTime(log.time)}</div>
-                      </div>
-                    </div>
-                  ))}
-                </div>
+              <div className="mb-4 flex items-center justify-between">
+                <div className="text-sm font-semibold text-gray-800">关键日志</div>
               </div>
-
-              {/* CHG-30-D：院内审核记录（有记录时显示可折叠时间线，兼容新旧字段格式） */}
-              {(ref.internalAuditLog || []).length > 0 && (
-                <div className="mt-4 border border-blue-200 rounded-lg overflow-hidden">
-                  <button
-                    onClick={() => setShowAuditHistory(v => !v)}
-                    className="w-full flex items-center justify-between px-4 py-2.5 bg-blue-50 hover:bg-blue-100 transition-colors"
-                  >
-                    <div className="flex items-center gap-2">
-                      <span className="font-medium text-sm text-blue-700">院内审核记录</span>
-                      <span className="text-xs px-1.5 py-0.5 rounded-full bg-blue-100 text-blue-600">
-                        {ref.internalAuditLog.length} 条
-                      </span>
-                    </div>
-                    <span className="text-blue-400 text-xs">{showAuditHistory ? '收起 ▲' : '展开 ▼'}</span>
-                  </button>
-                  {showAuditHistory && (
-                    <div className="px-4 py-3 space-y-3">
-                      {[...ref.internalAuditLog].reverse().map((entry, i) => {
-                        // 兼容旧格式 (entry.result) 和新格式 (entry.action)
-                        const isPassed = entry.result === 'approved' || entry.action === 'INTERNAL_AUDIT_PASS'
-                        const auditorName = entry.auditorName || entry.actor || '—'
-                        const timestamp = entry.timestamp || entry.time
-                        return (
-                          <div key={i} className="flex items-start gap-3">
-                            <div className="flex flex-col items-center flex-shrink-0" style={{ width: 20 }}>
-                              <div className={`w-4 h-4 rounded-full flex items-center justify-center flex-shrink-0 ${isPassed ? 'bg-green-500' : 'bg-red-400'}`}>
-                                {isPassed
-                                  ? <svg width="8" height="6" viewBox="0 0 8 6"><polyline points="1,3 3,5 7,1" fill="none" stroke="#fff" strokeWidth="1.5" strokeLinecap="round" strokeLinejoin="round"/></svg>
-                                  : <svg width="8" height="8" viewBox="0 0 8 8"><line x1="1" y1="1" x2="7" y2="7" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/><line x1="7" y1="1" x2="1" y2="7" stroke="#fff" strokeWidth="1.5" strokeLinecap="round"/></svg>
-                                }
-                              </div>
-                              {i < ref.internalAuditLog.length - 1 && (
-                                <div className="w-px flex-1 bg-gray-200 mt-1" style={{ minHeight: 16 }} />
-                              )}
-                            </div>
-                            <div className="flex-1 pb-1">
-                              <div className="flex items-center gap-2 flex-wrap">
-                                <span className={`text-xs font-semibold px-1.5 py-0.5 rounded ${isPassed ? 'bg-green-50 text-green-700' : 'bg-red-50 text-red-600'}`}>
-                                  {isPassed ? '通过' : '拒绝'}
-                                </span>
-                                <span className="text-sm font-medium text-gray-800">{auditorName}</span>
-                                <span className="text-xs text-gray-400">{formatTime(timestamp)}</span>
-                              </div>
-                              {entry.comment && (
-                                <div className="mt-1 text-xs text-gray-600 bg-gray-50 px-2 py-1.5 rounded border border-gray-100">
-                                  {entry.comment}
-                                </div>
-                              )}
-                            </div>
+              <div className="relative">
+                {keyReferralLogs.length > 0 ? (
+                  <>
+                    <div className="absolute left-4 top-0 bottom-0 w-0.5 bg-gray-200" />
+                    <div className="space-y-0">
+                      {keyReferralLogs.map((log, i) => (
+                        <div key={`${log.time || i}-${log.action}`} className="flex gap-4 pb-5 relative">
+                          <div className={`w-8 h-8 rounded-full flex items-center justify-center text-xs font-semibold z-10 flex-shrink-0 ${log.actor === '系统' ? 'bg-gray-200 text-gray-500' :
+                            log.actor.includes('医生') || log.actor.includes('管理员') ? 'bg-blue-100 text-blue-600' :
+                              'bg-green-100 text-green-600'
+                            }`}>
+                            {log.actor === '系统' ? '⚙' : log.actor.charAt(0)}
                           </div>
-                        )
-                      })}
+                          <div className="flex-1 pt-1">
+                            <div className="flex items-baseline gap-2 flex-wrap">
+                              <span className="font-medium text-gray-800 text-sm">{log.actor}</span>
+                              <span className="text-gray-600 text-sm">{formatReferralLogAction(log.action)}</span>
+                              {formatReferralLogNote(log.note) && (
+                                <span className="text-xs text-gray-400 bg-gray-50 px-2 py-0.5 rounded">{formatReferralLogNote(log.note)}</span>
+                              )}
+                            </div>
+                            <div className="text-xs text-gray-400 mt-0.5">{formatTime(log.time)}</div>
+                          </div>
+                        </div>
+                      ))}
                     </div>
-                  )}
-                </div>
-              )}
+                  </>
+                ) : (
+                  <div className="rounded-lg border border-gray-100 bg-gray-50 px-4 py-6 text-center text-sm text-gray-400">
+                    暂无关键操作日志
+                  </div>
+                )}
+              </div>
 
               {/* S-02：知情同意签署记录（折叠块，置于操作日志下方） */}
               <div className="mt-4 border border-gray-200 rounded-lg overflow-hidden">
@@ -2540,6 +2577,16 @@ export default function ReferralDetail() {
           onCancel={() => setDialog(null)}
         />
       )}
+      {dialog?.type === 'deleteDraft' && (
+        <ConfirmDialog
+          title="确认删除草稿？"
+          description="删除后该草稿将从转出记录中移除，无法恢复。"
+          confirmText="确认删除"
+          confirmColor="red"
+          onConfirm={() => handleAction('deleteDraftConfirm')}
+          onCancel={() => setDialog(null)}
+        />
+      )}
       {dialog?.type === 'completeUpward' && (
         <ConfirmDialog
           title="完成接诊确认"
@@ -2603,6 +2650,16 @@ export default function ReferralDetail() {
             })
             setDialog(null)
           }}
+        />
+      )}
+      {dialog?.type === 'confirmPatientContact' && (
+        <ConfirmDialog
+          title="确认已联系患者？"
+          description="请确认已通过电话或其他方式告知患者/家属最新就诊地点。确认后，该重要提示将不再展示。"
+          confirmText="确认已联系"
+          confirmColor="red"
+          onConfirm={handleConfirmPatientContact}
+          onCancel={() => setDialog(null)}
         />
       )}
       {dialog?.type === 'collaborativeClose' && (

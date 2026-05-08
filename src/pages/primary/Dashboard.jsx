@@ -15,6 +15,16 @@ function fromNow(isoStr) {
   return `${m}分钟前`
 }
 
+function fmt(iso) {
+  if (!iso) return '—'
+  const d = new Date(iso)
+  return `${d.getFullYear()}/${String(d.getMonth() + 1).padStart(2, '0')}/${String(d.getDate()).padStart(2, '0')} ${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`
+}
+
+function getReferralNo(ref) {
+  return ref.referralCode || ref.referralNo || ref.id || '—'
+}
+
 function RowNo({ n }) {
   return (
     <span
@@ -264,7 +274,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
               <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#E0F6F9' }}>
-                    {['序号', '患者', '诊断', '来源机构', '备注', '状态', '操作'].map(h => (
+                    {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '科室', '状态', '更新时间', '操作'].map(h => (
                       <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                     ))}
                   </tr>
@@ -273,11 +283,35 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
                   {pendingDownward.map((ref, i) => (
                     <tr key={ref.id} style={{ borderBottom: '1px solid #EEF7F9' }}>
                       <td className={TD}><RowNo n={i + 1} /></td>
-                      <td className={TD}><span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span></td>
-                      <td className={TD + ' text-gray-600'}>{ref.diagnosis.name}</td>
+                      <td className={TD}>
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          {ref.is_emergency && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+                              {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                            </span>
+                          )}
+                          {ref.referral_type === 'green_channel' && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+                          )}
+                          {ref.isRetroEntry && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">
+                              补录
+                            </span>
+                          )}
+                          <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          {ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}
+                        </div>
+                      </td>
+                      <td className={TD + ' text-xs text-gray-600'}>
+                        <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}
+                      </td>
+                      <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                       <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                      <td className={TD}>{ref.rehabPlan && <span className="text-xs px-1.5 py-0.5 rounded" style={{ background: '#E0F6F9', color: '#0892a0' }}>含康复方案</span>}</td>
+                      <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
                       <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref, { role: currentUser.role, userId: currentUser.id })} size="sm" /></td>
+                      <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.updatedAt || ref.createdAt)}</td>
                       <td className={TD}><button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#0BBECF' }}>查看处理</button></td>
                     </tr>
                   ))}
@@ -298,7 +332,7 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
               <table className="w-full" style={{ borderCollapse: 'collapse' }}>
                 <thead>
                   <tr style={{ background: '#FEF2F2' }}>
-                    {['序号', '患者', '诊断', '当前状态', '更新时间', '操作'].map(h => (
+                    {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转入机构', '当前状态', '更新时间', '操作'].map(h => (
                       <th key={h} className={TH} style={{ color: '#b91c1c', borderBottom: '1px solid #fecaca' }}>{h}</th>
                     ))}
                   </tr>
@@ -308,22 +342,31 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
                     <tr key={ref.id} style={{ borderBottom: '1px solid #FEE2E2', background: i % 2 === 0 ? '#fff' : '#FFF7F7' }}>
                       <td className={TD}><RowNo n={i + 1} /></td>
                       <td className={TD}>
-                        <span className="text-xs font-bold px-1.5 py-0.5 rounded mr-1 bg-red-100 text-red-700 border border-red-200">
-                          {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
-                        </span>
-                        {ref.isRetroEntry && (
-                          <span className="text-xs font-bold px-1.5 py-0.5 rounded mr-1 bg-gray-100 text-gray-700 border border-gray-300">
-                            补录
+                        <div className="flex items-center gap-1.5 whitespace-nowrap">
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+                            {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
                           </span>
-                        )}
-                        {ref.referral_type === 'green_channel' && (
-                          <span className="text-xs font-bold px-1.5 py-0.5 rounded mr-1 text-white" style={{ background: '#10b981' }}>绿通</span>
-                        )}
-                        <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                          {ref.referral_type === 'green_channel' && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+                          )}
+                          {ref.isRetroEntry && (
+                            <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">
+                              补录
+                            </span>
+                          )}
+                          <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                        </div>
+                        <div className="mt-0.5 text-xs text-gray-400">
+                          {ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}
+                        </div>
                       </td>
-                      <td className={TD + ' text-gray-600'}>{ref.diagnosis.name}</td>
+                      <td className={TD + ' text-xs text-gray-600'}>
+                        <span className="font-mono mr-1" style={{ color: '#b91c1c' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}
+                      </td>
+                      <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
+                      <td className={TD + ' text-xs text-gray-500'}>{ref.toInstitution || '—'}</td>
                       <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
-                      <td className={TD + ' text-xs text-gray-400'}>{fromNow(ref.updatedAt)}</td>
+                      <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.updatedAt)}</td>
                       <td className={TD}><button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#ef4444' }}>查看进度</button></td>
                     </tr>
                   ))}
@@ -375,14 +418,14 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
               <thead>
                 <tr style={{ background: '#E0F6F9' }}>
-                  {['序号', '患者姓名', '诊断（ICD-10）', '转入科室', '状态', '更新时间', '操作'].map(h => (
+                  {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转入科室', '转入机构', '状态', '更新时间', '操作'].map(h => (
                     <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                   ))}
                 </tr>
               </thead>
               <tbody>
                 {myUpward.length === 0 ? (
-                  <tr><td colSpan={7} className="px-4 py-8 text-center text-sm text-gray-400">暂无转出记录</td></tr>
+                  <tr><td colSpan={9} className="px-4 py-8 text-center text-sm text-gray-400">暂无转出记录</td></tr>
                 ) : myUpward.map((ref, i) => (
                   <tr
                     key={ref.id}
@@ -394,15 +437,34 @@ export default function PrimaryDashboard({ mode = 'workbench' }) {
                   >
                     <td className={TD}><RowNo n={i + 1} /></td>
                     <td className={TD}>
-                      <span className="font-medium text-gray-800">{ref.patient.name}</span>
-                      <span className="text-xs text-gray-400 ml-1">{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span>
+                      <div className="flex items-center gap-1.5 whitespace-nowrap">
+                        {ref.is_emergency && (
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+                            {ref.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+                          </span>
+                        )}
+                        {ref.referral_type === 'green_channel' && (
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+                        )}
+                        {ref.isRetroEntry && (
+                          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">
+                            补录
+                          </span>
+                        )}
+                        <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                      </div>
+                      <div className="mt-0.5 text-xs text-gray-400">
+                        {ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}
+                      </div>
                     </td>
                     <td className={TD + ' text-xs text-gray-600'}>
                       <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}
                     </td>
+                    <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                     <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
+                    <td className={TD + ' text-xs text-gray-500'}>{ref.toInstitution || '—'}</td>
                     <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
-                    <td className={TD + ' text-xs text-gray-400'}>{fromNow(ref.updatedAt)}</td>
+                    <td className={TD + ' text-xs text-gray-400'}>{fmt(ref.updatedAt)}</td>
                     <td className={TD}>
                       <button onClick={e => { e.stopPropagation(); navigate(`/referral/${ref.id}`) }} className="text-xs" style={{ color: '#0BBECF' }}>详情</button>
                     </td>
