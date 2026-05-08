@@ -11,6 +11,30 @@ function fmtDateTime(isoStr) {
   const pad = n => String(n).padStart(2, '0')
   return `${d.getFullYear()}/${pad(d.getMonth()+1)}/${pad(d.getDate())} ${pad(d.getHours())}:${pad(d.getMinutes())}:${pad(d.getSeconds())}`
 }
+function getReferralNo(ref) {
+  return ref.referralNo || ref.referralCode || ref.id || '—'
+}
+function PatientInfo({ referral }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1 flex-wrap">
+        {referral.is_emergency && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+            {referral.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+          </span>
+        )}
+        {referral.referral_type === 'green_channel' && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+        )}
+        {referral.isRetroEntry && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">补录</span>
+        )}
+        <span className="font-medium text-gray-800">{referral.patient.name}</span>
+      </div>
+      <div className="text-xs text-gray-400 mt-0.5">{referral.patient.gender || '未知'} / {referral.patient.age ? `${referral.patient.age}岁` : '年龄未填'}</div>
+    </div>
+  )
+}
 function RowNo({ n }) {
   return <span className="inline-flex items-center justify-center w-6 h-6 rounded-full text-xs font-medium text-white" style={{ background: '#0BBECF' }}>{n}</span>
 }
@@ -31,7 +55,7 @@ const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
 export default function CountyDashboard() {
-  const { referrals, currentUser, myNotifications } = useApp()
+  const { referrals, currentUser, myNotifications, deleteDraftReferral } = useApp()
   const navigate = useNavigate()
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
   const pendingReview = referrals.filter(r => {
@@ -50,6 +74,11 @@ export default function CountyDashboard() {
     return r.fromDoctor === currentUser.name
   })
   const unreadNotifs = myNotifications.filter(n => !n.read).slice(0, 3)
+  const handleDeleteDraft = (ref) => {
+    if (window.confirm('确认删除该草稿？删除后无法恢复。')) {
+      deleteDraftReferral(ref.id)
+    }
+  }
 
   return (
     <div className="p-5">
@@ -86,24 +115,27 @@ export default function CountyDashboard() {
               <button onClick={() => navigate('/county/review-list')} className="text-xs" style={{ color: '#0BBECF' }}>查看全部 →</button>
             </div>
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-              <thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
+              <thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
 <tbody>
-                  {pendingReview.length === 0 ? <tr><td colSpan={10} className="py-8 text-center text-gray-400 text-sm">暂无待受理申请</td></tr>
+                  {pendingReview.length === 0 ? <tr><td colSpan={9} className="py-8 text-center text-gray-400 text-sm">暂无待受理申请</td></tr>
                     : pendingReview.map((ref, i) => (
                       <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = '#fff'}>
                         <td className={TD}><RowNo n={i + 1} /></td>
-                        <td className={TD}>
-                          <span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span>
-                        </td>
-                        <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
-                        <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
+                        <td className={TD}><PatientInfo referral={ref} /></td>
+                        <td className={TD + ' text-xs text-gray-600'}><span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}</td>
+                        <td className={TD + ' text-xs text-gray-500'}>{getReferralNo(ref)}</td>
                         <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                        <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
                         <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
                         <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                         <td className={TD + ' text-xs text-gray-400'}>{fmtDateTime(ref.createdAt)}</td>
                         <td className={TD} onClick={e => e.stopPropagation()}>
                           <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                          {ref.status === UPWARD_STATUS.DRAFT && (
+                            <>
+                              <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#2563eb' }}>编辑</button>
+                              <button onClick={() => handleDeleteDraft(ref)} className="text-xs mr-2" style={{ color: '#ef4444' }}>删除</button>
+                            </>
+                          )}
                           {!isCountyDepartmentHead && <>
                             <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-1" style={{ color: '#10b981' }}>受理</button>
                             <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs" style={{ color: '#ef4444' }}>拒绝</button>
@@ -128,24 +160,27 @@ export default function CountyDashboard() {
               </div>
             </div>
             <table className="w-full" style={{ borderCollapse: 'collapse' }}>
-<thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
+<thead><tr style={{ background: '#E0F6F9' }}>{['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '转入科室', '状态', '申请时间', '操作'].map(h => <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>)}</tr></thead>
                <tbody>
-                 {inTransitOrdinary.length === 0 ? <tr><td colSpan={10} className="py-8 text-center text-gray-400 text-sm">{isCountyDepartmentHead ? '暂无本科室进行中转入' : '暂无我负责的进行中转入'}</td></tr>
+                 {inTransitOrdinary.length === 0 ? <tr><td colSpan={9} className="py-8 text-center text-gray-400 text-sm">{isCountyDepartmentHead ? '暂无本科室进行中转入' : '暂无我负责的进行中转入'}</td></tr>
                    : inTransitOrdinary.map((ref, i) => (
                      <tr key={ref.id} className="cursor-pointer" style={{ borderBottom: '1px solid #EEF7F9', background: i % 2 === 0 ? '#fff' : '#FAFEFE' }} onClick={() => navigate(`/referral/${ref.id}`)} onMouseEnter={e => e.currentTarget.style.background = '#F0FBFC'} onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFEFE'}>
                        <td className={TD}><RowNo n={i + 1} /></td>
-                       <td className={TD}>
-                         <span className="font-medium text-gray-800">{ref.patient.name}</span><span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span>
-                       </td>
-                       <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
-                       <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
+                       <td className={TD}><PatientInfo referral={ref} /></td>
+                       <td className={TD + ' text-xs text-gray-600'}><span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}</td>
+                       <td className={TD + ' text-xs text-gray-500'}>{getReferralNo(ref)}</td>
                        <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                       <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
                        <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
                        <td className={TD}><StatusBadge status={getReferralDisplayStatus(ref, { role: currentUser.role, userId: currentUser.id })} size="sm" /></td>
                        <td className={TD + ' text-xs text-gray-400'}>{fmtDateTime(ref.createdAt)}</td>
                        <td className={TD} onClick={e => e.stopPropagation()}>
                          <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                         {ref.status === UPWARD_STATUS.DRAFT && (
+                           <>
+                             <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#2563eb' }}>编辑</button>
+                             <button onClick={() => handleDeleteDraft(ref)} className="text-xs mr-2" style={{ color: '#ef4444' }}>删除</button>
+                           </>
+                         )}
                        </td>
                      </tr>
                    ))}

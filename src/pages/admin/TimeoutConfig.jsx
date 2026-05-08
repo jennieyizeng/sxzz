@@ -24,10 +24,22 @@ const GROUPS = [
   },
 ]
 const TABLE_COLUMNS = ['业务环节', '状态流转/触发条件', '超时阈值', '超时后处理', '通知对象', '状态', '操作']
+const LOCKED_ENABLED_RULE_IDS = new Set([
+  'timeout-upward-unclaimed',
+  'timeout-upward-emergency-window',
+  'timeout-downward-doctor',
+  'timeout-cross-auto-close',
+  'timeout-emergency-consent-upload',
+])
+
+function isLockedEnabledRule(rule) {
+  return LOCKED_ENABLED_RULE_IDS.has(rule.id)
+}
 
 function cloneRules() {
   return SYSTEM_TIMEOUT_RULES.map(rule => ({
     ...rule,
+    enabled: isLockedEnabledRule(rule) ? true : rule.enabled,
     threshold: rule.threshold ? { ...rule.threshold } : undefined,
     stagedThresholds: rule.stagedThresholds ? rule.stagedThresholds.map(item => ({ ...item })) : undefined,
   }))
@@ -283,6 +295,11 @@ export default function TimeoutConfig() {
                           <Toggle
                             value={rule.enabled}
                             onChange={(enabled) => {
+                              if (isLockedEnabledRule(rule) && !enabled) {
+                                setRules(prev => prev.map(item => (item.id === rule.id ? { ...item, enabled: true } : item)))
+                                setToast('该规则为系统关键规则，默认启用，不支持关闭。')
+                                return
+                              }
                               setRules(prev => prev.map(item => (item.id === rule.id ? { ...item, enabled } : item)))
                             }}
                           />

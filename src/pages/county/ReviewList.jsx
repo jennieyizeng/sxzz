@@ -28,12 +28,16 @@ function EmergencyTag() {
   )
 }
 
+function getReferralNo(ref) {
+  return ref.referralNo || ref.referralCode || ref.id || '—'
+}
+
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 const STATUS_FILTERS = ['全部', '待受理', '急诊', '转诊中', '已完成', '已拒绝']
 
 export default function CountyReviewList() {
-  const { referrals, currentUser } = useApp()
+  const { referrals, currentUser, deleteDraftReferral } = useApp()
   const navigate = useNavigate()
   const [filter, setFilter] = useState('全部')
   const [search, setSearch] = useState('')
@@ -69,6 +73,11 @@ export default function CountyReviewList() {
     if (!a.is_emergency && b.is_emergency) return 1
     return 0
   })
+  const handleDeleteDraft = (ref) => {
+    if (window.confirm('确认删除该草稿？删除后无法恢复。')) {
+      deleteDraftReferral(ref.id)
+    }
+  }
 
   return (
     <div className="p-5">
@@ -119,14 +128,14 @@ export default function CountyReviewList() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者姓名', '性别/年龄', '诊断', '转出机构', '经治医生', '转入科室', '状态', '申请时间', '操作'].map(h => (
+              {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '转入科室', '状态', '申请时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
           </thead>
           <tbody>
             {sorted.length === 0 ? (
-              <tr><td colSpan={10} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>{isCountyDepartmentHead ? '暂无本科室待受理转入' : '暂无待受理转入'}</td></tr>
+              <tr><td colSpan={9} className="py-12 text-center text-gray-400 text-sm"><div className="text-3xl mb-2">📭</div>{isCountyDepartmentHead ? '暂无本科室待受理转入' : '暂无待受理转入'}</td></tr>
             ) : sorted.map((ref, i) => {
               const isEmergency = ref.is_emergency === true
               // P0-6：改用 assignedDoctorId 判断受理状态
@@ -148,28 +157,39 @@ export default function CountyReviewList() {
                 >
                   <td className={TD}><RowNo n={i + 1} /></td>
                   <td className={TD}>
-                    {isUrgent
-                      ? <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded mr-1 bg-red-200 text-red-800 border border-red-400">🔴 急诊 · 4h未受理 · 需立即处理</span>
-                      : isEmergency && <EmergencyTag />
-                    }
-                    {ref.isRetroEntry && (
-                      <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded mr-1 bg-gray-100 text-gray-700 border border-gray-300">
-                        补录
-                      </span>
-                    )}
-                    <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                    <div className="flex items-center gap-1 flex-wrap">
+                      {isUrgent
+                        ? <span className="inline-flex items-center gap-0.5 text-xs font-bold px-1.5 py-0.5 rounded bg-red-200 text-red-800 border border-red-400">🔴 急诊 · 4h未受理 · 需立即处理</span>
+                        : isEmergency && <EmergencyTag />
+                      }
+                      {ref.referral_type === 'green_channel' && (
+                        <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+                      )}
+                      {ref.isRetroEntry && (
+                        <span className="inline-flex items-center gap-0.5 text-xs font-semibold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">
+                          补录
+                        </span>
+                      )}
+                      <span className="font-medium text-gray-800">{ref.patient.name}</span>
+                    </div>
+                    <div className="text-xs text-gray-400 mt-0.5">{ref.patient.gender || '未知'} / {ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</div>
                   </td>
-                  <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender || '未知'}/{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</td>
                   <td className={TD + ' text-xs text-gray-600'}>
                     <span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}
                   </td>
+                  <td className={TD + ' text-xs text-gray-500'}>{getReferralNo(ref)}</td>
                   <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                  <td className={TD + ' text-gray-600'}>{ref.fromDoctor}</td>
 <td className={TD + ' text-gray-500'}>{ref.toDept || '—'}</td>
                    <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                    <td className={TD + ' text-xs text-gray-400'}>{new Date(ref.createdAt).toLocaleString('zh-CN', { year: 'numeric', month: '2-digit', day: '2-digit', hour: '2-digit', minute: '2-digit', second: '2-digit' })}</td>
                    <td className={TD} onClick={e => e.stopPropagation()}>
                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#0BBECF' }}>详情</button>
+                     {ref.status === UPWARD_STATUS.DRAFT && (
+                       <>
+                         <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-2" style={{ color: '#2563eb' }}>编辑</button>
+                         <button onClick={() => handleDeleteDraft(ref)} className="text-xs mr-2" style={{ color: '#ef4444' }}>删除</button>
+                       </>
+                     )}
                      {!isCountyDepartmentHead && ref.status === UPWARD_STATUS.PENDING && !isEmergency && (isClaimedByMe || !isClaimed) && (
                        <>
                          <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs mr-1" style={{ color: '#10b981' }}>受理</button>
