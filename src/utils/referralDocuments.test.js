@@ -88,7 +88,7 @@ test('formal upward document is only available after county acceptance and uses 
   assert.equal(model.body.recipient, 'xx市人民医院：')
   assert.match(model.body.patientIntro, /现有患者 张三/)
   assert.match(model.body.patientIntro, /经门诊治疗/)
-  assert.equal(model.body.approvalOpinion, '符合上转评估标准')
+  assert.equal(model.body.approvalOpinion, '同意转诊。')
   assert.equal(model.body.doctorLine, '转诊医生（签字）：王医生')
 })
 
@@ -97,7 +97,7 @@ test('completed upward document includes stub archive and closed document shows 
   assert.equal(completed.variant, 'archive')
   assert.equal(completed.stub.title, 'xx市医疗机构双向转诊单')
   assert.equal(completed.stub.subtitle, '存根')
-  assert.match(completed.stub.transferSentence, /转入 xx市人民医院 单位 心血管科 科室 刘医生 接诊医生/)
+  assert.equal(completed.stub.transferSentence, '经门诊治疗，转入单位xx市人民医院  科室心血管科 接诊医生刘医生。')
 
   const closed = buildReferralDocumentModel(upward({
     status: UPWARD_STATUS.CLOSED,
@@ -135,4 +135,149 @@ test('printable html excludes platform-only fields', () => {
   const html = buildReferralDocumentHtml(buildReferralDocumentModel(upward()))
   assert.match(html, /双向转诊（转出）单/)
   assert.doesNotMatch(html, /预约码|号源池|床位池|二维码|平台留档摘要/)
+})
+
+test('all referral print documents use fixed approval opinion', () => {
+  const customAuditUpward = upward({
+    internalAuditOpinion: '动态审批意见不应进入打印文书',
+    internalAuditLog: [{ result: '通过', note: '审核历史中的意见不应进入打印文书' }],
+  })
+  const activeUpward = buildReferralDocumentModel(customAuditUpward)
+  assert.equal(activeUpward.body.approvalOpinion, '同意转诊。')
+
+  const archiveUpward = buildReferralDocumentModel(upward({
+    status: UPWARD_STATUS.COMPLETED,
+    internalAuditOpinion: '归档存根不应使用动态意见',
+  }))
+  assert.equal(archiveUpward.body.approvalOpinion, '同意转诊。')
+  assert.equal(archiveUpward.stub.approvalOpinion, '同意转诊。')
+
+  const archiveDownward = buildReferralDocumentModel(downward({
+    status: DOWNWARD_STATUS.COMPLETED,
+    internalAuditOpinion: '回转单不应使用动态意见',
+  }))
+  assert.equal(archiveDownward.body.approvalOpinion, '同意转诊。')
+  assert.equal(archiveDownward.stub.approvalOpinion, '同意转诊。')
+
+  const closedDownward = buildReferralDocumentModel(downward({
+    status: DOWNWARD_STATUS.CLOSED,
+    internalAuditOpinion: '关闭归档不应使用动态意见',
+  }))
+  assert.equal(closedDownward.body.approvalOpinion, '同意转诊。')
+  assert.equal(closedDownward.stub.approvalOpinion, '同意转诊。')
+
+  const html = buildReferralDocumentHtml(closedDownward)
+  assert.match(html, /院方审批意见：同意转诊。/)
+  assert.doesNotMatch(html, /动态审批意见|审核历史中的意见/)
+})
+
+test('upward print document includes past medical history and allergy history in required order', () => {
+  const model = buildReferralDocumentModel(upward({
+    pastMedicalHistory: '高血压病史10年、糖尿病病史5年',
+    allergyHistoryStatus: '有过敏史',
+    allergyHistoryDetail: '青霉素过敏',
+  }))
+
+  assert.equal(model.body.pastHistory, '高血压病史10年、糖尿病病史5年')
+  assert.equal(model.body.allergyHistory, '青霉素过敏')
+
+  const html = buildReferralDocumentHtml(model)
+  const order = [
+    '初步印象：',
+    '主要现病史（转出原因）：',
+    '主要既往史：',
+    '过敏史：',
+    '治疗经过：',
+  ].map(label => html.indexOf(label))
+
+  assert.equal(order.every(index => index >= 0), true)
+  assert.deepEqual([...order].sort((a, b) => a - b), order)
+})
+
+test('upward print body uses compact transfer-out title, referral code and receiving arrangement', () => {
+  const model = buildReferralDocumentModel(upward({
+    id: 'REF2026003',
+    referralNo: 'ZZ20260310003',
+    status: UPWARD_STATUS.COMPLETED,
+  }))
+  const html = buildReferralDocumentHtml(model)
+
+  assert.match(html, /转诊单号：ZZ20260310003/)
+  assert.doesNotMatch(html, /<h1>xx市医疗机构双向转诊单<\/h1>[\s\S]*<h2>双向转诊（转出）单<\/h2>/)
+  assert.match(html, /<h1 class="document-title document-title-upward">双向转诊（转出）单<\/h1>/)
+  assert.match(html, /<section class="receiving-arrangement">[\s\S]*接收科室：心血管科/)
+  assert.match(html, /请患者携带本转诊单、身份证\/医保卡及相关病历、检查检验资料前往接收机构就诊。/)
+  assert.match(html, /到院后仍需按接收机构流程完成挂号、缴费、分诊、检查或住院办理。/)
+  assert.match(html, /接诊医生、诊室、床位等信息以接收机构现场安排为准。/)
+  assert.match(html, /如就诊时间或地点发生变化，请以接收机构或转诊中心通知为准。/)
+  assert.match(html, /<section class="approval-signature-row">[\s\S]*院方审批意见：同意转诊。[\s\S]*转诊医生（签字）：王医生/)
+  assert.match(html, /<section class="stub-signature-row">[\s\S]*院方审批意见：同意转诊。[\s\S]*转诊医生（签字）：王医生/)
+  assert.match(html, /<p class="stub-date">2026 年 05 月 06 日<\/p>/)
+
+  const bodyStart = html.indexOf('document-title-upward')
+  const treatmentIndex = html.indexOf('治疗经过：', bodyStart)
+  const receivingIndex = html.indexOf('接收安排', bodyStart)
+  const approvalIndex = html.indexOf('院方审批意见：同意转诊。', bodyStart)
+  const patientNoticeIndex = html.indexOf('患者须知：', bodyStart)
+  const sealIndex = html.indexOf('xx市拱星镇卫生院（加盖公章）', bodyStart)
+  assert.equal(treatmentIndex < receivingIndex && receivingIndex < approvalIndex && approvalIndex < sealIndex && sealIndex < patientNoticeIndex, true)
+})
+
+test('downward print document includes past medical history and allergy history before treatment advice', () => {
+  const model = buildReferralDocumentModel(downward({
+    pastMedicalHistory: '脑梗死病史1年',
+    allergyHistoryStatus: '暂不清楚',
+  }))
+
+  assert.equal(model.body.pastHistory, '脑梗死病史1年')
+  assert.equal(model.body.allergyHistory, '暂不清楚')
+
+  const html = buildReferralDocumentHtml(model)
+  const order = [
+    '诊断结果：',
+    '住院病案号：',
+    '主要检查结果：',
+    '主要既往史：',
+    '过敏史：',
+    '治疗经过、下一步治疗方案及康复建议：',
+  ].map(label => html.indexOf(label))
+
+  assert.equal(order.every(index => index >= 0), true)
+  assert.deepEqual([...order].sort((a, b) => a - b), order)
+})
+
+test('print document allergy history follows empty and status value rules', () => {
+  assert.equal(buildReferralDocumentModel(upward({
+    pastMedicalHistory: '',
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
+  })).body.pastHistory, '________')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
+  })).body.allergyHistory, '________')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: '无明确过敏史',
+    allergyHistoryDetail: '不应展示',
+  })).body.allergyHistory, '无明确过敏史')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: '有过敏史',
+    allergyHistoryDetail: '头孢过敏',
+  })).body.allergyHistory, '头孢过敏')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: 'no_known_allergy',
+    allergyHistoryDetail: '不应展示',
+  })).body.allergyHistory, '无明确过敏史')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: 'unknown',
+    allergyHistoryDetail: '不应展示',
+  })).body.allergyHistory, '暂不清楚')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: 'has_allergy',
+    allergyHistoryDetail: '青霉素过敏',
+  })).body.allergyHistory, '青霉素过敏')
+  assert.equal(buildReferralDocumentModel(upward({
+    allergyHistoryStatus: 'has_allergy',
+    allergyHistoryDetail: '',
+  })).body.allergyHistory, '________')
 })

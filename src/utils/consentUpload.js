@@ -1,5 +1,3 @@
-import { buildConsentDocumentText } from './referralDocuments'
-
 export const CONSENT_MAX_FILE_SIZE = 10 * 1024 * 1024
 export const CONSENT_ACCEPT = '.jpg,.jpeg,.png,.pdf'
 
@@ -41,22 +39,6 @@ export function buildConsentFileRecord(file) {
     fileUrl: URL.createObjectURL(file),
     uploadedAt: new Date().toISOString(),
   }
-}
-
-export function downloadConsentTemplate(format) {
-  const extension = format === 'word' ? 'docx' : 'pdf'
-  const mimeType = format === 'word'
-    ? 'application/vnd.openxmlformats-officedocument.wordprocessingml.document'
-    : 'application/pdf'
-  const content = buildConsentDocumentText(null)
-
-  const blob = new Blob([content], { type: mimeType })
-  const href = URL.createObjectURL(blob)
-  const anchor = document.createElement('a')
-  anchor.href = href
-  anchor.download = `知情同意书模板.${extension}`
-  anchor.click()
-  URL.revokeObjectURL(href)
 }
 
 export function getConsentInfo(referral) {

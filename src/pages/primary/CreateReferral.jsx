@@ -72,6 +72,15 @@ const CONSENT_PROXY_REASON_OPTIONS = [
   '其他',
 ]
 
+const ALLERGY_HISTORY_OPTIONS = [
+  { value: 'no_known_allergy', label: '无明确过敏史' },
+  { value: 'has_allergy', label: '有过敏史' },
+  { value: 'unknown', label: '暂不清楚' },
+]
+
+const PAST_MEDICAL_HISTORY_PLACEHOLDER = '请输入患者主要既往疾病、手术史、慢病史等，例如：高血压病史10年、糖尿病病史5年'
+const ALLERGY_HISTORY_PLACEHOLDER = '请输入过敏药物、食物或其他过敏情况，例如：青霉素过敏。'
+
 const MOCK_INPATIENT_PATIENTS = [
   {
     id: 'P001',
@@ -86,6 +95,26 @@ const MOCK_INPATIENT_PATIENTS = [
       chronicDiseases: ['高血压（3级）', '2型糖尿病'],
       lastVisit: '2026-02-10 内科门诊',
     },
+    pastMedicalHistory: '高血压病史10年，2型糖尿病病史5年，否认重大手术史。',
+    allergyHistoryStatus: 'has_allergy',
+    allergyHistoryDetail: '青霉素过敏。',
+  },
+  {
+    id: 'P003',
+    name: '黄志明',
+    gender: '男',
+    birthDate: '1971-08-20',
+    age: 55,
+    idCard: '510121197108200056',
+    phone: '13822334455',
+    hasHealthRecord: true,
+    healthRecordSummary: {
+      chronicDiseases: ['冠心病', '胆囊切除术后'],
+      lastVisit: '2026-03-18 住院随访',
+    },
+    pastMedicalHistory: '冠心病病史5年，长期口服阿司匹林；既往胆囊切除术后。',
+    allergyHistoryStatus: 'no_known_allergy',
+    allergyHistoryDetail: '',
   },
   {
     id: 'P002',
@@ -96,8 +125,22 @@ const MOCK_INPATIENT_PATIENTS = [
     idCard: '510121197511020034',
     phone: '13987654321',
     hasHealthRecord: false,
+    pastMedicalHistory: '',
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
   },
 ]
+
+function formatAllergyHistoryForDisplay(status, detail) {
+  if (status === 'has_allergy' || status === '有过敏史') return detail?.trim() || '有过敏史'
+  if (status === 'no_known_allergy' || status === '无明确过敏史') return '无明确过敏史'
+  if (status === 'unknown' || status === '暂不清楚') return '暂不清楚'
+  return status || '—'
+}
+
+function isHasAllergyStatus(status) {
+  return status === 'has_allergy' || status === '有过敏史'
+}
 
 function getGreenChannelDiseaseMatch(diagnosisCode) {
   const code = String(diagnosisCode || '').toUpperCase()
@@ -310,6 +353,9 @@ export default function CreateReferral() {
     // CHG-41: 补录模式下要求在发起页前置录入患者到院时间
     patientArrivedAt: '',
     chiefComplaint: prefill?.chiefComplaint || '',
+    pastMedicalHistory: prefill?.pastMedicalHistory || '',
+    allergyHistoryStatus: prefill?.allergyHistoryStatus || '',
+    allergyHistoryDetail: prefill?.allergyHistoryDetail || '',
     diagnosis: prefill?.diagnosis || null,
     reason: prefill?.reason || '',
     medicationSummary: '',
@@ -356,6 +402,24 @@ export default function CreateReferral() {
     outpatientTransferPurpose ? `转诊目的：${outpatientTransferPurposeSummary}` : '',
     outpatientConditionAssessment ? `当前病情评估：${outpatientConditionAssessment}` : '',
   ].filter(Boolean).join('；')
+  const consentTemplateReferral = {
+    type: 'upward',
+    patient: {
+      name: form.patientName,
+      gender: form.patientGender,
+      age: form.patientAge,
+      idCard: form.patientIdCard,
+      phone: form.patientPhone,
+    },
+    fromInstitution: currentUser?.institution,
+    toInstitution: selectedInstitution?.name,
+    reason: selectedFlow === 'emergency'
+      ? form.reason
+      : isInpatientSource
+        ? form.reason
+        : outpatientReasonSummary,
+    fromDoctor: currentUser?.name,
+  }
 
   const normalCanNext = [
     form.sourceVisitType && form.patientName && form.patientGender && form.patientAge && form.patientPhone
@@ -444,6 +508,9 @@ export default function CreateReferral() {
     setForm(prev => ({
       ...prev,
       chiefComplaint: '',
+      pastMedicalHistory: '',
+      allergyHistoryStatus: '',
+      allergyHistoryDetail: '',
       diagnosis: null,
       reason: '',
       medicationSummary: '',
@@ -469,6 +536,9 @@ export default function CreateReferral() {
   const shouldConfirmSourceVisitTypeSwitch = () => {
     return !!(
       form.chiefComplaint
+      || form.pastMedicalHistory
+      || form.allergyHistoryStatus
+      || form.allergyHistoryDetail
       || form.diagnosis
       || form.reason
       || form.medicationSummary
@@ -574,6 +644,9 @@ export default function CreateReferral() {
       patientAge: String(patient.age),
       patientIdCard: patient.idCard,
       patientPhone: patient.phone,
+      pastMedicalHistory: patient.pastMedicalHistory || '',
+      allergyHistoryStatus: patient.allergyHistoryStatus || '',
+      allergyHistoryDetail: patient.allergyHistoryDetail || '',
     }))
     setPatientSearchQuery('')
   }
@@ -588,6 +661,9 @@ export default function CreateReferral() {
       patientAge: '',
       patientIdCard: '',
       patientPhone: '',
+      pastMedicalHistory: '',
+      allergyHistoryStatus: '',
+      allergyHistoryDetail: '',
     }))
   }
 
@@ -615,7 +691,72 @@ export default function CreateReferral() {
     age: form.patientAge ? parseInt(form.patientAge, 10) : null,
     idCard: form.patientIdCard || '510623***0000',
     phone: form.patientPhone,
+    pastMedicalHistory: form.pastMedicalHistory,
+    allergyHistoryStatus: form.allergyHistoryStatus,
+    allergyHistoryDetail: isHasAllergyStatus(form.allergyHistoryStatus) ? form.allergyHistoryDetail : '',
   })
+
+  const renderMedicalSafetyFields = () => (
+    <>
+      {linkedPatient && (form.pastMedicalHistory || form.allergyHistoryStatus || form.allergyHistoryDetail) && (
+        <div className="rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+          已根据患者关联信息带出，请核对后补充。
+        </div>
+      )}
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-1.5">主要既往史 <span className="text-gray-400 text-xs">（选填）</span></label>
+        <textarea
+          value={form.pastMedicalHistory}
+          onChange={event => setForm(prev => ({ ...prev, pastMedicalHistory: event.target.value }))}
+          rows={3}
+          placeholder={PAST_MEDICAL_HISTORY_PLACEHOLDER}
+          className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+        />
+      </div>
+      <div>
+        <label className="block text-sm font-medium text-gray-700 mb-2">过敏史 <span className="text-gray-400 text-xs">（选填）</span></label>
+        <div className="flex flex-wrap gap-3">
+          {ALLERGY_HISTORY_OPTIONS.map(option => (
+            <label key={option.value} className="flex items-center gap-2 cursor-pointer text-sm">
+              <input
+                type="radio"
+                name="allergyHistoryStatus"
+                value={option.value}
+                checked={form.allergyHistoryStatus === option.value}
+                onChange={() => setForm(prev => ({
+                  ...prev,
+                  allergyHistoryStatus: option.value,
+                  allergyHistoryDetail: isHasAllergyStatus(option.value) ? prev.allergyHistoryDetail : '',
+                }))}
+              />
+              <span className="text-gray-700">{option.label}</span>
+            </label>
+          ))}
+          {form.allergyHistoryStatus && (
+            <button
+              type="button"
+              onClick={() => setForm(prev => ({ ...prev, allergyHistoryStatus: '', allergyHistoryDetail: '' }))}
+              className="text-xs text-gray-400 hover:text-gray-600"
+            >
+              清空
+            </button>
+          )}
+        </div>
+        {isHasAllergyStatus(form.allergyHistoryStatus) && (
+          <div className="mt-3">
+            <label className="block text-sm font-medium text-gray-700 mb-1.5">过敏史说明</label>
+            <textarea
+              value={form.allergyHistoryDetail}
+              onChange={event => setForm(prev => ({ ...prev, allergyHistoryDetail: event.target.value }))}
+              rows={2}
+              placeholder={ALLERGY_HISTORY_PLACEHOLDER}
+              className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none"
+            />
+          </div>
+        )}
+      </div>
+    </>
+  )
 
   const handleNormalSubmit = () => {
     const institution = INSTITUTIONS.find(item => item.id === form.toInstitutionId)
@@ -624,6 +765,9 @@ export default function CreateReferral() {
       patient: buildPatientPayload(),
       diagnosis: form.diagnosis,
       chiefComplaint: form.chiefComplaint,
+      pastMedicalHistory: form.pastMedicalHistory,
+      allergyHistoryStatus: form.allergyHistoryStatus,
+      allergyHistoryDetail: isHasAllergyStatus(form.allergyHistoryStatus) ? form.allergyHistoryDetail : '',
       reason: isInpatientSource ? form.reason : outpatientReasonSummary,
       // CHG-40: 上转写入基层当前就诊类型与对应补充字段
       sourceVisitType: form.sourceVisitType,
@@ -698,6 +842,9 @@ export default function CreateReferral() {
       patient: buildPatientPayload(),
       diagnosis: fallbackDiagnosis,
       chiefComplaint: form.chiefComplaint,
+      pastMedicalHistory: form.pastMedicalHistory,
+      allergyHistoryStatus: form.allergyHistoryStatus,
+      allergyHistoryDetail: isHasAllergyStatus(form.allergyHistoryStatus) ? form.allergyHistoryDetail : '',
       reason: form.reason,
       sourceVisitType: null,
       medicationSummary: form.medicationSummary || '',
@@ -944,7 +1091,7 @@ export default function CreateReferral() {
                         </button>
                           <button
                             type="button"
-                            onClick={() => { handlePatientLink('manual'); }}
+                            onClick={() => { handlePatientLink('manual'); clearLinkedPatientFields(); }}
                             className="rounded-xl border px-4 py-3 text-left transition-colors"
                             style={patientLinkMode === 'manual'
                               ? { borderColor: '#0BBECF', background: '#F0FBFC' }
@@ -972,19 +1119,7 @@ export default function CreateReferral() {
                                 <button
                                   key={p.id}
                                   type="button"
-                                  onClick={() => {
-                                    setLinkedPatient(p)
-                                    setForm(prev => ({
-                                      ...prev,
-                                      patientId: p.id,
-                                      patientName: p.name,
-                                      patientGender: p.gender,
-                                      patientAge: String(p.age),
-                                      patientIdCard: p.idCard,
-                                      patientPhone: p.phone,
-                                    }))
-                                    setPatientSearchQuery('')
-                                  }}
+                                  onClick={() => applyPatientLink(p)}
                                   className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0"
                                 >
                                   <div className="font-medium text-sm text-gray-800">{p.name}</div>
@@ -1006,7 +1141,7 @@ export default function CreateReferral() {
                         <div>
                           <div className="flex items-center justify-between mb-2">
                             <span className="text-xs font-medium px-2 py-1 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>✅ 已关联患者主索引</span>
-                            <button type="button" onClick={() => { setLinkedPatient(null); setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' })) }} className="text-xs text-gray-400 hover:text-gray-600">重新搜索</button>
+                            <button type="button" onClick={() => clearLinkedPatientFields()} className="text-xs text-gray-400 hover:text-gray-600">重新搜索</button>
                           </div>
                         </div>
                       )}
@@ -1028,7 +1163,7 @@ export default function CreateReferral() {
                         </button>
                           <button
                             type="button"
-                            onClick={() => { handlePatientLink('manual'); setPatientSearchQuery('') }}
+                            onClick={() => { handlePatientLink('manual'); clearLinkedPatientFields(); setPatientSearchQuery('') }}
                             className="rounded-xl border px-4 py-3 text-left transition-colors"
                             style={patientLinkMode === 'manual'
                               ? { borderColor: '#0BBECF', background: '#F0FBFC' }
@@ -1056,19 +1191,7 @@ export default function CreateReferral() {
                                 <button
                                   key={p.id}
                                   type="button"
-                                  onClick={() => {
-                                    setLinkedPatient(p)
-                                    setForm(prev => ({
-                                      ...prev,
-                                      patientId: p.id,
-                                      patientName: p.name,
-                                      patientGender: p.gender,
-                                      patientAge: String(p.age),
-                                      patientIdCard: p.idCard,
-                                      patientPhone: p.phone,
-                                    }))
-                                    setPatientSearchQuery('')
-                                  }}
+                                  onClick={() => applyPatientLink(p)}
                                   className="w-full text-left px-4 py-3 hover:bg-gray-50 transition-colors border-b last:border-b-0"
                                 >
                                   <div className="font-medium text-sm text-gray-800">{p.name}</div>
@@ -1092,8 +1215,7 @@ export default function CreateReferral() {
                           <button
                             type="button"
                             onClick={() => {
-                              setLinkedPatient(null)
-                              setForm(prev => ({ ...prev, patientId: '', patientName: '', patientGender: '', patientAge: '', patientIdCard: '', patientPhone: '' }))
+                              clearLinkedPatientFields()
                               setPatientSearchQuery('')
                             }}
                             className="text-xs text-gray-400 hover:text-gray-600"
@@ -1298,6 +1420,8 @@ export default function CreateReferral() {
                         className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
                     </div>
 
+                    {renderMedicalSafetyFields()}
+
                     <div>
                       <label className="block text-sm font-medium text-gray-700 mb-1.5">当前住院诊断（ICD-10）<span className="text-red-500">*</span></label>
                       <ICD10Search value={form.diagnosis} onChange={handleDiagnosisChange} required
@@ -1369,6 +1493,7 @@ export default function CreateReferral() {
                       rows={3} placeholder="描述患者主要症状、发病时间、病情演变等"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
                   </div>
+                  {renderMedicalSafetyFields()}
                   <div>
                     <label className="block text-sm font-medium text-gray-700 mb-1.5">初步诊断（ICD-10） <span className="text-red-500">*</span></label>
                     <ICD10Search value={form.diagnosis} onChange={handleDiagnosisChange} required />
@@ -1606,12 +1731,8 @@ export default function CreateReferral() {
                 showIntroDescription={false}
                 templateButtonVariant="uniform"
                 uploadLabel="上传已签署的转院知情同意书"
+                templateReferral={consentTemplateReferral}
               />
-              {!consentFile && (
-                <div className="text-center">
-                  <div className="text-sm text-gray-400">请上传已签署的知情同意书后继续</div>
-                </div>
-              )}
             </div>
           </div>
         )}
@@ -1670,6 +1791,8 @@ export default function CreateReferral() {
                   <div>
                     {[
                       ['转院目的', inpatientTransferPurpose === '其他' ? `其他：${inpatientTransferPurposeOther}` : inpatientTransferPurpose],
+                      ['主要既往史', form.pastMedicalHistory || '—'],
+                      ['过敏史', formatAllergyHistoryForDisplay(form.allergyHistoryStatus, form.allergyHistoryDetail)],
                       ['当前病情评估', conditionAssessment],
                       ['是否适合转运', transportSuitability],
                       ...(transportNotes ? [['转运注意事项', transportNotes]] : []),
@@ -1687,6 +1810,8 @@ export default function CreateReferral() {
                     {[
                       ['初步诊断', `${form.diagnosis?.code || ''} ${form.diagnosis?.name || ''}`],
                       ['主诉', form.chiefComplaint],
+                      ['主要既往史', form.pastMedicalHistory || '—'],
+                      ['过敏史', formatAllergyHistoryForDisplay(form.allergyHistoryStatus, form.allergyHistoryDetail)],
                       ['转诊目的', outpatientTransferPurposeSummary],
                       ['当前病情评估', outpatientConditionAssessment || '未填写'],
                       ...(outpatientTransferPurpose === 'other' && outpatientTransferPurposeOther ? [['其他转诊目的', outpatientTransferPurposeOther]] : []),
@@ -2047,6 +2172,13 @@ export default function CreateReferral() {
             </div>
 
             <div>
+              <h3 className="text-sm font-semibold text-gray-700 mb-3">患者安全信息</h3>
+              <div className="space-y-4">
+                {renderMedicalSafetyFields()}
+              </div>
+            </div>
+
+            <div>
               <h3 className="text-sm font-semibold text-gray-700 mb-3">急诊信息</h3>
               <label className="block text-sm font-medium text-gray-700 mb-2">急诊紧急程度 <span className="text-red-500">*</span></label>
               <div className="grid grid-cols-4 gap-3">
@@ -2273,6 +2405,8 @@ export default function CreateReferral() {
                       ['初步诊断', `${form.diagnosis?.code || '—'} ${form.diagnosis?.name || '—'}`.trim()],
                       ['紧急程度', selectedUrgency?.label || '—'],
                       ['患者意识状态', consciousnessStatus === 'unclear' ? '意识不清' : consciousnessStatus === 'conscious' ? '意识清醒' : '—'],
+                      ['主要既往史', form.pastMedicalHistory || '—'],
+                      ['过敏史', formatAllergyHistoryForDisplay(form.allergyHistoryStatus, form.allergyHistoryDetail)],
                       ['患者到院时间', isRetroEntry && form.patientArrivedAt ? new Date(form.patientArrivedAt).toLocaleString('zh-CN') : '—'],
                       ['主诉 / 急转原因', form.chiefComplaint || '—'],
                     ].map(([key, value]) => (
@@ -2417,6 +2551,7 @@ export default function CreateReferral() {
                   onSelectFile={handleConsentFileSelect}
                   onRemoveFile={clearConsentFile}
                   error={consentError}
+                  templateReferral={consentTemplateReferral}
                   middleContent={consentSignedBy === 'family' ? (
                     <div className="grid grid-cols-2 gap-4">
                       <div>
@@ -2445,8 +2580,19 @@ export default function CreateReferral() {
                   ) : null}
                 />
               ) : (
-                <div className="rounded-lg px-4 py-3 text-sm text-amber-800 bg-amber-50 border border-amber-200">
-                  当前将以“待补传”提交，转诊单详情页将提示补传时限与附件上传入口。
+                <div className="space-y-3">
+                  <ConsentOfflinePanel
+                    showSignerSelector={false}
+                    showIntroTitle={false}
+                    introPanelStyle="plain"
+                    introDescriptionClassName="text-xs text-gray-500 leading-5"
+                    templateButtonVariant="uniform"
+                    templateReferral={consentTemplateReferral}
+                    showUploadArea={false}
+                  />
+                  <div className="rounded-lg px-4 py-3 text-sm text-amber-800 bg-amber-50 border border-amber-200">
+                    当前将以“待补传”提交，转诊单详情页将提示补传时限与附件上传入口。
+                  </div>
                 </div>
               )}
             </div>

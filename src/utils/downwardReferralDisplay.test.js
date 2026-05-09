@@ -14,6 +14,9 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
     },
     diagnosis: { code: 'I25.1', name: '冠状动脉粥样硬化性心脏病' },
     chiefComplaint: '患者因反复胸闷胸痛住院治疗，完善检查后当前病情平稳。',
+    pastMedicalHistory: '冠心病、高血压病史多年。',
+    allergyHistoryStatus: 'has_allergy',
+    allergyHistoryDetail: '头孢类药物过敏。',
     handoffSummary: '下转后重点关注血压、心率与服药依从性。',
     westernMedications: [
       {
@@ -86,6 +89,16 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
   ])
   assert.equal(sections[0].items.some(item => item.label === '数据来源'), false)
   assert.equal(sections[1].items.find(item => item.label === '出院诊断/主要诊断')?.value, '冠状动脉粥样硬化性心脏病')
+  assert.deepEqual(sections[1].items.slice(0, 6).map(item => item.label), [
+    '出院诊断/主要诊断',
+    'ICD-10',
+    '出院小结摘要',
+    '主要既往史',
+    '过敏史',
+    '下转交接摘要',
+  ])
+  assert.equal(sections[1].items.find(item => item.label === '主要既往史')?.value, '冠心病、高血压病史多年。')
+  assert.equal(sections[1].items.find(item => item.label === '过敏史')?.value, '头孢类药物过敏。')
   assert.equal(sections[1].items.find(item => item.label === '下转交接摘要')?.value, '下转后重点关注血压、心率与服药依从性。')
   assert.equal(sections[1].items.find(item => item.label === '继续用药')?.value.some(item => item.includes('阿司匹林肠溶片')), true)
   assert.equal(sections[1].items.find(item => item.label === '继续用药')?.value.some(item => item.includes('丹参颗粒')), true)
@@ -99,4 +112,20 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
   assert.equal(sections[3].items.find(item => item.label === '接收方式')?.value, '指定接收医生')
   assert.equal(sections[4].items.find(item => item.label === '家属姓名')?.value, '李桂英')
   assert.deepEqual(sections[4].items.find(item => item.label === '已上传文件名')?.value, ['知情同意书.pdf', '授权书.pdf'])
+})
+
+test('downward detail uses not-filled display for empty medical history and allergy', () => {
+  const sections = getDownwardDetailSections({
+    patient: { name: '李四', gender: '女', age: 52 },
+    diagnosis: { code: 'I63.9', name: '脑梗死' },
+    chiefComplaint: '病情平稳',
+    pastMedicalHistory: '',
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
+    handoffSummary: '回基层继续康复',
+  })
+
+  const transferSection = sections.find(section => section.title === '转出资料')
+  assert.equal(transferSection.items.find(item => item.label === '主要既往史')?.value, '未填写')
+  assert.equal(transferSection.items.find(item => item.label === '过敏史')?.value, '未填写')
 })

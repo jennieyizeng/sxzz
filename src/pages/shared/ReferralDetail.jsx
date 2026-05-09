@@ -9,6 +9,7 @@ import ArrangementModal from '../../components/ArrangementModal'
 import ReferralSummaryCard from '../../components/ReferralSummaryCard'
 import StructuredReasonSelector from '../../components/StructuredReasonSelector'
 import PhoneCallButton from '../../components/PhoneCallButton'
+import { ConsentPreviewModal } from '../../components/ConsentOfflinePanel'
 import { getReferralClosureEvents } from '../../utils/referralClosureEvents'
 import { getConsentInfo } from '../../utils/consentUpload'
 import { canViewEmergencyModifyWindowInfo, canViewEmergencyReferralDetail, getEmergencyHospitalConfig } from '../../utils/emergencyReferral'
@@ -196,7 +197,7 @@ function ConfirmDialog({ title, description, inputLabel, inputRequired, onConfir
                 value={inputVal}
                 onChange={e => setInputVal(e.target.value)}
                 rows={3}
-                placeholder="请填写原因（必填）"
+                placeholder=""
                 className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none focus:ring-2 focus:ring-blue-500 resize-none"
               />
             </div>
@@ -309,6 +310,64 @@ function NoticeDialog({ title, description, onClose, closeText = '知道了' }) 
               {closeText}
             </button>
           </div>
+        </div>
+      </div>
+    </div>
+  )
+}
+
+function AttachmentPreviewDialog({ item, onClose }) {
+  const meta = getAttachmentMeta(item?.name)
+  const url = item?.url && !String(item.url).startsWith('mock://') ? item.url : ''
+  const isImage = meta.type === '图片'
+  const isPdf = meta.type === 'PDF'
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/50" onClick={onClose} />
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+          <div>
+            <h3 className="text-lg font-semibold text-gray-800">附件预览</h3>
+            <p className="mt-1 text-xs text-gray-400">{item?.name || '未命名附件'}</p>
+          </div>
+          <button type="button" onClick={onClose} className="text-gray-400 hover:text-gray-600">×</button>
+        </div>
+        <div className="p-6">
+          {isImage ? (
+            <div>
+              <div className="mb-2 text-sm font-medium text-gray-700">图片预览</div>
+              {url ? (
+                <img src={url} alt={item?.name || '图片预览'} className="max-h-[56vh] w-full rounded-xl border border-gray-100 object-contain" />
+              ) : (
+                <div className="flex h-72 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-400">
+                  图片预览区域 · {item?.name || '未命名图片'}
+                </div>
+              )}
+            </div>
+          ) : isPdf ? (
+            <div>
+              <div className="mb-2 text-sm font-medium text-gray-700">PDF 文件预览</div>
+              <div className="rounded-xl border border-gray-200 bg-gray-50 p-5">
+                <div className="text-sm font-semibold text-gray-800">{item?.name || '未命名 PDF'}</div>
+                <div className="mt-4 flex h-64 items-center justify-center rounded-lg border border-dashed border-gray-200 bg-white text-sm text-gray-400">
+                  PDF 模拟预览区域
+                </div>
+              </div>
+            </div>
+          ) : (
+            <div className="flex h-48 items-center justify-center rounded-xl border border-dashed border-gray-200 bg-gray-50 text-sm text-gray-400">
+              当前附件暂不支持在线预览
+            </div>
+          )}
+          <button
+            type="button"
+            onClick={onClose}
+            className="mt-5 w-full rounded-lg py-2 text-sm font-medium text-white"
+            style={{ background: '#0BBECF' }}
+          >
+            关闭
+          </button>
         </div>
       </div>
     </div>
@@ -1234,22 +1293,32 @@ export default function ReferralDetail() {
   }
 
   function handleAttachmentAction(item, action) {
-    const actionLabel = action === 'download' ? '下载' : '查看'
-    if (!item.url || String(item.url).startsWith('mock://')) {
-      setDialog({
-        type: 'notice',
-        title: `暂无可${actionLabel}附件`,
-        description: `${item.name || '该附件'}当前只有归档记录，暂未挂载可${actionLabel}的原件。`,
-      })
-      return
-    }
-
-    if (action === 'download') {
-      if (item.groupKey === 'consent') {
+    if (item.groupKey === 'consent') {
+      if (action === 'download') {
         recordReferralDocumentAction(id, {
           actionType: '下载知情同意书附件',
           documentName: item.name || '知情同意书附件',
         })
+        setDialog({
+          type: 'notice',
+          title: '已下载',
+          description: `${item.name || '知情同意书附件'}已下载。`,
+        })
+        return
+      }
+
+      setDialog({ type: 'consentPreview' })
+      return
+    }
+
+    if (action === 'download') {
+      if (!item.url || String(item.url).startsWith('mock://')) {
+        setDialog({
+          type: 'notice',
+          title: '暂无可下载附件',
+          description: `${item.name || '该附件'}为模拟数据，暂未挂载可下载原件。`,
+        })
+        return
       }
       const anchor = document.createElement('a')
       anchor.href = item.url
@@ -1258,7 +1327,10 @@ export default function ReferralDetail() {
       return
     }
 
-    window.open(item.url, '_blank', 'noopener,noreferrer')
+    setDialog({
+      type: 'attachmentPreview',
+      item,
+    })
   }
 
   function handleDocumentAction(actionType) {
@@ -1744,7 +1816,7 @@ export default function ReferralDetail() {
                 onClick={() => handleAction('approveInternal')}
                 className="px-4 py-2 bg-green-600 hover:bg-green-700 text-white rounded-lg text-sm font-medium transition-colors"
               >
-                ✓ 院内审核通过
+                通过
               </button>
             )}
             {canRejectInternalReview && (
@@ -1752,7 +1824,7 @@ export default function ReferralDetail() {
                 onClick={() => handleAction('rejectInternal')}
                 className="px-4 py-2 bg-red-50 hover:bg-red-100 text-red-600 border border-red-200 rounded-lg text-sm font-medium transition-colors"
               >
-                ✕ 院内审核拒绝
+                拒绝
               </button>
             )}
 
@@ -1775,26 +1847,12 @@ export default function ReferralDetail() {
             )}
 
             {canGenerateFormalDocument && (
-              <>
-                <button
-                  onClick={() => setDialog({ type: 'documentPreview' })}
-                  className="px-4 py-1.5 text-xs border border-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
-                >
-                  {referralDocumentAvailability.previewLabel}
-                </button>
-                <button
-                  onClick={() => handleDocumentAction('下载')}
-                  className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  下载 PDF
-                </button>
-                <button
-                  onClick={() => handleDocumentAction('打印')}
-                  className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
-                >
-                  打印
-                </button>
-              </>
+              <button
+                onClick={() => setDialog({ type: 'documentPreview' })}
+                className="px-4 py-1.5 text-xs border border-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
+              >
+                {referralDocumentAvailability.previewLabel}
+              </button>
             )}
           </div>
         </div>
@@ -2785,7 +2843,7 @@ export default function ReferralDetail() {
         <ConfirmDialog
           title="院内审核通过"
           description="通过后申请将进入「待受理」状态，系统将通知县级医生"
-          inputLabel="审核意见（可选）"
+          inputLabel="审核意见（选填）"
           inputRequired={false}
           confirmText="确认通过"
           confirmColor="green"
@@ -2960,9 +3018,20 @@ ${renderedNotice}`
             .referral-print-document .sheet { width: 760px; margin: 0 auto 16px; background: #fff; padding: 40px 46px; box-shadow: 0 1px 8px rgba(15,23,42,.12); line-height: 1.8; font-size: 15px; }
             .referral-print-document h1 { text-align: center; font-size: 22px; font-weight: 700; margin: 0; }
             .referral-print-document h2 { text-align: center; font-size: 18px; font-weight: 700; margin: 6px 0 28px; }
+            .referral-print-document .document-referral-no { color: #6b7280; font-size: 13px; margin-bottom: 8px; }
+            .referral-print-document .document-title-upward { font-size: 30px; font-weight: 800; margin: 4px 0 28px; letter-spacing: 0; }
+            .referral-print-document .stub-signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; margin-top: 18px; }
+            .referral-print-document .stub-signature-row p:last-child { text-align: right; }
+            .referral-print-document .stub-date { text-align: right; }
             .referral-print-document h3 { font-size: 15px; font-weight: 700; margin: 18px 0 4px; }
             .referral-print-document p { margin: 6px 0; white-space: normal; }
             .referral-print-document .recipient { margin-top: 12px; }
+            .referral-print-document .receiving-arrangement { margin-top: 18px; }
+            .referral-print-document .patient-notice { margin-top: 18px; }
+            .referral-print-document .patient-notice ul { margin: 6px 0 0; padding-left: 18px; }
+            .referral-print-document .patient-notice li { margin: 2px 0; }
+            .referral-print-document .approval-signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; margin-top: 28px; }
+            .referral-print-document .approval-signature-row .signature { margin-top: 0; }
             .referral-print-document .signature { text-align: right; margin-top: 28px; }
             .referral-print-document .closed-notice { display: grid; gap: 4px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 10px 12px; margin-bottom: 18px; font-size: 13px; }
             @media print {
@@ -3013,9 +3082,20 @@ ${renderedNotice}`
                 .referral-print-document .sheet { width: 760px; margin: 0 auto 16px; background: #fff; padding: 40px 46px; box-shadow: 0 1px 8px rgba(15,23,42,.12); line-height: 1.8; font-size: 15px; }
                 .referral-print-document h1 { text-align: center; font-size: 22px; font-weight: 700; margin: 0; }
                 .referral-print-document h2 { text-align: center; font-size: 18px; font-weight: 700; margin: 6px 0 28px; }
+                .referral-print-document .document-referral-no { color: #6b7280; font-size: 13px; margin-bottom: 8px; }
+                .referral-print-document .document-title-upward { font-size: 30px; font-weight: 800; margin: 4px 0 28px; letter-spacing: 0; }
+                .referral-print-document .stub-signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; margin-top: 18px; }
+                .referral-print-document .stub-signature-row p:last-child { text-align: right; }
+                .referral-print-document .stub-date { text-align: right; }
                 .referral-print-document h3 { font-size: 15px; font-weight: 700; margin: 18px 0 4px; }
                 .referral-print-document p { margin: 6px 0; white-space: normal; }
                 .referral-print-document .recipient { margin-top: 12px; }
+                .referral-print-document .receiving-arrangement { margin-top: 18px; }
+                .referral-print-document .patient-notice { margin-top: 18px; }
+                .referral-print-document .patient-notice ul { margin: 6px 0 0; padding-left: 18px; }
+                .referral-print-document .patient-notice li { margin: 2px 0; }
+                .referral-print-document .approval-signature-row { display: grid; grid-template-columns: 1fr 1fr; gap: 32px; align-items: start; margin-top: 28px; }
+                .referral-print-document .approval-signature-row .signature { margin-top: 0; }
                 .referral-print-document .signature { text-align: right; margin-top: 28px; }
                 .referral-print-document .closed-notice { display: grid; gap: 4px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 10px 12px; margin-bottom: 18px; font-size: 13px; }
               `}</style>
@@ -3029,6 +3109,20 @@ ${renderedNotice}`
         <NoticeDialog
           title={dialog.title}
           description={dialog.description}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'attachmentPreview' && (
+        <AttachmentPreviewDialog
+          item={dialog.item}
+          onClose={() => setDialog(null)}
+        />
+      )}
+
+      {dialog?.type === 'consentPreview' && (
+        <ConsentPreviewModal
+          referral={ref}
           onClose={() => setDialog(null)}
         />
       )}

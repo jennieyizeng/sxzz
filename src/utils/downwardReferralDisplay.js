@@ -7,6 +7,20 @@ function asText(value, fallback = '—') {
   return text ? text : fallback
 }
 
+function asNotFilledText(value) {
+  return asText(value, '未填写')
+}
+
+function formatAllergyHistory(status, detail, fallback = '未填写') {
+  const normalizedStatus = String(status || '').trim()
+  const normalizedDetail = String(detail || '').trim()
+  if (!normalizedStatus) return fallback
+  if (normalizedStatus === 'no_known_allergy' || normalizedStatus === '无明确过敏史') return '无明确过敏史'
+  if (normalizedStatus === 'unknown' || normalizedStatus === '暂不清楚') return '暂不清楚'
+  if (normalizedStatus === 'has_allergy' || normalizedStatus === '有过敏史') return normalizedDetail || fallback
+  return normalizedStatus
+}
+
 function formatDateTime(value) {
   if (!value) return '—'
   return new Date(value).toLocaleString('zh-CN')
@@ -134,6 +148,19 @@ function getReviewSuggestions(ref) {
   return items.length > 0 ? items : '—'
 }
 
+function getAttachmentNames(ref, category) {
+  const attachments = ref?.attachments || []
+  if (!Array.isArray(attachments) || attachments.length === 0) return '—'
+  const names = attachments
+    .filter(item => {
+      if (category === 'recommended') return item.category === 'recommended' && item.selected !== false
+      return item.category === category
+    })
+    .map(item => item.name)
+    .filter(Boolean)
+  return names.length > 0 ? names : '—'
+}
+
 export function getDownwardDetailSections(ref, consentInfo) {
   const monitorIndicators = getDownwardMonitorIndicators(ref)
   const rehabGoals = formatOptionValues(ref?.rehabGoals, REHAB_GOAL_LABELS, ref?.rehabGoalsOther, ref?.rehabPlan?.rehabSuggestion)
@@ -171,10 +198,14 @@ export function getDownwardDetailSections(ref, consentInfo) {
         { label: '出院诊断/主要诊断', value: asText(ref?.diagnosis?.name) },
         { label: 'ICD-10', value: asText(ref?.diagnosis?.code) },
         { label: '出院小结摘要', value: asText(ref?.chiefComplaint || ref?.structuredData?.sections?.[0]?.items?.find?.(item => item.label === '出院小结摘要')?.value) },
+        { label: '主要既往史', value: asNotFilledText(ref?.pastMedicalHistory) },
+        { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
         { label: '下转交接摘要', value: asText(ref?.handoffSummary) },
         { label: '继续用药', value: getMedicationList(ref) },
         { label: '用药注意事项', value: getMedicationNotes(ref) },
         { label: '复查建议', value: getReviewSuggestions(ref) },
+        { label: '推荐资料包', value: getAttachmentNames(ref, 'recommended') },
+        { label: '补充资料', value: getAttachmentNames(ref, 'supplemental') },
       ],
     },
     {
@@ -213,6 +244,7 @@ export function getDownwardDetailSections(ref, consentInfo) {
         { label: '代签原因', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyReason) : '—' },
         { label: '上传时间', value: formatDateTime(consentInfo?.consentUploadedAt) },
         { label: '状态', value: consentInfo?.isUploaded ? '已完成' : '待补充' },
+        { label: '已上传文件名', value: Array.isArray(consentInfo?.fileNames) && consentInfo.fileNames.length > 0 ? consentInfo.fileNames : asText(consentInfo?.fileName) },
       ],
     },
   ]

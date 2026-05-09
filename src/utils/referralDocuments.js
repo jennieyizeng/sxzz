@@ -2,6 +2,13 @@ import { DOWNWARD_STATUS, UPWARD_STATUS } from '../data/mockData.js'
 
 const BLANK = '________'
 const AREA_NAME = 'xx市'
+const FIXED_APPROVAL_OPINION = '同意转诊。'
+const UPWARD_PATIENT_NOTICE = [
+  '请患者携带本转诊单、身份证/医保卡及相关病历、检查检验资料前往接收机构就诊。',
+  '到院后仍需按接收机构流程完成挂号、缴费、分诊、检查或住院办理。',
+  '接诊医生、诊室、床位等信息以接收机构现场安排为准。',
+  '如就诊时间或地点发生变化，请以接收机构或转诊中心通知为准。',
+]
 
 function text(value) {
   if (value === 0) return '0'
@@ -52,15 +59,17 @@ function diagnosisText(referral) {
   return text(name || code || referral?.preliminaryDiagnosis)
 }
 
-function approvalOpinion(referral) {
-  const logs = Array.isArray(referral?.internalAuditLog) ? referral.internalAuditLog : []
-  const approved = [...logs].reverse().find(item =>
-    item?.result === '通过' ||
-    item?.result === 'approved' ||
-    item?.action === 'INTERNAL_AUDIT_APPROVE' ||
-    String(item?.action || '').includes('审核通过')
-  )
-  return text(approved?.note || approved?.comment || referral?.internalAuditOpinion)
+function approvalOpinion() {
+  return FIXED_APPROVAL_OPINION
+}
+
+function allergyHistoryText(referral) {
+  const status = String(referral?.allergyHistoryStatus || '').trim()
+  const detail = String(referral?.allergyHistoryDetail || '').trim()
+  if (status === 'has_allergy' || status === '有过敏史') return text(detail)
+  if (status === 'no_known_allergy' || status === '无明确过敏史') return '无明确过敏史'
+  if (status === 'unknown' || status === '暂不清楚') return '暂不清楚'
+  return text(referral?.allergyHistory)
 }
 
 function documentVariant(referral) {
@@ -119,12 +128,16 @@ function buildUpwardModel(referral) {
     title: `${AREA_NAME}医疗机构双向转诊单`,
     subtitle: '双向转诊（转出）单',
     body: {
+      referralNo: text(referral?.referralNo || referral?.referralCode || referral?.code || referral?.id),
       recipient: `${text(referral?.toInstitution)}：`,
       patientIntro: `现有患者 ${text(referral?.patient?.name)}，医保证（卡）号 ${text(referral?.patient?.insuranceNo || referral?.insuranceNo || referral?.medicalInsuranceNo)}，性别 ${text(referral?.patient?.gender)}，年龄 ${text(referral?.patient?.age)}，因病情需要，经${vType}治疗，需转入贵单位，请予以接诊。`,
       initialImpression: diagnosisText(referral),
       presentIllness: [referral?.chiefComplaint, referral?.reason].map(text).join('\n'),
-      pastHistory: text(referral?.pastHistory),
+      pastHistory: text(referral?.pastMedicalHistory ?? referral?.pastHistory),
+      allergyHistory: allergyHistoryText(referral),
       treatmentCourse: [referral?.treatmentCourse, referral?.currentTreatmentPlan, referral?.currentMedication].map(text).join('\n'),
+      receivingDept: text(referral?.toDept),
+      patientNotice: UPWARD_PATIENT_NOTICE,
       approvalOpinion: approvalOpinion(referral),
       doctorLine: `转诊医生（签字）：${text(referral?.fromDoctor)}`,
       phoneLine: `联系电话：${text(referral?.fromDeptPhone || referral?.fromDepartmentPhone || referral?.departmentPhone)}`,
@@ -139,7 +152,7 @@ function buildUpwardModel(referral) {
       toInstitution: text(referral?.toInstitution),
       toDept: text(referral?.toDept),
       toDoctor: text(doctor),
-      transferSentence: `于 ${date.full} 因病情需要，经${vType}治疗，转入 ${text(referral?.toInstitution)} 单位 ${text(referral?.toDept)} 科室 ${text(doctor)} 接诊医生。`,
+      transferSentence: `经${vType}治疗，转入单位${text(referral?.toInstitution)}  科室${text(referral?.toDept)} 接诊医生${text(doctor)}。`,
     },
   }
   return attachClosedNotice(base, referral)
@@ -159,6 +172,8 @@ function buildDownwardModel(referral) {
       diagnosisResult: diagnosisText(referral),
       inpatientNo: text(referral?.inpatientNo || referral?.medicalRecordNo),
       examSummary: text(referral?.examSummary || referral?.mainExamResult),
+      pastHistory: text(referral?.pastMedicalHistory ?? referral?.pastHistory),
+      allergyHistory: allergyHistoryText(referral),
       treatmentAndAdvice: [referral?.treatmentCourse, referral?.nextTreatmentPlan, referral?.rehabAdvice, referral?.medicationAdvice, referral?.precautions].map(text).join('\n'),
       approvalOpinion: approvalOpinion(referral),
       doctorLine: `转诊医生（签字）：${text(referral?.fromDoctor)}`,
@@ -258,10 +273,73 @@ function renderStub(model) {
       <p>档案编号：${escapeHtml(s.archiveNo)}    医保证（卡）号：${escapeHtml(s.insuranceNo)}</p>
       <p>家庭住址：${escapeHtml(s.address)}    联系电话：${escapeHtml(s.phone)}</p>
       <p>${escapeHtml(s.transferSentence)}</p>
-      <p>院方审批意见：${escapeHtml(s.approvalOpinion)}</p>
-      <p>转诊医生（签字）：${escapeHtml(s.doctorSignature)}</p>
-      <p class="date">${escapeHtml(s.dateLine)}</p>
+      <section class="stub-signature-row">
+        <p>院方审批意见：${escapeHtml(s.approvalOpinion)}</p>
+        <p>转诊医生（签字）：${escapeHtml(s.doctorSignature)}</p>
+      </section>
+      <p class="stub-date">${escapeHtml(s.dateLine)}</p>
     </section>
+  `
+}
+
+function renderDocumentHeading(model) {
+  if (model.direction === 'upward') {
+    return `
+      <div class="document-referral-no">转诊单号：${escapeHtml(model.body.referralNo)}</div>
+      <h1 class="document-title document-title-upward">${escapeHtml(model.subtitle)}</h1>
+    `
+  }
+  return `
+    <h1>${escapeHtml(model.title)}</h1>
+    <h2>${escapeHtml(model.subtitle)}</h2>
+  `
+}
+
+function renderUpwardReceivingArrangement(body) {
+  return `
+    <section class="receiving-arrangement">
+      <h3>接收安排：</h3>
+      <p>接收科室：${escapeHtml(body.receivingDept)}</p>
+    </section>
+  `
+}
+
+function renderUpwardPatientNotice(body) {
+  return `
+    <section class="patient-notice">
+      <h3>患者须知：</h3>
+      <ul>
+        ${body.patientNotice.map(item => `<li>${escapeHtml(item)}</li>`).join('')}
+      </ul>
+    </section>
+  `
+}
+
+function renderApprovalAndSignature(model) {
+  const b = model.body
+  if (model.direction === 'upward') {
+    return `
+      <section class="approval-signature-row">
+        <div>
+          <p>院方审批意见：${escapeHtml(b.approvalOpinion)}</p>
+        </div>
+        <div class="signature">
+          <p>${escapeHtml(b.doctorLine)}</p>
+          <p>${escapeHtml(b.phoneLine)}</p>
+          <p>${escapeHtml(b.sealLine)}</p>
+          <p>${escapeHtml(b.dateLine)}</p>
+        </div>
+      </section>
+    `
+  }
+  return `
+    <h3>院方审批意见：</h3><p>${escapeHtml(b.approvalOpinion)}</p>
+    <div class="signature">
+      <p>${escapeHtml(b.doctorLine)}</p>
+      <p>${escapeHtml(b.phoneLine)}</p>
+      <p>${escapeHtml(b.sealLine)}</p>
+      <p>${escapeHtml(b.dateLine)}</p>
+    </div>
   `
 }
 
@@ -270,8 +348,7 @@ function renderBody(model) {
   const isDownward = model.direction === 'downward'
   return `
     <section class="sheet">
-      <h1>${escapeHtml(model.title)}</h1>
-      <h2>${escapeHtml(model.subtitle)}</h2>
+      ${renderDocumentHeading(model)}
       ${renderClosedNotice(model)}
       <p class="recipient">${escapeHtml(b.recipient)}</p>
       <p>${escapeHtml(b.patientIntro)}</p>
@@ -280,21 +357,20 @@ function renderBody(model) {
           <h3>诊断结果：</h3><p>${paragraph(b.diagnosisResult)}</p>
           <h3>住院病案号：</h3><p>${escapeHtml(b.inpatientNo)}</p>
           <h3>主要检查结果：</h3><p>${paragraph(b.examSummary)}</p>
+          <h3>主要既往史：</h3><p>${paragraph(b.pastHistory)}</p>
+          <h3>过敏史：</h3><p>${paragraph(b.allergyHistory)}</p>
           <h3>治疗经过、下一步治疗方案及康复建议：</h3><p>${paragraph(b.treatmentAndAdvice)}</p>
         `
         : `
           <h3>初步印象：</h3><p>${paragraph(b.initialImpression)}</p>
           <h3>主要现病史（转出原因）：</h3><p>${paragraph(b.presentIllness)}</p>
           <h3>主要既往史：</h3><p>${paragraph(b.pastHistory)}</p>
+          <h3>过敏史：</h3><p>${paragraph(b.allergyHistory)}</p>
           <h3>治疗经过：</h3><p>${paragraph(b.treatmentCourse)}</p>
+          ${renderUpwardReceivingArrangement(b)}
         `}
-      <h3>院方审批意见：</h3><p>${escapeHtml(b.approvalOpinion)}</p>
-      <div class="signature">
-        <p>${escapeHtml(b.doctorLine)}</p>
-        <p>${escapeHtml(b.phoneLine)}</p>
-        <p>${escapeHtml(b.sealLine)}</p>
-        <p>${escapeHtml(b.dateLine)}</p>
-      </div>
+      ${renderApprovalAndSignature(model)}
+      ${isDownward ? '' : renderUpwardPatientNotice(b)}
     </section>
   `
 }

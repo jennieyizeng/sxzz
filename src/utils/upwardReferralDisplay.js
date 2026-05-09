@@ -1,4 +1,4 @@
-import { getReasonOptionLabel, UPWARD_REFERRAL_PURPOSE_OPTIONS } from '../constants/reasonCodes'
+import { getReasonOptionLabel, UPWARD_REFERRAL_PURPOSE_OPTIONS } from '../constants/reasonCodes.js'
 
 export const UPWARD_HANDLING_PREFERENCE_OPTIONS = [
   { value: 'outpatient', label: '门诊专科就诊' },
@@ -11,6 +11,36 @@ function asText(value, fallback = '—') {
   if (Array.isArray(value)) return value.length > 0 ? value.join('、') : fallback
   const text = String(value).trim()
   return text ? text : fallback
+}
+
+function asNotFilledText(value) {
+  return asText(value, '未填写')
+}
+
+function formatAllergyHistory(status, detail, fallback = '未填写') {
+  const normalizedStatus = String(status || '').trim()
+  const normalizedDetail = String(detail || '').trim()
+  if (!normalizedStatus) return fallback
+  if (normalizedStatus === 'no_known_allergy' || normalizedStatus === '无明确过敏史') return '无明确过敏史'
+  if (normalizedStatus === 'unknown' || normalizedStatus === '暂不清楚') return '暂不清楚'
+  if (normalizedStatus === 'has_allergy' || normalizedStatus === '有过敏史') return normalizedDetail || fallback
+  return normalizedStatus
+}
+
+function diagnosisText(ref, fallback = '—') {
+  const code = ref?.diagnosis?.code
+  const name = ref?.diagnosis?.name
+  if (code && name) return `${code} ${name}`
+  return asText(name || code, fallback)
+}
+
+function attachmentText(ref) {
+  const attachments = [
+    ...(Array.isArray(ref?.attachments) ? ref.attachments : []),
+    ...(Array.isArray(ref?.nursingAttachments) ? ref.nursingAttachments : []),
+  ]
+  const names = attachments.map(item => item?.name).filter(Boolean)
+  return names.length > 0 ? names : '—'
 }
 
 function formatDateTime(value) {
@@ -105,12 +135,19 @@ export function getUpwardDetailSections(ref, consentInfo) {
     return [
       ...commonSections,
       {
+        title: '患者安全信息',
+        items: [
+          { label: '患者意识状态', value: ref?.consciousnessStatus === 'unclear' ? '意识不清' : ref?.consciousnessStatus === 'conscious' ? '意识清醒' : '—' },
+          { label: '主要既往史', value: asNotFilledText(ref?.pastMedicalHistory) },
+          { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
+        ],
+      },
+      {
         title: '急诊信息',
         items: [
           { label: '录入方式', value: ref?.isRetroEntry ? '补录录入' : '实时转诊' },
-          { label: '初步诊断', value: `${ref?.diagnosis?.code || '—'} ${ref?.diagnosis?.name || '—'}`.trim() },
+          { label: '初步诊断', value: diagnosisText(ref) },
           { label: '紧急程度', value: ref?.urgencyLevel ? ['I级·急危', 'II级·急重', 'III级·急症', 'IV级·亚急'][ref.urgencyLevel - 1] : '—' },
-          { label: '患者意识状态', value: ref?.consciousnessStatus === 'unclear' ? '意识不清' : ref?.consciousnessStatus === 'conscious' ? '意识清醒' : '—' },
           { label: '患者到院时间', value: asText(ref?.patientArrivedAt) },
           { label: '主诉 / 急转原因', value: asText(ref?.chiefComplaint || ref?.reason) },
         ],
@@ -138,16 +175,19 @@ export function getUpwardDetailSections(ref, consentInfo) {
     return [
       ...commonSections,
       {
-        title: '诊断与转诊目的',
+        title: '病历摘要',
         items: [
-          { label: '初步诊断', value: `${ref?.diagnosis?.code || '—'} ${ref?.diagnosis?.name || '—'}`.trim() },
-          { label: '主诉', value: asText(ref?.chiefComplaint) },
+          { label: '主诉与现病史', value: asText(ref?.chiefComplaint) },
+          { label: '主要既往史', value: asNotFilledText(ref?.pastMedicalHistory) },
+          { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
+          { label: '当前住院诊断（ICD-10）', value: diagnosisText(ref) },
+          { label: '当前治疗经过 / 当前用药情况', value: asText(ref?.medicationSummary || ref?.currentMedication) },
+          { label: '当前治疗方案摘要', value: asText(ref?.currentTreatmentPlanSummary || ref?.currentTreatmentPlan) },
+          { label: '病情变化说明', value: asText(ref?.conditionChangeNote) },
           { label: '转院目的', value: buildPurposeText(ref, sourceVisitType) },
           { label: '当前病情评估', value: asText(ref?.conditionAssessment) },
           { label: '是否适合转运', value: asText(ref?.transportSuitability) },
           { label: '转运注意事项', value: asText(ref?.transportNotes) },
-          { label: '当前治疗经过 / 当前用药情况', value: asText(ref?.medicationSummary || ref?.currentTreatmentPlanSummary) },
-          { label: '病情变化说明', value: asText(ref?.conditionChangeNote) },
         ],
       },
       {
@@ -176,11 +216,14 @@ export function getUpwardDetailSections(ref, consentInfo) {
     {
       title: '诊断与转诊目的',
       items: [
-        { label: '初步诊断', value: `${ref?.diagnosis?.code || '—'} ${ref?.diagnosis?.name || '—'}`.trim() },
-        { label: '主诉', value: asText(ref?.chiefComplaint) },
+        { label: '主诉与现病史', value: asText(ref?.chiefComplaint) },
+        { label: '主要既往史', value: asNotFilledText(ref?.pastMedicalHistory) },
+        { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
+        { label: '初步诊断（ICD-10）', value: diagnosisText(ref) },
         { label: '转诊目的', value: buildPurposeText(ref, sourceVisitType) },
         { label: '当前病情评估', value: asText(ref?.outpatientConditionAssessment) },
         { label: '当前治疗经过/用药情况', value: asText(ref?.medicationSummary) },
+        { label: '已做检查 / 检验报告', value: attachmentText(ref) },
       ],
     },
     {

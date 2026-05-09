@@ -119,6 +119,19 @@ const PROXY_REASON_OPTIONS = [
   { value: 'other', label: '其他' },
 ]
 
+const ALLERGY_HISTORY_OPTIONS = [
+  { value: 'no_known_allergy', label: '无明确过敏史' },
+  { value: 'has_allergy', label: '有过敏史' },
+  { value: 'unknown', label: '暂不清楚' },
+]
+
+const PAST_MEDICAL_HISTORY_PLACEHOLDER = '请输入患者主要既往疾病、手术史、慢病史等，例如：高血压病史10年、糖尿病病史5年'
+const ALLERGY_HISTORY_PLACEHOLDER = '请输入过敏药物、食物或其他过敏情况，例如：青霉素过敏。'
+
+function isHasAllergyStatus(status) {
+  return status === 'has_allergy' || status === '有过敏史'
+}
+
 const SOURCE_LIBRARY = {
   healthArchive: { label: '医共体健康档案系统', desc: '患者基础信息、历史住院档案' },
   dischargeSummary: { label: '出院小结', desc: '出院诊断、诊疗经过、出院建议' },
@@ -185,6 +198,9 @@ const PATIENT_SEARCH_RESULTS = [
     diagnosisText: '冠状动脉粥样硬化性心脏病',
     icd10: 'I25.1',
     clinicalSummary: '患者因反复胸闷胸痛住院治疗，完善心电图、心肌酶及冠脉相关检查后，诊断为冠状动脉粥样硬化性心脏病。住院期间予以抗血小板、调脂、改善循环等治疗，当前病情平稳，建议下转基层继续康复管理与长期随访。',
+    pastMedicalHistory: '冠心病、高血压病史多年，既往脑梗死后遗轻度肢体乏力。',
+    allergyHistoryStatus: 'has_allergy',
+    allergyHistoryDetail: '头孢类药物过敏。',
     handoffSummary: '已完成急性期治疗，当前生命体征平稳，建议下转基层继续慢病管理、服药随访和复查提醒。',
     westernMedications: [
       { drugName: '阿司匹林肠溶片', spec: '100mg', singleDose: '100mg', route: '口服', frequency: 'qd 饭后', duration: '连服3个月', remark: '', source: 'health_archive', showMore: false, meta: { department: '心内科', doctor: '张医生', orderedAt: '2026/04/09', stoppedAt: '', orderType: '出院带药' } },
@@ -241,6 +257,9 @@ const PATIENT_SEARCH_RESULTS = [
     diagnosisText: '脑梗死恢复期',
     icd10: 'I63.9',
     clinicalSummary: '患者因肢体乏力、言语含糊住院治疗，完善头颅影像及神经系统评估后，诊断为脑梗死恢复期。住院期间予以抗血小板、调脂、改善循环及康复训练等治疗，当前病情稳定，建议下转基层继续康复随访。',
+    pastMedicalHistory: '高血压病史8年，脑梗死病史1年',
+    allergyHistoryStatus: 'unknown',
+    allergyHistoryDetail: '',
     handoffSummary: '建议基层持续开展肢体功能训练、用药依从性管理与血压血脂监测。',
     westernMedications: [
       { drugName: '阿司匹林肠溶片', spec: '100mg', singleDose: '100mg', route: '口服', frequency: 'qd 饭后', duration: '长期', remark: '', source: 'health_archive', showMore: false, meta: { department: '神经内科', doctor: '刘医生', orderedAt: '2026/04/11', stoppedAt: '', orderType: '出院带药' } },
@@ -468,6 +487,9 @@ function buildAutoData(record) {
     diagnosisText: record.diagnosisText,
     icd10: record.icd10,
     clinicalSummary: record.clinicalSummary,
+    pastMedicalHistory: record.pastMedicalHistory || '',
+    allergyHistoryStatus: record.allergyHistoryStatus || '',
+    allergyHistoryDetail: record.allergyHistoryDetail || '',
     handoffSummary: record.handoffSummary || '',
     westernMedications: record.westernMedications || [],
     chineseMedications: record.chineseMedications || [],
@@ -481,6 +503,13 @@ function buildAutoData(record) {
     latestDischargeAt: record.latestDischargeAt || '',
     autoPulledAt: new Date().toLocaleString('zh-CN'),
   }
+}
+
+function formatAllergyHistoryForDisplay(status, detail) {
+  if (isHasAllergyStatus(status)) return detail?.trim() || '有过敏史'
+  if (status === 'no_known_allergy' || status === '无明确过敏史') return '无明确过敏史'
+  if (status === 'unknown' || status === '暂不清楚') return '暂不清楚'
+  return status || '—'
 }
 
 function matchesPatientSearch(record, keyword) {
@@ -546,7 +575,7 @@ function buildMedicationLine(item, keys) {
 
 export default function CreateDownward() {
   const navigate = useNavigate()
-  const { createDownwardReferral } = useApp()
+  const { createDownwardReferral, currentUser } = useApp()
   const [step, setStep] = useState(0)
   const [sourceDialog, setSourceDialog] = useState(null)
   const [showRepullConfirm, setShowRepullConfirm] = useState(false)
@@ -578,6 +607,9 @@ export default function CreateDownward() {
     diagnosisText: '',
     icd10: '',
     clinicalSummary: '',
+    pastMedicalHistory: '',
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
     handoffSummary: '',
     westernMedications: [],
     chineseMedications: [],
@@ -635,9 +667,90 @@ export default function CreateDownward() {
     && form.toInstitutionId
     && selectedPatient.familyDoctorInstitutionId !== form.toInstitutionId,
   )
+  const consentTemplateReason = form.downwardReason === 'other'
+    ? form.downwardReasonOther.trim()
+    : getOptionLabel(DOWNWARD_MEDICAL_REASON_OPTIONS, form.downwardReason)
+  const consentTemplateReferral = {
+    type: 'downward',
+    patient: {
+      name: form.patientName,
+      gender: form.patientGender,
+      age: derivedAge || form.patientAge,
+      idCard: form.patientIdCard,
+      phone: form.patientPhone,
+    },
+    fromInstitution: currentUser?.institution,
+    toInstitution: selectedInst?.name,
+    reason: consentTemplateReason,
+    fromDoctor: currentUser?.name,
+  }
 
   function setField(key, value) {
     setForm(prev => ({ ...prev, [key]: value }))
+  }
+
+  function renderMedicalSafetyFields() {
+    return (
+      <>
+        {selectedPatient && (form.pastMedicalHistory || form.allergyHistoryStatus || form.allergyHistoryDetail) && (
+          <div className="rounded-lg border border-cyan-100 bg-cyan-50 px-3 py-2 text-xs text-cyan-700">
+            已根据患者关联信息带出，请核对后补充。
+          </div>
+        )}
+        <div className="rounded-xl border px-4 py-4" style={{ background: '#F5FAFF', borderColor: '#D7EAFE' }}>
+          <FieldLabel>主要既往史</FieldLabel>
+          <textarea
+            className={`${inputCls} resize-none`}
+            rows={3}
+            value={form.pastMedicalHistory}
+            onChange={event => setField('pastMedicalHistory', event.target.value)}
+            placeholder={PAST_MEDICAL_HISTORY_PLACEHOLDER}
+          />
+        </div>
+        <div className="rounded-xl border px-4 py-4" style={{ background: '#F5FAFF', borderColor: '#D7EAFE' }}>
+          <FieldLabel>过敏史</FieldLabel>
+          <div className="flex flex-wrap gap-3">
+            {ALLERGY_HISTORY_OPTIONS.map(option => (
+              <label key={option.value} className="flex items-center gap-2 cursor-pointer text-sm">
+                <input
+                  type="radio"
+                  name="downwardAllergyHistoryStatus"
+                  value={option.value}
+                  checked={form.allergyHistoryStatus === option.value}
+                  onChange={() => setForm(prev => ({
+                    ...prev,
+                    allergyHistoryStatus: option.value,
+                    allergyHistoryDetail: isHasAllergyStatus(option.value) ? prev.allergyHistoryDetail : '',
+                  }))}
+                />
+                <span className="text-gray-700">{option.label}</span>
+              </label>
+            ))}
+            {form.allergyHistoryStatus && (
+              <button
+                type="button"
+                onClick={() => setForm(prev => ({ ...prev, allergyHistoryStatus: '', allergyHistoryDetail: '' }))}
+                className="text-xs text-gray-400 hover:text-gray-600"
+              >
+                清空
+              </button>
+            )}
+          </div>
+          {isHasAllergyStatus(form.allergyHistoryStatus) && (
+            <div className="mt-3">
+              <FieldLabel>过敏史说明</FieldLabel>
+              <textarea
+                className={`${inputCls} resize-none`}
+                rows={2}
+                value={form.allergyHistoryDetail}
+                onChange={event => setField('allergyHistoryDetail', event.target.value)}
+                placeholder={ALLERGY_HISTORY_PLACEHOLDER}
+              />
+            </div>
+          )}
+        </div>
+      </>
+    )
   }
 
   function setDownwardReason(nextReason) {
@@ -666,6 +779,9 @@ export default function CreateDownward() {
     diagnosisText: '',
     icd10: '',
     clinicalSummary: '',
+    pastMedicalHistory: '',
+    allergyHistoryStatus: '',
+    allergyHistoryDetail: '',
     handoffSummary: '',
     westernMedications: [],
     chineseMedications: [],
@@ -936,6 +1052,9 @@ export default function CreateDownward() {
       },
       diagnosis: form.diagnosis || { code: form.icd10 || '—', name: form.diagnosisText || '—' },
       chiefComplaint: form.clinicalSummary,
+      pastMedicalHistory: form.pastMedicalHistory,
+      allergyHistoryStatus: form.allergyHistoryStatus,
+      allergyHistoryDetail: isHasAllergyStatus(form.allergyHistoryStatus) ? form.allergyHistoryDetail : '',
       handoffSummary: form.handoffSummary || null,
       reason: downwardReasonText,
       downwardReasonCode: form.downwardReason,
@@ -1226,6 +1345,8 @@ export default function CreateDownward() {
                   <FieldLabel required>出院小结摘要</FieldLabel>
                   <textarea className={`${inputCls} resize-none`} rows={4} value={form.clinicalSummary} onChange={event => setField('clinicalSummary', event.target.value)} placeholder="请输入出院小结摘要" />
                 </div>
+
+                {renderMedicalSafetyFields()}
 
                 <div className="rounded-xl border px-4 py-4" style={{ background: '#F5FAFF', borderColor: '#D7EAFE' }}>
                   <FieldLabel>下转交接摘要</FieldLabel>
@@ -1760,6 +1881,7 @@ export default function CreateDownward() {
               introPanelStyle="plain"
               introDescriptionClassName="text-xs text-gray-500 leading-5"
               templateButtonVariant="uniform"
+              templateReferral={consentTemplateReferral}
               middleContent={signerType === 'family' ? (
                 <div className="rounded-xl border px-4 py-4 space-y-4" style={{ background: '#fff', borderColor: '#E5E7EB' }}>
                   <div className="text-sm font-semibold text-gray-800">家属代签信息</div>
@@ -1817,6 +1939,8 @@ export default function CreateDownward() {
                 ['出院诊断/主要诊断', form.diagnosisText || '—'],
                 ['ICD-10', form.icd10 || '—'],
                 ['出院小结摘要', form.clinicalSummary || '—'],
+                ['主要既往史', form.pastMedicalHistory || '—'],
+                ['过敏史', formatAllergyHistoryForDisplay(form.allergyHistoryStatus, form.allergyHistoryDetail)],
                 ['下转交接摘要', form.handoffSummary || '—'],
                 ['继续用药', getMedicationSummary()],
                 ['用药注意事项', [...form.medicationNoteTags, ...(form.medicationNoteExtra.trim() ? [form.medicationNoteExtra.trim()] : [])]],
