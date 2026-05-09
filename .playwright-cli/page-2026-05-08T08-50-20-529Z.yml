@@ -1,0 +1,184 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 赵
+        - generic [ref=e13]:
+          - generic [ref=e14]: 赵管理员
+          - generic [ref=e15]: xx市医共体管理层
+      - generic [ref=e17]: 转诊管理员
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - link "📋 转诊台账" [ref=e22] [cursor=pointer]:
+        - /url: /admin/ledger
+        - generic [ref=e23]: 📋
+        - generic [ref=e24]: 转诊台账
+      - link "⚠️ 异常处理" [ref=e25] [cursor=pointer]:
+        - /url: /admin/anomaly
+        - generic [ref=e26]: ⚠️
+        - generic [ref=e27]: 异常处理
+      - generic [ref=e28]:
+        - button "📈 统计报表 ›" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]:
+            - generic [ref=e31]: 📈
+            - generic [ref=e32]: 统计报表
+          - generic [ref=e33]: ›
+        - generic [ref=e34]:
+          - link "统计看板" [ref=e35] [cursor=pointer]:
+            - /url: /admin/stats
+          - link "考核报表" [ref=e36] [cursor=pointer]:
+            - /url: /admin/exam-report
+          - link "绩效统计" [ref=e37] [cursor=pointer]:
+            - /url: /admin/doctor-perf
+          - link "数据上报" [ref=e38] [cursor=pointer]:
+            - /url: /admin/data-report
+      - link "🔔 消息中心" [ref=e39] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e40]: 🔔
+        - generic [ref=e41]: 消息中心
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]: 双向转诊平台
+      - generic [ref=e45]:
+        - button "🎭 切换角色 ▾" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: 🎭
+          - generic [ref=e49]: 切换角色
+          - generic [ref=e50]: ▾
+        - link "2" [ref=e51] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e52]
+          - generic [ref=e54]: "2"
+        - link "赵" [ref=e55] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - heading "异常处理" [level=2] [ref=e59]
+          - generic [ref=e60]: 聚焦超时督办、急诊升级与拒绝回看。
+        - generic [ref=e61]:
+          - generic [ref=e62]:
+            - generic [ref=e63]: 🔴
+            - generic [ref=e64]:
+              - generic [ref=e65]: "0"
+              - generic [ref=e66]: 紧急升级
+          - generic [ref=e67]:
+            - generic [ref=e68]: ⏰
+            - generic [ref=e69]:
+              - generic [ref=e70]: "4"
+              - generic [ref=e71]: 超时督办
+          - generic [ref=e72]:
+            - generic [ref=e73]: ❌
+            - generic [ref=e74]:
+              - generic [ref=e75]: "2"
+              - generic [ref=e76]: 拒绝回看
+        - generic [ref=e77]:
+          - button "超时督办4" [ref=e78] [cursor=pointer]
+          - button "拒绝回看2" [ref=e79] [cursor=pointer]
+        - table [ref=e81]:
+          - rowgroup [ref=e82]:
+            - row "序号 转诊方向 患者信息 诊断（ICD-10） 转诊单号 转出机构 转入机构 状态 异常时长/原因 操作" [ref=e83]:
+              - columnheader "序号" [ref=e84]
+              - columnheader "转诊方向" [ref=e85]
+              - columnheader "患者信息" [ref=e86]
+              - columnheader "诊断（ICD-10）" [ref=e87]
+              - columnheader "转诊单号" [ref=e88]
+              - columnheader "转出机构" [ref=e89]
+              - columnheader "转入机构" [ref=e90]
+              - columnheader "状态" [ref=e91]
+              - columnheader "异常时长/原因" [ref=e92]
+              - columnheader "操作" [ref=e93]
+          - rowgroup [ref=e94]:
+            - row "1 基层至县级 韩秀梅 女 / 63岁 J18.9·肺炎 ZZ2026050801 xx市拱星镇卫生院 xx市人民医院 待受理 1天前 详情 指定医生 协商关闭 催办 完成接诊确认" [ref=e95] [cursor=pointer]:
+              - cell "1" [ref=e96]:
+                - generic [ref=e97]: "1"
+              - cell "基层至县级" [ref=e98]
+              - cell "韩秀梅 女 / 63岁" [ref=e99]:
+                - generic [ref=e100]:
+                  - generic [ref=e102]: 韩秀梅
+                  - generic [ref=e103]: 女 / 63岁
+              - cell "J18.9·肺炎" [ref=e104]:
+                - generic [ref=e105]: J18.9·肺炎
+              - cell "ZZ2026050801" [ref=e106]
+              - cell "xx市拱星镇卫生院" [ref=e107]
+              - cell "xx市人民医院" [ref=e108]
+              - cell "待受理" [ref=e109]:
+                - generic [ref=e110]: 待受理
+              - cell "1天前" [ref=e112]
+              - cell "详情 指定医生 协商关闭 催办 完成接诊确认" [ref=e113]:
+                - generic [ref=e114]:
+                  - button "详情" [ref=e115]
+                  - button "指定医生" [ref=e116]
+                  - button "协商关闭" [ref=e117]
+                  - button "催办" [ref=e118]
+                  - button "完成接诊确认" [ref=e119]
+            - row "2 基层至县级 宋建国 男 / 58岁 I10·原发性高血压 ZZ2026050802 xx市汉旺镇卫生院 xx市人民医院 转诊中 2天前 详情 指定医生 协商关闭 催办 完成接诊确认" [ref=e120] [cursor=pointer]:
+              - cell "2" [ref=e121]:
+                - generic [ref=e122]: "2"
+              - cell "基层至县级" [ref=e123]
+              - cell "宋建国 男 / 58岁" [ref=e124]:
+                - generic [ref=e125]:
+                  - generic [ref=e127]: 宋建国
+                  - generic [ref=e128]: 男 / 58岁
+              - cell "I10·原发性高血压" [ref=e129]:
+                - generic [ref=e130]: I10·原发性高血压
+              - cell "ZZ2026050802" [ref=e131]
+              - cell "xx市汉旺镇卫生院" [ref=e132]
+              - cell "xx市人民医院" [ref=e133]
+              - cell "转诊中" [ref=e134]:
+                - generic [ref=e135]: 转诊中
+              - cell "2天前" [ref=e137]
+              - cell "详情 指定医生 协商关闭 催办 完成接诊确认" [ref=e138]:
+                - generic [ref=e139]:
+                  - button "详情" [ref=e140]
+                  - button "指定医生" [ref=e141]
+                  - button "协商关闭" [ref=e142]
+                  - button "催办" [ref=e143]
+                  - button "完成接诊确认" [ref=e144]
+            - row "3 县级至基层 黄美兰 女 / 72岁 I63.9·脑梗死 XZ2026050801 xx市人民医院 xx市拱星镇卫生院 待接收 1天前 详情 催办" [ref=e145] [cursor=pointer]:
+              - cell "3" [ref=e146]:
+                - generic [ref=e147]: "3"
+              - cell "县级至基层" [ref=e148]
+              - cell "黄美兰 女 / 72岁" [ref=e149]:
+                - generic [ref=e150]:
+                  - generic [ref=e152]: 黄美兰
+                  - generic [ref=e153]: 女 / 72岁
+              - cell "I63.9·脑梗死" [ref=e154]:
+                - generic [ref=e155]: I63.9·脑梗死
+              - cell "XZ2026050801" [ref=e156]
+              - cell "xx市人民医院" [ref=e157]
+              - cell "xx市拱星镇卫生院" [ref=e158]
+              - cell "待接收" [ref=e159]:
+                - generic [ref=e160]: 待接收
+              - cell "1天前" [ref=e162]
+              - cell "详情 催办" [ref=e163]:
+                - generic [ref=e164]:
+                  - button "详情" [ref=e165]
+                  - button "催办" [ref=e166]
+            - row "4 县级至基层 罗世平 男 / 66岁 E11.9·2型糖尿病不伴并发症 XZ2026050802 xx市人民医院 xx市拱星镇卫生院 转诊中 8天前 详情 催办" [ref=e167] [cursor=pointer]:
+              - cell "4" [ref=e168]:
+                - generic [ref=e169]: "4"
+              - cell "县级至基层" [ref=e170]
+              - cell "罗世平 男 / 66岁" [ref=e171]:
+                - generic [ref=e172]:
+                  - generic [ref=e174]: 罗世平
+                  - generic [ref=e175]: 男 / 66岁
+              - cell "E11.9·2型糖尿病不伴并发症" [ref=e176]:
+                - generic [ref=e177]: E11.9·2型糖尿病不伴并发症
+              - cell "XZ2026050802" [ref=e178]
+              - cell "xx市人民医院" [ref=e179]
+              - cell "xx市拱星镇卫生院" [ref=e180]
+              - cell "转诊中" [ref=e181]:
+                - generic [ref=e182]: 转诊中
+              - cell "8天前" [ref=e184]
+              - cell "详情 催办" [ref=e185]:
+                - generic [ref=e186]:
+                  - button "详情" [ref=e187]
+                  - button "催办" [ref=e188]

@@ -20,13 +20,6 @@ function RowNo({ n }) {
   )
 }
 
-function getAllocationLabel(ref) {
-  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
-  if (mode === 'designated') return '指定接收医生'
-  if (mode === 'coordinator_reassign') return '仅指定机构'
-  return '仅指定机构'
-}
-
 function getCurrentOwner(ref) {
   const displayStatus = getDownwardDisplayStatus(ref)
   if (displayStatus === DOWNWARD_STATUS.RETURNED) {
@@ -44,6 +37,22 @@ const TD = 'px-3 py-2.5 text-sm'
 
 function getReferralNo(ref) {
   return ref.referralCode || ref.referralNo || ref.id || '—'
+}
+
+function getFromDept(ref) {
+  if (ref.fromDept || ref.sourceDept || ref.dischargeDept) return ref.fromDept || ref.sourceDept || ref.dischargeDept
+  if (ref.admissionArrangement?.department) return ref.admissionArrangement.department
+  const doctorDeptMap = {
+    李志远: '内科',
+    刘医生: '内科',
+    王晓敏: '心内科',
+    周主任: '急诊科',
+    吴主任: '神经内科',
+    陈医生: '心血管科',
+    孙医生: '骨科',
+    张医生: '呼吸科',
+  }
+  return doctorDeptMap[ref.fromDoctor] || '—'
 }
 
 export default function PrimaryDownwardRecords() {
@@ -133,7 +142,7 @@ export default function PrimaryDownwardRecords() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者信息', '当前诊断（ICD-10）', '转诊单号', '转出机构', '接收方式', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
+              {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '转出科室', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
@@ -177,7 +186,7 @@ export default function PrimaryDownwardRecords() {
                 </td>
                 <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                 <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution || '—'}</td>
-                <td className={TD + ' text-xs text-gray-600'}>{getAllocationLabel(ref)}</td>
+                <td className={TD + ' text-xs text-gray-600'}>{getFromDept(ref)}</td>
                 <td className={TD}>
                   <div className="text-sm text-gray-700">{getCurrentOwner(ref)}</div>
                   {ref.rejectedDoctorIds?.length > 0 && (

@@ -1,0 +1,260 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 王
+        - generic [ref=e13]:
+          - generic [ref=e14]: 王医生
+          - generic [ref=e15]: xx市拱星镇卫生院
+      - generic [ref=e17]: 基层医生
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /primary/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - generic [ref=e22]:
+        - button "⬆️ 转出管理 ›" [ref=e23] [cursor=pointer]:
+          - generic [ref=e24]:
+            - generic [ref=e25]: ⬆️
+            - generic [ref=e26]: 转出管理
+          - generic [ref=e27]: ›
+        - generic [ref=e28]:
+          - link "发起转出" [ref=e29] [cursor=pointer]:
+            - /url: /primary/create-referral
+          - link "转出记录" [ref=e30] [cursor=pointer]:
+            - /url: /primary/referral-list
+      - generic [ref=e31]:
+        - button "⬇️ 转入管理 ›" [ref=e32] [cursor=pointer]:
+          - generic [ref=e33]:
+            - generic [ref=e34]: ⬇️
+            - generic [ref=e35]: 转入管理
+          - generic [ref=e36]: ›
+        - generic [ref=e37]:
+          - link "转入处理" [ref=e38] [cursor=pointer]:
+            - /url: /primary/downward-list
+          - link "转入记录" [ref=e39] [cursor=pointer]:
+            - /url: /primary/downward-records
+      - link "📅 随访任务" [ref=e40] [cursor=pointer]:
+        - /url: /primary/followup
+        - generic [ref=e41]: 📅
+        - generic [ref=e42]: 随访任务
+      - link "🔔 消息中心" [ref=e43] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e44]: 🔔
+        - generic [ref=e45]: 消息中心
+  - generic [ref=e46]:
+    - banner [ref=e47]:
+      - generic [ref=e48]: 双向转诊平台
+      - generic [ref=e49]:
+        - button "🎭 切换角色 ▾" [ref=e51] [cursor=pointer]:
+          - generic [ref=e52]: 🎭
+          - generic [ref=e53]: 切换角色
+          - generic [ref=e54]: ▾
+        - link "2" [ref=e55] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e56]
+          - generic [ref=e58]: "2"
+        - link "王" [ref=e59] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e60]:
+      - generic [ref=e61]:
+        - generic [ref=e62]:
+          - button "← 返回" [ref=e63] [cursor=pointer]
+          - generic [ref=e64]: ›
+          - generic [ref=e65]: 转诊单详情
+          - generic [ref=e66]: ›
+          - generic [ref=e67]: REF2026001
+        - generic [ref=e68]:
+          - generic [ref=e69]:
+            - generic [ref=e70]: ⚠
+            - generic [ref=e71]: 目标信息已修改，请确认患者是否知晓
+          - generic [ref=e72]:
+            - generic [ref=e73]: 系统已重新发送短信，但无法确认患者/家属是否收到。请联系患者/家属，告知最新就诊地点。
+            - generic [ref=e74]:
+              - generic [ref=e75]:
+                - generic [ref=e76]: ⌖
+                - generic [ref=e77]: 最新就诊地点：
+                - generic [ref=e78]: xx市人民医院 · 心血管科
+              - generic [ref=e79]:
+                - generic [ref=e80]: ☎
+                - generic [ref=e81]: 急诊科电话：
+                - generic [ref=e82]: 0838-6213200
+              - generic [ref=e83]:
+                - generic [ref=e84]: ☎
+                - generic [ref=e85]: 患者电话：
+                - generic [ref=e86]: "13800000000"
+            - generic [ref=e87]:
+              - button "☎ 拨打患者电话" [ref=e88] [cursor=pointer]:
+                - generic [ref=e89]: ☎
+                - text: 拨打患者电话
+              - button "✓ 已联系患者" [ref=e90] [cursor=pointer]:
+                - generic [ref=e91]: ✓
+                - text: 已联系患者
+        - generic [ref=e93]:
+          - generic [ref=e94]:
+            - generic [ref=e95]:
+              - heading "张三" [level=1] [ref=e96]
+              - generic [ref=e97]: 转诊中
+              - generic [ref=e99]: 急诊
+              - generic [ref=e100]: II级急重
+            - generic [ref=e101]:
+              - generic [ref=e102]: 患者：张三 · 男 · 67岁
+              - generic [ref=e103]: "|"
+              - generic [ref=e104]: 诊断：I10 原发性高血压
+              - generic [ref=e105]: "|"
+              - generic [ref=e106]: 转诊单号：EM2026040601
+            - generic [ref=e107]:
+              - generic [ref=e108]: xx市拱星镇卫生院 (王医生)
+              - generic [ref=e109]: →
+              - generic [ref=e110]: xx市人民医院 · 心血管科
+              - generic [ref=e111]: "|"
+              - generic [ref=e112]: 创建于 2026/05/09 01:14
+          - generic [ref=e113]:
+            - button "拨打急诊科电话" [ref=e115] [cursor=pointer]:
+              - generic [ref=e116]: 📞
+              - text: 拨打急诊科电话
+            - button "协商关闭" [ref=e118] [cursor=pointer]
+            - button "预览双向转诊（转出）单" [ref=e119] [cursor=pointer]
+            - button "下载 PDF" [ref=e120] [cursor=pointer]
+            - button "打印" [ref=e121] [cursor=pointer]
+        - generic [ref=e123]:
+          - generic [ref=e125]:
+            - generic [ref=e128]: 流程进度
+            - generic [ref=e129]: 3/5
+          - generic [ref=e131]:
+            - generic [ref=e133]:
+              - generic [ref=e134]: ✓
+              - generic [ref=e135]:
+                - generic [ref=e136]: 发起急诊转诊
+                - generic [ref=e137]: 2026/05/09 01:14
+            - generic [ref=e139]:
+              - generic [ref=e140]: ✓
+              - generic [ref=e141]:
+                - generic [ref=e142]: 已通知并进入接诊准备
+                - generic [ref=e143]: 2026/05/09 01:14
+            - generic [ref=e145]:
+              - generic [ref=e146]: "3"
+              - generic [ref=e147]:
+                - generic [ref=e148]: 到院/接诊
+                - generic [ref=e149]: 2026/05/09 01:15
+            - generic [ref=e151]:
+              - generic [ref=e152]: "4"
+              - generic [ref=e153]:
+                - generic [ref=e154]: 急诊处置完成
+                - generic [ref=e155]: 待推进
+            - generic [ref=e157]:
+              - generic [ref=e158]: "5"
+              - generic [ref=e159]:
+                - generic [ref=e160]: 闭环完成
+                - generic [ref=e161]: 待推进
+        - generic [ref=e163]:
+          - generic [ref=e164]:
+            - generic [ref=e165]: ⚡ 急诊待补录
+            - generic [ref=e166]: 提交于 2026/05/09 01:14
+          - generic [ref=e167]: 已通知：急诊科值班✓ 科室负责人✓ 转诊中心✓
+          - generic [ref=e168]:
+            - generic [ref=e169]:
+              - text: 当前状态
+              - generic [ref=e170]: 待补录接诊信息
+            - generic [ref=e171]:
+              - text: 紧急修改窗口
+              - generic [ref=e172]: 已关闭
+        - generic [ref=e173]:
+          - generic [ref=e174]:
+            - button "申请详情" [ref=e175] [cursor=pointer]
+            - button "转诊附件资料" [ref=e176] [cursor=pointer]
+            - button "操作日志 (3)" [ref=e177] [cursor=pointer]
+            - button "患者历史转诊" [ref=e178] [cursor=pointer]
+          - generic [ref=e180]:
+            - generic [ref=e181]:
+              - generic [ref=e182]: 患者基础信息
+              - generic [ref=e183]:
+                - generic [ref=e184]:
+                  - generic [ref=e185]: 姓名
+                  - generic [ref=e186]: 张三
+                - generic [ref=e187]:
+                  - generic [ref=e188]: 性别
+                  - generic [ref=e189]: 男
+                - generic [ref=e190]:
+                  - generic [ref=e191]: 年龄
+                  - generic [ref=e192]: 67岁
+                - generic [ref=e193]:
+                  - generic [ref=e194]: 联系电话
+                  - generic [ref=e195]: "13800000000"
+                - generic [ref=e196]:
+                  - generic [ref=e197]: 身份证号
+                  - generic [ref=e198]: 510623***1234
+                - generic [ref=e199]:
+                  - generic [ref=e200]: 患者类型
+                  - generic [ref=e201]: 急诊
+            - generic [ref=e202]:
+              - generic [ref=e203]: 急诊信息
+              - generic [ref=e204]:
+                - generic [ref=e205]:
+                  - generic [ref=e206]: 录入方式
+                  - generic [ref=e207]: 实时转诊
+                - generic [ref=e208]:
+                  - generic [ref=e209]: 初步诊断
+                  - generic [ref=e210]: I10 原发性高血压
+                - generic [ref=e211]:
+                  - generic [ref=e212]: 紧急程度
+                  - generic [ref=e213]: II级·急重
+                - generic [ref=e214]:
+                  - generic [ref=e215]: 患者意识状态
+                  - generic [ref=e216]: 意识清醒
+                - generic [ref=e217]:
+                  - generic [ref=e218]: 患者到院时间
+                  - generic [ref=e219]: —
+                - generic [ref=e220]:
+                  - generic [ref=e221]: 主诉 / 急转原因
+                  - generic [ref=e222]: 反复头痛、头晕3天，测血压最高180/110mmHg，口服降压药效果不佳
+            - generic [ref=e223]:
+              - generic [ref=e224]: 转运评估
+              - generic [ref=e225]:
+                - generic [ref=e226]:
+                  - generic [ref=e227]: 是否具备转运条件
+                  - generic [ref=e228]: —
+                - generic [ref=e229]:
+                  - generic [ref=e230]: 转运需求
+                  - generic [ref=e231]: —
+            - generic [ref=e232]:
+              - generic [ref=e233]: 接收准备
+              - generic [ref=e234]:
+                - generic [ref=e235]:
+                  - generic [ref=e236]: 目标医院
+                  - generic [ref=e237]: xx市人民医院
+                - generic [ref=e238]:
+                  - generic [ref=e239]: 接诊入口
+                  - generic [ref=e240]: 心血管科
+                - generic [ref=e241]:
+                  - generic [ref=e242]: 联动专科
+                  - generic [ref=e243]: —
+            - generic [ref=e244]:
+              - generic [ref=e245]: 知情同意
+              - generic [ref=e246]:
+                - generic [ref=e247]:
+                  - generic [ref=e248]: 签署方式
+                  - generic [ref=e249]: 线下签字后上传
+                - generic [ref=e250]:
+                  - generic [ref=e251]: 签署人类型
+                  - generic [ref=e252]: 患者本人
+                - generic [ref=e253]:
+                  - generic [ref=e254]: 与患者关系
+                  - generic [ref=e255]: —
+                - generic [ref=e256]:
+                  - generic [ref=e257]: 代签原因
+                  - generic [ref=e258]: —
+                - generic [ref=e259]:
+                  - generic [ref=e260]: 上传时间
+                  - generic [ref=e261]: 2026/5/8 21:50:16
+                - generic [ref=e262]:
+                  - generic [ref=e263]: 状态
+                  - generic [ref=e264]: 已完成
+            - button "消息记录 展开 ▼" [ref=e266] [cursor=pointer]:
+              - generic [ref=e267]: 消息记录
+              - generic [ref=e268]: 展开 ▼

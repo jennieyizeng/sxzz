@@ -1646,8 +1646,8 @@ export function AppProvider({ children }) {
       if (r.id !== referralId) return r
       const log = {
         referralNo: r.referralNo || r.id,
-        templateId: payload.templateId,
-        templateVersion: payload.templateVersion,
+        documentName: payload.documentName || '转诊文书',
+        documentVariant: payload.documentVariant || null,
         actionType: payload.actionType,
         operator: currentUser.name,
         operatedAt: nowIso,
@@ -1662,8 +1662,8 @@ export function AppProvider({ children }) {
           {
             time: nowIso,
             actor: currentUser.name,
-            action: `转诊文书${payload.actionType}`,
-            note: `转诊单编号：${log.referralNo}；模板：${log.templateId} ${log.templateVersion}；状态：${log.referralStatus}`,
+            action: payload.actionType,
+            note: `转诊单编号：${log.referralNo}；文书：${log.documentName}；状态：${log.referralStatus}`,
           },
         ],
       }

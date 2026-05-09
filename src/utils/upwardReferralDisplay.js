@@ -180,8 +180,7 @@ export function getUpwardDetailSections(ref, consentInfo) {
         { label: '主诉', value: asText(ref?.chiefComplaint) },
         { label: '转诊目的', value: buildPurposeText(ref, sourceVisitType) },
         { label: '当前病情评估', value: asText(ref?.outpatientConditionAssessment) },
-        { label: '补充说明', value: asText(ref?.outpatientSupplementNote || ref?.reason) },
-        { label: '用药情况', value: asText(ref?.medicationSummary) },
+        { label: '当前治疗经过/用药情况', value: asText(ref?.medicationSummary) },
       ],
     },
     {

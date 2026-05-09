@@ -355,7 +355,6 @@ export default function CreateReferral() {
   const outpatientReasonSummary = [
     outpatientTransferPurpose ? `转诊目的：${outpatientTransferPurposeSummary}` : '',
     outpatientConditionAssessment ? `当前病情评估：${outpatientConditionAssessment}` : '',
-    form.reason ? `补充说明：${form.reason}` : '',
   ].filter(Boolean).join('；')
 
   const normalCanNext = [
@@ -369,6 +368,7 @@ export default function CreateReferral() {
         ? (inpatientTransferPurpose && conditionAssessment && transportSuitability && form.medicationSummary
           && (inpatientTransferPurpose !== '其他' || inpatientTransferPurposeOther))
         : (outpatientTransferPurpose
+          && form.medicationSummary.trim()
           && (outpatientTransferPurpose !== 'other' || outpatientTransferPurposeOther.trim()))),
     form.toInstitutionId && form.toDept,
     !!consentFile && (signerType !== 'family' || (signerRelation && signerReason)),
@@ -640,7 +640,7 @@ export default function CreateReferral() {
       referralPurposeCodes: outpatientTransferPurpose ? [outpatientTransferPurpose] : [],
       outpatientTransferPurposeOther: outpatientTransferPurpose === 'other' ? outpatientTransferPurposeOther.trim() : '',
       referralPurposeText: outpatientTransferPurpose === 'other' ? outpatientTransferPurposeOther.trim() || null : null,
-      outpatientSupplementNote: form.reason || '',
+      outpatientSupplementNote: '',
       outpatientConditionAssessment: outpatientConditionAssessment || '',
       fromInstitution: currentUser.institution,
       fromDoctor: currentUser.name,
@@ -1445,17 +1445,10 @@ export default function CreateReferral() {
                     </div>
                   </div>
                   <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">补充说明</label>
-                    <textarea value={form.reason}
-                      onChange={event => setForm(prev => ({ ...prev, reason: event.target.value }))}
-                      rows={2} placeholder="如需补充说明当前判断依据、已沟通情况，可填写"
-                      className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
-                  </div>
-                  <div>
-                    <label className="block text-sm font-medium text-gray-700 mb-1.5">用药情况</label>
+                    <label className="block text-sm font-medium text-gray-700 mb-1.5">当前治疗经过/用药情况 <span className="text-red-500">*</span></label>
                     <textarea value={form.medicationSummary}
                       onChange={event => setForm(prev => ({ ...prev, medicationSummary: event.target.value }))}
-                      rows={2} placeholder="如门诊已有用药可填写"
+                      rows={3} placeholder="请填写当前门诊治疗经过、处置措施及用药情况"
                       className="w-full border border-gray-300 rounded-lg px-3 py-2 text-sm focus:outline-none resize-none" />
                   </div>
                   {renderAttachmentUploader({
@@ -1697,8 +1690,7 @@ export default function CreateReferral() {
                       ['转诊目的', outpatientTransferPurposeSummary],
                       ['当前病情评估', outpatientConditionAssessment || '未填写'],
                       ...(outpatientTransferPurpose === 'other' && outpatientTransferPurposeOther ? [['其他转诊目的', outpatientTransferPurposeOther]] : []),
-                      ...(form.reason ? [['补充说明', form.reason]] : []),
-                      ['用药情况', form.medicationSummary || '—'],
+                      ['当前治疗经过/用药情况', form.medicationSummary || '—'],
                     ].map(([key, value]) => (
                       <div key={key} className="px-4 py-2.5 border-t border-gray-100">
                         <div className="text-xs text-gray-400">{key}</div>

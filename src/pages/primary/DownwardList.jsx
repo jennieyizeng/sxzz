@@ -18,11 +18,46 @@ const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 const STATUS_FILTERS = ['全部', '待接收', '转诊中', '已完成', '已退回', '已撤销', '已关闭']
 
-function getAllocationLabel(ref) {
-  const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
-  if (mode === 'designated') return '指定接收医生'
-  if (mode === 'coordinator_reassign') return '仅指定机构'
-  return '仅指定机构'
+function getReferralNo(ref) {
+  return ref.referralCode || ref.referralNo || ref.id || '—'
+}
+
+function getFromDept(ref) {
+  if (ref.fromDept || ref.sourceDept || ref.dischargeDept) return ref.fromDept || ref.sourceDept || ref.dischargeDept
+  if (ref.admissionArrangement?.department) return ref.admissionArrangement.department
+  const doctorDeptMap = {
+    李志远: '内科',
+    刘医生: '内科',
+    王晓敏: '心内科',
+    周主任: '急诊科',
+    吴主任: '神经内科',
+    陈医生: '心血管科',
+    孙医生: '骨科',
+    张医生: '呼吸科',
+  }
+  return doctorDeptMap[ref.fromDoctor] || '—'
+}
+
+function PatientInfo({ referral }) {
+  return (
+    <div>
+      <div className="flex items-center gap-1 flex-wrap">
+        {referral.is_emergency && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-red-100 text-red-700 border border-red-200">
+            {referral.isUrgentUnhandled ? '急诊·超时' : '急诊'}
+          </span>
+        )}
+        {referral.referral_type === 'green_channel' && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded text-white" style={{ background: '#10b981' }}>绿通</span>
+        )}
+        {referral.isRetroEntry && (
+          <span className="text-xs font-bold px-1.5 py-0.5 rounded bg-gray-100 text-gray-700 border border-gray-300">补录</span>
+        )}
+        <span className="font-medium text-gray-800">{referral.patient.name}</span>
+      </div>
+      <div className="text-xs text-gray-400 mt-0.5">{referral.patient.gender || '未知'} / {referral.patient.age ? `${referral.patient.age}岁` : '年龄未填'}</div>
+    </div>
+  )
 }
 
 function getOwnerLabel(ref) {
@@ -37,7 +72,7 @@ function getOwnerLabel(ref) {
 function getStageHint(ref, isCoordinator, currentUser) {
   const mode = ref.allocationMode || (ref.designatedDoctorId ? 'designated' : 'coordinator')
   if (!isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && shouldShowDownwardReferralForPrimaryDoctor(ref, currentUser)) {
-    return '待您接收，可直接接收或拒绝'
+    return ''
   }
   if (isCoordinator && ref.status === DOWNWARD_STATUS.PENDING && mode === 'coordinator') {
     return '待负责人首次分配'
@@ -148,7 +183,7 @@ export default function DownwardList() {
         <table className="w-full" style={{ borderCollapse: 'collapse' }}>
           <thead>
             <tr style={{ background: '#E0F6F9' }}>
-              {['序号', '患者姓名', '性别/年龄', '当前诊断', '转出机构', '接收方式', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
+              {['序号', '患者信息', '诊断（ICD-10）', '转诊单号', '转出机构', '转出科室', '指定接收医生 / 当前归属', '状态', '发起时间', '操作'].map(h => (
                 <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
               ))}
             </tr>
@@ -166,11 +201,11 @@ export default function DownwardList() {
                 onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#FAFEFE'}
               >
                 <td className={TD}><RowNo n={i + 1} /></td>
-                <td className={TD}><span className="font-medium text-gray-800">{ref.patient.name}</span></td>
-                <td className={TD + ' text-xs text-gray-500'}>{ref.patient.gender}/{ref.patient.age}岁</td>
-                <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
+                <td className={TD}><PatientInfo referral={ref} /></td>
+                <td className={TD + ' text-xs text-gray-600'}><span className="font-mono mr-1" style={{ color: '#0892a0' }}>{ref.diagnosis.code}</span>{ref.diagnosis.name}</td>
+                <td className={TD + ' text-xs font-mono text-gray-600'}>{getReferralNo(ref)}</td>
                 <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
-                <td className={TD + ' text-xs text-gray-600'}>{getAllocationLabel(ref)}</td>
+                <td className={TD + ' text-xs text-gray-600'}>{getFromDept(ref)}</td>
                 <td className={TD}>
                   <div className="text-sm text-gray-700">{getOwnerLabel(ref)}</div>
                   {getStageHint(ref, isCoordinator, currentUser) && (

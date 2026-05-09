@@ -17,7 +17,11 @@ import { getUpwardDetailSections } from '../../utils/upwardReferralDisplay'
 import { getDownwardDetailSections } from '../../utils/downwardReferralDisplay'
 import { getReferralDisplayStatus } from '../../utils/downwardStatusPresentation'
 import { buildKeyReferralOperationLogs, formatReferralLogAction, formatReferralLogNote } from '../../utils/referralOperationLogDisplay'
-import { matchDocumentTemplate } from '../../data/documentTemplateConfig'
+import {
+  buildReferralDocumentHtml,
+  buildReferralDocumentModel,
+  getReferralDocumentAvailability,
+} from '../../utils/referralDocuments'
 import {
   DEFAULT_PATIENT_NOTICE_TEMPLATE,
   buildMinimalArrangementStatusText,
@@ -70,6 +74,7 @@ function normalizeAttachment(item, fallback = {}) {
     source: item?.source || fallback.source || '转诊附件',
     tag: item?.tag || fallback.tag || '',
     url: item?.fileUrl || item?.url || fallback.url || null,
+    groupKey: fallback.groupKey || item?.groupKey || null,
   }
 }
 
@@ -105,7 +110,7 @@ function buildReferralAttachmentGroups(ref, consentInfo) {
     source: `知情同意文件 · ${consentInfo?.signedByLabel || '签署人未记录'}`,
     tag: consentInfo?.isUploaded ? '已上传' : '待补充',
     fileUrl: consentUrls[index] || consentUrls[0] || null,
-  }))
+  }, { groupKey: 'consent' }))
 
   groups.push({
     key: 'consent',
@@ -787,10 +792,10 @@ export default function ReferralDetail() {
   const isEmergencyReferral = !!ref.is_emergency
   const isRetroEntry = !!ref.isRetroEntry
   const isGreenChannel = ref.referral_type === 'green_channel'  // CHG-30
-  const documentTemplate = matchDocumentTemplate(ref)
-  const canGenerateFormalDocument = isUpward
-    ? [UPWARD_STATUS.IN_TRANSIT, UPWARD_STATUS.COMPLETED, UPWARD_STATUS.CLOSED].includes(ref.status)
-    : [DOWNWARD_STATUS.IN_TRANSIT, DOWNWARD_STATUS.COMPLETED, DOWNWARD_STATUS.CLOSED].includes(ref.status)
+  const referralDocumentAvailability = getReferralDocumentAvailability(ref)
+  const referralDocumentModel = referralDocumentAvailability.canShow ? buildReferralDocumentModel(ref) : null
+  const referralDocumentHtml = referralDocumentModel ? buildReferralDocumentHtml(referralDocumentModel) : ''
+  const canGenerateFormalDocument = referralDocumentAvailability.canShow
   const emergencyModifiableUntilTs = isEmergencyReferral
     ? new Date(ref.emergencyModifiableUntil || (new Date(new Date(ref.createdAt).getTime() + 15 * 60 * 1000).toISOString())).getTime()
     : null
@@ -879,13 +884,14 @@ export default function ReferralDetail() {
   const claimLockOk = !ref.assignedDoctorId || ref.assignedDoctorId === currentUser?.id
   const canAcceptUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
   const canRejectUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
-  const canCompleteUpward = isAdmin && isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
+  const hideAnomalyMockDetailActions = ref.id === 'REF_MOCK_TIMEOUT_UP_IN_TRANSIT'
+  const canCompleteUpward = isAdmin && isUpward && !hideAnomalyMockDetailActions && ref.status === UPWARD_STATUS.IN_TRANSIT && (
     isEmergencyReferral ? emergencySupplemented : !!ref.admissionArrangement
   )
   // C-3 修复：PENDING_INTERNAL_REVIEW 状态下基层医生也可撤销（state-machine v1.3）
   // 注意：PRIMARY_HEAD 是审核人，不应有撤销权限，故此处只允许 ROLES.PRIMARY
   const canCancelUpward = currentRole === ROLES.PRIMARY && (ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.PENDING_INTERNAL_REVIEW)
-  const canCollaborativeCloseUpward = isUpward && ref.status === UPWARD_STATUS.IN_TRANSIT && (
+  const canCollaborativeCloseUpward = isUpward && !hideAnomalyMockDetailActions && ref.status === UPWARD_STATUS.IN_TRANSIT && (
     currentRole === ROLES.PRIMARY || isCountyAttendingDoctor || (isAdmin && (isEmergencyReferral || !!ref.admissionArrangement))
   )
   const canCollaborativeCloseDownward = isDownward && ref.status === DOWNWARD_STATUS.IN_TRANSIT && (
@@ -938,7 +944,7 @@ export default function ReferralDetail() {
   // 修复 C：管理员介入按钮
   // TODO: 生产环境替换为真实超时判断（pending_review > 24h、in_transfer > 48h、pending_accept > 24h）
   // 原型 mock 模式：直接显示按钮，不做时间判断，以确保演示时管理员能看到
-  const adminCanUrgeUpwardReview = isAdmin && isUpward && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING
+  const adminCanUrgeUpwardReview = false
   const adminCanUrgeDownwardAccept = isAdmin && isDownward && ref.status === DOWNWARD_STATUS.PENDING
   // M-7：管理员可在详情页直接填写接诊安排（role-permission-matrix v1.3 第3A节）
   const adminCanArrange = isAdmin && isUpward && !isEmergencyReferral && ref.status === UPWARD_STATUS.IN_TRANSIT && !ref.admissionArrangement
@@ -1211,9 +1217,6 @@ export default function ReferralDetail() {
     })
     setDialog(null)
   }
-  const showTransferUpCloseActions = isUpward
-    && ref.status === UPWARD_STATUS.CLOSED
-    && ((ref.closeReasonCode === 'need_higher_level') || ref.closeReason === '需转诊至上级机构')
   const completionSmsPreview = isEmergencyReferral
     ? `【就诊确认】您在${ref.toInstitution || '目标医院'}的急诊
 转诊已完成接诊确认。
@@ -1242,6 +1245,12 @@ export default function ReferralDetail() {
     }
 
     if (action === 'download') {
+      if (item.groupKey === 'consent') {
+        recordReferralDocumentAction(id, {
+          actionType: '下载知情同意书附件',
+          documentName: item.name || '知情同意书附件',
+        })
+      }
       const anchor = document.createElement('a')
       anchor.href = item.url
       anchor.download = item.name || '转诊附件'
@@ -1253,21 +1262,24 @@ export default function ReferralDetail() {
   }
 
   function handleDocumentAction(actionType) {
+    if (!referralDocumentModel) return
+    const logAction = actionType === '下载' ? '下载 PDF' : '打印转诊单'
     recordReferralDocumentAction(id, {
-      templateId: documentTemplate.id,
-      templateVersion: documentTemplate.version,
-      actionType,
+      actionType: logAction,
+      documentName: referralDocumentModel.subtitle,
+      documentVariant: referralDocumentModel.variant,
     })
 
     if (actionType === '下载') {
       setDialog({
         type: 'notice',
         title: 'PDF 下载任务已创建',
-        description: `已按模板 ${documentTemplate.id} ${documentTemplate.version} 生成双向转诊单 PDF 下载任务。`,
+        description: `已生成${referralDocumentModel.subtitle}${referralDocumentModel.variant === 'active' ? '' : '归档版'} PDF 下载任务。`,
       })
       return
     }
 
+    window.__referralPrintHtml = referralDocumentHtml
     window.print()
   }
 
@@ -1390,45 +1402,61 @@ export default function ReferralDetail() {
 
       {isEmergencyReferral && hasPendingEmergencyModifyNotice && !isRetroEntry && currentRole === ROLES.PRIMARY && (
         <div
-          className="mb-4 rounded-xl border px-5 py-4"
-          style={{ background: '#FEF2F2', borderColor: '#FECACA' }}
+          className="mb-4 overflow-hidden rounded-xl border bg-white shadow-sm"
+          style={{ borderColor: '#FDBA8C', boxShadow: '0 8px 18px rgba(249, 115, 22, 0.10)' }}
         >
-          <div className="text-base font-semibold text-red-800">⚠️ 目标信息已修改，请确认患者是否知晓</div>
-          <div className="mt-2 text-sm leading-6 text-gray-700">
-            系统已重新发送短信，但无法确认患者/家属是否收到。请联系患者/家属，告知最新就诊地点。
+          <div className="flex items-center gap-3 border-b px-6 py-4" style={{ background: '#FFF7ED', borderColor: '#FDBA8C' }}>
+            <div className="flex h-9 w-9 shrink-0 items-center justify-center rounded-full text-base font-semibold" style={{ background: '#FFEDD5', color: '#EA580C' }}>
+              ⚠
+            </div>
+            <div className="text-base font-bold" style={{ color: '#C2410C' }}>目标信息已修改，请确认患者是否知晓</div>
           </div>
-          <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 text-sm">
-            <div>
-              <span className="text-gray-500">最新就诊地点：</span>
-              <span className="font-semibold text-gray-900">{ref.toInstitution} · {ref.toDept}</span>
+
+          <div className="px-6 py-4">
+            <div className="text-sm font-medium leading-6 text-gray-700">
+              系统已重新发送短信，但无法确认患者/家属是否收到。请联系患者/家属，告知最新就诊地点。
             </div>
-            <div>
-              <span className="text-gray-500">急诊科电话：</span>
-              <span className="font-mono text-gray-900">{emergencyDeptPhone || '—'}</span>
+
+            <div className="mt-3 flex flex-wrap items-center gap-x-6 gap-y-2 rounded-lg border bg-gray-50 px-4 py-3 text-sm" style={{ borderColor: '#E5E7EB' }}>
+              <div className="inline-flex items-center gap-2">
+                <span className="text-base" style={{ color: '#2563EB' }}>⌖</span>
+                <span className="text-gray-500">最新就诊地点：</span>
+                <span className="font-semibold text-gray-900">{ref.toInstitution} · {ref.toDept}</span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <span className="text-base" style={{ color: '#2563EB' }}>☎</span>
+                <span className="text-gray-500">急诊科电话：</span>
+                <span className="font-mono text-blue-600">{emergencyDeptPhone || '—'}</span>
+              </div>
+              <div className="inline-flex items-center gap-2">
+                <span className="text-base" style={{ color: '#16A34A' }}>☎</span>
+                <span className="text-gray-500">患者电话：</span>
+                <span className="font-mono text-blue-600">{patientPhone || '患者电话未填写'}</span>
+              </div>
             </div>
-            <div>
-              <span className="text-gray-500">患者电话：</span>
-              <span className="font-mono text-gray-900">{patientPhone || '患者电话未填写'}</span>
-            </div>
-          </div>
-          <div className="mt-4 flex flex-wrap items-center gap-2">
-            {patientPhone && (
+
+            <div className="mt-4 flex flex-wrap items-center gap-3">
+              {patientPhone && (
+                <button
+                  type="button"
+                  onClick={handleDialPatientPhone}
+                  className="inline-flex items-center justify-center gap-2 rounded-lg border bg-white px-4 py-2 text-sm font-semibold text-blue-600 transition-colors hover:bg-blue-50"
+                  style={{ borderColor: '#2563EB' }}
+                >
+                  <span className="text-base">☎</span>
+                  拨打患者电话
+                </button>
+              )}
               <button
                 type="button"
-                onClick={handleDialPatientPhone}
-                className="inline-flex items-center justify-center rounded-lg bg-transparent px-0 py-2 text-sm font-medium text-red-700 hover:text-red-800"
+                onClick={() => setDialog({ type: 'confirmPatientContact' })}
+                className="inline-flex items-center justify-center gap-2 rounded-lg px-4 py-2 text-sm font-semibold text-white transition-colors hover:brightness-95"
+                style={{ background: '#16A34A' }}
               >
-                拨打患者电话
+                <span className="flex h-4 w-4 items-center justify-center rounded-full border border-white text-xs leading-none">✓</span>
+                已联系患者
               </button>
-            )}
-            <button
-              type="button"
-              onClick={() => setDialog({ type: 'confirmPatientContact' })}
-              className="inline-flex items-center justify-center rounded-lg px-3 py-2 text-sm font-semibold text-white"
-              style={{ background: '#0BBECF' }}
-            >
-              已联系患者
-            </button>
+            </div>
           </div>
         </div>
       )}
@@ -1749,6 +1777,12 @@ export default function ReferralDetail() {
             {canGenerateFormalDocument && (
               <>
                 <button
+                  onClick={() => setDialog({ type: 'documentPreview' })}
+                  className="px-4 py-1.5 text-xs border border-cyan-100 text-cyan-700 rounded-lg hover:bg-cyan-50 transition-colors"
+                >
+                  {referralDocumentAvailability.previewLabel}
+                </button>
+                <button
                   onClick={() => handleDocumentAction('下载')}
                   className="px-4 py-1.5 text-xs border border-gray-200 text-gray-600 rounded-lg hover:bg-gray-50 transition-colors"
                 >
@@ -1830,25 +1864,7 @@ export default function ReferralDetail() {
           <span className="text-lg flex-shrink-0">⛔</span>
           <div className="flex-1">
             <div><span className="font-medium">关闭原因：</span>{closeReasonLabel}</div>
-            {showTransferUpCloseActions && (
-              <div className="mt-3">
-                <div className="text-xs text-red-600 mb-2">协商关闭后如需继续转诊至上级机构，可打印或导出当前转诊单。</div>
-                <div className="flex flex-wrap gap-2">
-                  <button
-                    onClick={() => handleDocumentAction('打印')}
-                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
-                  >
-                    打印转诊单
-                  </button>
-                  <button
-                    onClick={() => handleDocumentAction('下载')}
-                    className="px-3 py-1.5 rounded-lg border border-red-200 bg-white text-red-600 text-xs font-medium hover:bg-red-50 transition-colors"
-                  >
-                    导出PDF
-                  </button>
-                </div>
-              </div>
-            )}
+            <div className="mt-1 text-xs text-red-600">已关闭转诊单仅支持归档导出 / 打印，不作为患者继续就诊凭证。</div>
           </div>
         </div>
       )}
@@ -2935,6 +2951,79 @@ ${renderedNotice}`
           />
         )
       })()}
+
+      {canGenerateFormalDocument && (
+        <>
+          <style>{`
+            .referral-print-source { display: none; }
+            .referral-print-document { color: #111827; font-family: "Times New Roman", "Noto Serif SC", serif; }
+            .referral-print-document .sheet { width: 760px; margin: 0 auto 16px; background: #fff; padding: 40px 46px; box-shadow: 0 1px 8px rgba(15,23,42,.12); line-height: 1.8; font-size: 15px; }
+            .referral-print-document h1 { text-align: center; font-size: 22px; font-weight: 700; margin: 0; }
+            .referral-print-document h2 { text-align: center; font-size: 18px; font-weight: 700; margin: 6px 0 28px; }
+            .referral-print-document h3 { font-size: 15px; font-weight: 700; margin: 18px 0 4px; }
+            .referral-print-document p { margin: 6px 0; white-space: normal; }
+            .referral-print-document .recipient { margin-top: 12px; }
+            .referral-print-document .signature { text-align: right; margin-top: 28px; }
+            .referral-print-document .closed-notice { display: grid; gap: 4px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 10px 12px; margin-bottom: 18px; font-size: 13px; }
+            @media print {
+              body * { visibility: hidden; }
+              .referral-print-source, .referral-print-source * { visibility: visible; }
+              .referral-print-source { display: block; position: absolute; left: 0; top: 0; width: 100%; }
+              .referral-print-source .sheet { box-shadow: none; page-break-after: always; width: auto; margin: 0; }
+            }
+          `}</style>
+          <div
+            className="referral-print-source"
+            dangerouslySetInnerHTML={{ __html: referralDocumentHtml }}
+          />
+        </>
+      )}
+
+      {dialog?.type === 'documentPreview' && referralDocumentModel && (
+        <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+          <div className="absolute inset-0 bg-black/40" onClick={() => setDialog(null)} />
+          <div className="relative bg-white rounded-2xl shadow-2xl w-full max-w-4xl max-h-[88vh] overflow-hidden flex flex-col">
+            <div className="px-5 py-4 border-b border-gray-100 flex items-center justify-between gap-3">
+              <div>
+                <h3 className="text-base font-semibold text-gray-900">{referralDocumentModel.subtitle}</h3>
+                <p className="text-xs text-gray-400 mt-1">
+                  {referralDocumentModel.variant === 'active' ? '患者携带版' : referralDocumentModel.variant === 'closed-archive' ? '关闭归档版' : '归档版'}
+                </p>
+              </div>
+              <div className="flex items-center gap-2">
+                <button
+                  onClick={() => handleDocumentAction('下载')}
+                  className="px-3 py-1.5 rounded-lg border border-gray-200 text-xs text-gray-600 hover:bg-gray-50"
+                >
+                  下载 PDF
+                </button>
+                <button
+                  onClick={() => handleDocumentAction('打印')}
+                  className="px-3 py-1.5 rounded-lg text-xs text-white"
+                  style={{ background: '#0BBECF' }}
+                >
+                  打印
+                </button>
+                <button onClick={() => setDialog(null)} className="px-2 py-1 text-gray-400 hover:text-gray-600">✕</button>
+              </div>
+            </div>
+            <div className="overflow-y-auto bg-gray-100 p-5">
+              <style>{`
+                .referral-print-document { color: #111827; font-family: "Times New Roman", "Noto Serif SC", serif; }
+                .referral-print-document .sheet { width: 760px; margin: 0 auto 16px; background: #fff; padding: 40px 46px; box-shadow: 0 1px 8px rgba(15,23,42,.12); line-height: 1.8; font-size: 15px; }
+                .referral-print-document h1 { text-align: center; font-size: 22px; font-weight: 700; margin: 0; }
+                .referral-print-document h2 { text-align: center; font-size: 18px; font-weight: 700; margin: 6px 0 28px; }
+                .referral-print-document h3 { font-size: 15px; font-weight: 700; margin: 18px 0 4px; }
+                .referral-print-document p { margin: 6px 0; white-space: normal; }
+                .referral-print-document .recipient { margin-top: 12px; }
+                .referral-print-document .signature { text-align: right; margin-top: 28px; }
+                .referral-print-document .closed-notice { display: grid; gap: 4px; border: 1px solid #fecaca; background: #fef2f2; color: #991b1b; padding: 10px 12px; margin-bottom: 18px; font-size: 13px; }
+              `}</style>
+              <div dangerouslySetInnerHTML={{ __html: referralDocumentHtml }} />
+            </div>
+          </div>
+        </div>
+      )}
 
       {dialog?.type === 'notice' && (
         <NoticeDialog

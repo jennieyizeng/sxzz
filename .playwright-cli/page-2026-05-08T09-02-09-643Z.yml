@@ -1,0 +1,245 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 赵
+        - generic [ref=e13]:
+          - generic [ref=e14]: 赵管理员
+          - generic [ref=e15]: xx市医共体管理层
+      - generic [ref=e17]: 转诊管理员
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - link "📋 转诊台账" [ref=e22] [cursor=pointer]:
+        - /url: /admin/ledger
+        - generic [ref=e23]: 📋
+        - generic [ref=e24]: 转诊台账
+      - link "⚠️ 异常处理" [ref=e25] [cursor=pointer]:
+        - /url: /admin/anomaly
+        - generic [ref=e26]: ⚠️
+        - generic [ref=e27]: 异常处理
+      - generic [ref=e28]:
+        - button "📈 统计报表 ›" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]:
+            - generic [ref=e31]: 📈
+            - generic [ref=e32]: 统计报表
+          - generic [ref=e33]: ›
+        - generic [ref=e34]:
+          - link "统计看板" [ref=e35] [cursor=pointer]:
+            - /url: /admin/stats
+          - link "考核报表" [ref=e36] [cursor=pointer]:
+            - /url: /admin/exam-report
+          - link "绩效统计" [ref=e37] [cursor=pointer]:
+            - /url: /admin/doctor-perf
+          - link "数据上报" [ref=e38] [cursor=pointer]:
+            - /url: /admin/data-report
+      - link "🔔 消息中心" [ref=e39] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e40]: 🔔
+        - generic [ref=e41]: 消息中心
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]: 双向转诊平台
+      - generic [ref=e45]:
+        - button "🎭 切换角色 ▾" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: 🎭
+          - generic [ref=e49]: 切换角色
+          - generic [ref=e50]: ▾
+        - link "2" [ref=e51] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e52]
+          - generic [ref=e54]: "2"
+        - link "赵" [ref=e55] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - button "← 返回" [ref=e59] [cursor=pointer]
+          - generic [ref=e60]: ›
+          - generic [ref=e61]: 转诊单详情
+          - generic [ref=e62]: ›
+          - generic [ref=e63]: REF_MOCK_TIMEOUT_UP_IN_TRANSIT
+        - generic [ref=e65]:
+          - generic [ref=e66]:
+            - generic [ref=e67]:
+              - heading "宋建国" [level=1] [ref=e68]
+              - generic [ref=e69]: 转诊中
+            - generic [ref=e71]:
+              - generic [ref=e72]: 患者：宋建国 · 男 · 58岁
+              - generic [ref=e73]: "|"
+              - generic [ref=e74]: 诊断：I10 原发性高血压
+              - generic [ref=e75]: "|"
+              - generic [ref=e76]: 转诊单号：ZZ2026050802
+            - generic [ref=e77]:
+              - generic [ref=e78]: xx市汉旺镇卫生院 (李慧医生)
+              - generic [ref=e79]: →
+              - generic [ref=e80]: xx市人民医院 · 内科
+              - generic [ref=e81]: "|"
+              - generic [ref=e82]: 创建于 2026/05/04 21:02
+          - generic [ref=e83]:
+            - button "下载 PDF" [ref=e84] [cursor=pointer]
+            - button "打印" [ref=e85] [cursor=pointer]
+        - generic [ref=e87]:
+          - generic [ref=e89]:
+            - generic [ref=e92]: 流程进度
+            - generic [ref=e93]: 4/5
+          - generic [ref=e95]:
+            - generic [ref=e97]:
+              - generic [ref=e98]: ✓
+              - generic [ref=e99]:
+                - generic [ref=e100]: 发起转诊
+                - generic [ref=e101]: 2026/05/04 21:02
+            - generic [ref=e103]:
+              - generic [ref=e104]: ✓
+              - generic [ref=e105]:
+                - generic [ref=e106]: 转诊受理
+                - generic [ref=e107]: 2026/05/06 02:02
+            - generic [ref=e109]:
+              - generic [ref=e110]: ✓
+              - generic [ref=e111]:
+                - generic [ref=e112]: 到院/接诊
+                - generic [ref=e113]: 2026/05/06 07:02
+            - generic [ref=e115]:
+              - generic [ref=e116]: "4"
+              - generic [ref=e117]:
+                - generic [ref=e118]: 完成诊疗
+                - generic [ref=e119]: 2026/05/08 09:02
+            - generic [ref=e121]:
+              - generic [ref=e122]: "5"
+              - generic [ref=e123]:
+                - generic [ref=e124]: 闭环完成
+                - generic [ref=e125]: 待推进
+        - generic [ref=e127]:
+          - generic [ref=e130]: 🏥 患者到院指引
+          - generic [ref=e131]: 请告知患者按以下信息到院就诊
+          - generic [ref=e132]:
+            - generic [ref=e133]:
+              - text: 就诊时间
+              - generic [ref=e134]: 2026/05/06 07:02
+            - generic [ref=e135]:
+              - text: 接诊医院
+              - generic [ref=e136]: xx市人民医院
+            - generic [ref=e137]:
+              - text: 接诊科室
+              - generic [ref=e138]: 内科
+            - generic [ref=e139]:
+              - text: 楼层/区域
+              - generic [ref=e140]: —
+            - generic [ref=e141]:
+              - text: 诊室/床位
+              - generic [ref=e142]: 3号诊室
+            - generic [ref=e143]:
+              - text: 科室/护士站电话
+              - generic [ref=e145]:
+                - generic [ref=e146]: 0838-6213301
+                - button "拨打" [ref=e148] [cursor=pointer]:
+                  - generic [ref=e149]: 📞
+                  - text: 拨打
+            - generic [ref=e150]:
+              - text: 使用说明
+              - generic [ref=e151]: 请患者凭预约码到指定窗口出示，按转诊流程优先排队；具体接诊安排以医院现场为准。
+          - button "📱 预览患者通知短信" [ref=e153] [cursor=pointer]
+        - generic [ref=e154]:
+          - generic [ref=e155]:
+            - button "申请详情" [ref=e156] [cursor=pointer]
+            - button "转诊附件资料" [ref=e157] [cursor=pointer]
+            - button "操作日志 (2)" [ref=e158] [cursor=pointer]
+            - button "患者历史转诊" [ref=e159] [cursor=pointer]
+          - generic [ref=e161]:
+            - generic [ref=e162]:
+              - generic [ref=e163]: 患者基础信息
+              - generic [ref=e164]:
+                - generic [ref=e165]:
+                  - generic [ref=e166]: 姓名
+                  - generic [ref=e167]: 宋建国
+                - generic [ref=e168]:
+                  - generic [ref=e169]: 性别
+                  - generic [ref=e170]: 男
+                - generic [ref=e171]:
+                  - generic [ref=e172]: 年龄
+                  - generic [ref=e173]: 58岁
+                - generic [ref=e174]:
+                  - generic [ref=e175]: 联系电话
+                  - generic [ref=e176]: 138****9002
+                - generic [ref=e177]:
+                  - generic [ref=e178]: 身份证号
+                  - generic [ref=e179]: 510623***9002
+                - generic [ref=e180]:
+                  - generic [ref=e181]: 患者类型
+                  - generic [ref=e182]: 门诊
+            - generic [ref=e183]:
+              - generic [ref=e184]: 门诊关联信息
+              - generic [ref=e185]:
+                - generic [ref=e186]:
+                  - generic [ref=e187]: 当前门诊科室
+                  - generic [ref=e188]: —
+                - generic [ref=e189]:
+                  - generic [ref=e190]: 当前接诊医生
+                  - generic [ref=e191]: —
+                - generic [ref=e192]:
+                  - generic [ref=e193]: 就诊时间
+                  - generic [ref=e194]: —
+                - generic [ref=e195]:
+                  - generic [ref=e196]: 门诊号 / 就诊记录号
+                  - generic [ref=e197]: —
+            - generic [ref=e198]:
+              - generic [ref=e199]: 诊断与转诊目的
+              - generic [ref=e200]:
+                - generic [ref=e201]:
+                  - generic [ref=e202]: 初步诊断
+                  - generic [ref=e203]: I10 原发性高血压
+                - generic [ref=e204]:
+                  - generic [ref=e205]: 主诉
+                  - generic [ref=e206]: 血压控制不佳伴头晕，需县级医院调整治疗方案
+                - generic [ref=e207]:
+                  - generic [ref=e208]: 转诊目的
+                  - generic [ref=e209]: 基层多次调整降压药后血压仍波动，建议上转评估
+                - generic [ref=e210]:
+                  - generic [ref=e211]: 当前病情评估
+                  - generic [ref=e212]: —
+                - generic [ref=e213]:
+                  - generic [ref=e214]: 补充说明
+                  - generic [ref=e215]: 基层多次调整降压药后血压仍波动，建议上转评估
+                - generic [ref=e216]:
+                  - generic [ref=e217]: 用药情况
+                  - generic [ref=e218]: —
+            - generic [ref=e219]:
+              - generic [ref=e220]: 目标医院与处理方式
+              - generic [ref=e221]:
+                - generic [ref=e222]:
+                  - generic [ref=e223]: 目标医院
+                  - generic [ref=e224]: xx市人民医院
+                - generic [ref=e225]:
+                  - generic [ref=e226]: 目标科室
+                  - generic [ref=e227]: 内科
+                - generic [ref=e228]:
+                  - generic [ref=e229]: 期望处理方式
+                  - generic [ref=e230]: —
+            - generic [ref=e231]:
+              - generic [ref=e232]: 知情同意
+              - generic [ref=e233]:
+                - generic [ref=e234]:
+                  - generic [ref=e235]: 签署方式
+                  - generic [ref=e236]: 线下签字后上传
+                - generic [ref=e237]:
+                  - generic [ref=e238]: 签署人类型
+                  - generic [ref=e239]: 患者本人
+                - generic [ref=e240]:
+                  - generic [ref=e241]: 与患者关系
+                  - generic [ref=e242]: —
+                - generic [ref=e243]:
+                  - generic [ref=e244]: 代签原因
+                  - generic [ref=e245]: —
+                - generic [ref=e246]:
+                  - generic [ref=e247]: 上传时间
+                  - generic [ref=e248]: 2026/5/4 18:38:09
+                - generic [ref=e249]:
+                  - generic [ref=e250]: 状态
+                  - generic [ref=e251]: 已完成

@@ -24,9 +24,84 @@ function RowNo({ n, color = '#ef4444' }) {
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
+function DirectionText({ referral }) {
+  return (
+    <span className="text-xs font-medium text-gray-700">
+      {referral.type === 'upward' ? '基层至县级' : '县级至基层'}
+    </span>
+  )
+}
+
+function ReferralTags({ referral }) {
+  const tags = []
+  if (referral.referral_type === 'emergency' || referral.is_emergency || referral.priority === 'emergency') {
+    tags.push({ label: '急诊', className: 'bg-red-50 text-red-600 border-red-100' })
+  }
+  if (referral.referral_type === 'green_channel' || referral.greenChannel || referral.green_channel) {
+    tags.push({ label: '绿通', className: 'bg-emerald-50 text-emerald-600 border-emerald-100' })
+  }
+  return tags.map(tag => (
+    <span key={tag.label} className={`ml-1 inline-flex items-center rounded-full border px-1.5 py-0.5 text-[11px] font-medium ${tag.className}`}>
+      {tag.label}
+    </span>
+  ))
+}
+
+function PatientInfo({ referral }) {
+  const genderAge = [referral.patient?.gender, referral.patient?.age ? `${referral.patient.age}岁` : null]
+    .filter(Boolean)
+    .join(' / ')
+  return (
+    <div>
+      <div className="flex items-center gap-1 font-medium text-gray-800">
+        <span>{referral.patient?.name || '—'}</span>
+        <ReferralTags referral={referral} />
+      </div>
+      <div className="mt-0.5 text-xs text-gray-400">{genderAge || '—'}</div>
+    </div>
+  )
+}
+
+function DiagnosisInfo({ referral }) {
+  const code = referral.diagnosis?.code
+  const name = referral.diagnosis?.name
+  if (!code && !name) return <span className="text-gray-400">—</span>
+  return (
+    <span className="text-xs text-gray-600">
+      {code && <span className="font-mono text-gray-500">{code}</span>}
+      {code && name && <span className="mx-1">·</span>}
+      {name}
+    </span>
+  )
+}
+
+function getReferralNo(referral) {
+  return referral.referralCode || referral.referralNo || referral.id || '—'
+}
+
+function TextAction({ children, onClick, tone = 'primary' }) {
+  const colorMap = {
+    primary: '#0B9FB0',
+    neutral: '#4b5563',
+    danger: '#dc2626',
+    warning: '#ea580c',
+    success: '#059669',
+  }
+  return (
+    <button
+      type="button"
+      onClick={onClick}
+      className="text-xs font-medium hover:underline whitespace-nowrap"
+      style={{ color: colorMap[tone] || colorMap.primary }}
+    >
+      {children}
+    </button>
+  )
+}
+
 export default function AdminAnomaly() {
   const navigate = useNavigate()
-  const { referrals, closeReferral, assignDoctorByAdmin, escalateEmergencyAlert, renotifyEmergency } = useApp()
+  const { referrals, closeReferral, assignDoctorByAdmin, completeReferral, escalateEmergencyAlert, renotifyEmergency } = useApp()
   const [tab, setTab] = useState('timeout')
   const [nowTs, setNowTs] = useState(() => Date.now())
 
@@ -104,13 +179,26 @@ export default function AdminAnomaly() {
     { id: 'rejected', label: '拒绝回看', count: rejectedRefs.length, color: '#f59e0b' },
   ]
   const current = tab === 'timeout' ? timeoutRefs : rejectedRefs
-  const isDownwardMonitorOnly = (ref) => ref.type === 'downward'
+
+  const remindReferral = () => {
+    window.alert('催办通知已发送')
+  }
+
+  const confirmCompleteReferral = (ref) => {
+    if (ref.status !== UPWARD_STATUS.IN_TRANSIT) {
+      window.alert('该转诊单尚未进入转诊中，无法完成接诊确认')
+      return
+    }
+    if (window.confirm('确认完成接诊确认？')) {
+      completeReferral(ref.id)
+    }
+  }
 
   return (
     <div className="p-5">
       <div className="mb-4">
         <h2 className="text-base font-semibold text-gray-800">异常处理</h2>
-        <div className="text-xs text-gray-400 mt-0.5">聚焦超时督办、急诊升级与拒绝回看。下转仅监控催办，不在此页执行操作。</div>
+        <div className="text-xs text-gray-400 mt-0.5">聚焦超时督办、急诊升级与拒绝回看。</div>
       </div>
 
       {/* 概览 */}
@@ -168,26 +256,16 @@ export default function AdminAnomaly() {
                   <td className={TD + ' font-medium'}>{ref.patient?.name}</td>
                   <td className={TD + ' text-gray-500'}>{ref.diagnosis?.name}</td>
                   <td className={TD + ' text-gray-500'}>{ref.fromInstitution}</td>
-                  <td className={TD}>
+                  <td className={TD} onClick={e => e.stopPropagation()}>
                     {/* P0-7：2h催办三方 */}
-                    <button onClick={e => { e.stopPropagation(); renotifyEmergency(ref.id) }}
-                      className="text-xs px-2 py-1 rounded border font-medium mr-1"
-                      style={{ borderColor: '#f59e0b', color: '#b45309', background: '#fffbeb' }}>
-                      ⚠️ 再次催办三方
-                    </button>
+                    <div className="flex items-center gap-2 flex-wrap">
+                      <TextAction tone="warning" onClick={() => renotifyEmergency(ref.id)}>催办</TextAction>
                     {/* P0-7：4h升级告警（已是紧急告警时禁用） */}
-                    {!ref.isUrgentUnhandled && (
-                      <button onClick={e => { e.stopPropagation(); escalateEmergencyAlert(ref.id) }}
-                        className="text-xs px-2 py-1 rounded border font-medium mr-1"
-                        style={{ borderColor: '#ef4444', color: '#ef4444' }}>
-                        🔴 升级告警
-                      </button>
-                    )}
-                    <button onClick={e => { e.stopPropagation(); navigate(`/referral/${ref.id}`) }}
-                      className="text-xs px-2 py-1 rounded border"
-                      style={{ borderColor: '#d1d5db', color: '#374151' }}>
-                      查看详情
-                    </button>
+                      {!ref.isUrgentUnhandled && (
+                        <TextAction tone="danger" onClick={() => escalateEmergencyAlert(ref.id)}>升级告警</TextAction>
+                      )}
+                      <TextAction onClick={() => navigate(`/referral/${ref.id}`)}>详情</TextAction>
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -206,7 +284,7 @@ export default function AdminAnomaly() {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号','类型','患者','诊断','来源机构','状态','异常时长/原因','操作'].map(h => (
+                {['序号','转诊方向','患者信息','诊断（ICD-10）','转诊单号','转出机构','转入机构','状态','异常时长/原因','操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -219,13 +297,13 @@ export default function AdminAnomaly() {
                   onMouseLeave={e => e.currentTarget.style.background = i % 2 === 0 ? '#fff' : '#fff9f9'}>
                   <td className={TD}><RowNo n={i+1} color={tab === 'timeout' ? '#ef4444' : '#f59e0b'} /></td>
                   <td className={TD}>
-                    <span className="text-xs px-2 py-0.5 rounded-full" style={ref.type === 'upward' ? { background: '#E0F6F9', color: '#0892a0' } : { background: '#ecfdf5', color: '#047857' }}>
-                      {ref.type === 'upward' ? '⬆ 上转' : '⬇ 下转'}
-                    </span>
+                    <DirectionText referral={ref} />
                   </td>
-                  <td className={TD + ' font-medium text-gray-800'}>{ref.patient.name}<span className="text-xs text-gray-400 ml-1">{ref.patient.age ? `${ref.patient.age}岁` : '年龄未填'}</span></td>
-                  <td className={TD + ' text-xs text-gray-600'}>{ref.diagnosis.name}</td>
-                  <td className={TD + ' text-xs text-gray-400'}>{ref.fromInstitution}</td>
+                  <td className={TD}><PatientInfo referral={ref} /></td>
+                  <td className={TD}><DiagnosisInfo referral={ref} /></td>
+                  <td className={TD + ' text-xs text-gray-500 font-mono'}>{getReferralNo(ref)}</td>
+                  <td className={TD + ' text-xs text-gray-500'}>{ref.fromInstitution || '—'}</td>
+                  <td className={TD + ' text-xs text-gray-500'}>{ref.toInstitution || '—'}</td>
                   <td className={TD}><StatusBadge status={ref.status} size="sm" /></td>
                   <td className={TD}>
                     {tab === 'timeout' ? (
@@ -236,29 +314,30 @@ export default function AdminAnomaly() {
                   </td>
                   <td className={TD} onClick={e => e.stopPropagation()}>
                     <div className="flex items-center gap-1.5 flex-wrap">
-                      <button onClick={() => navigate(`/referral/${ref.id}`)} className="text-xs font-medium" style={{ color: '#0BBECF' }}>查看</button>
+                      <TextAction onClick={() => navigate(`/referral/${ref.id}`)}>详情</TextAction>
                       {tab === 'timeout' && (
                         <>
-                          {/* G5：指派经办医生（上转待审核且无人受理时显示）*/}
-                          {ref.type === 'upward' && ref.status === UPWARD_STATUS.PENDING && !ref.assignedDoctorId && (
-                            <button
-                              className="px-2 py-1 rounded text-xs border"
-                              style={{ borderColor: '#0BBECF', color: '#0892a0', background: '#f0fdfe' }}
-                              onClick={() => { setAssignDialog({ open: true, ref }); setAssignDoctor('') }}
-                            >指定医生</button>
-                          )}
-
-                          {/* A-12：协商关闭 */}
-                          {ref.type === 'upward' && (ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.IN_TRANSIT) && (
-                            <button
-                              onClick={() => openNegotiateClose(ref)}
-                              className="border border-gray-400 text-gray-600 bg-white hover:bg-gray-50 px-2 py-1 rounded text-xs"
-                            >协商关闭</button>
-                          )}
-                          {isDownwardMonitorOnly(ref) && (
-                            <span className="text-[11px] px-2 py-1 rounded border border-gray-200 text-gray-500 bg-gray-50">
-                              下转仅监控催办
-                            </span>
+                          {ref.type === 'upward' ? (
+                            <>
+                              {ref.status === UPWARD_STATUS.PENDING && (
+                                <>
+                                  <TextAction
+                                    onClick={() => { setAssignDialog({ open: true, ref }); setAssignDoctor('') }}
+                                  >
+                                    指定医生
+                                  </TextAction>
+                                  <TextAction tone="neutral" onClick={() => openNegotiateClose(ref)}>协商关闭</TextAction>
+                                </>
+                              )}
+                              {ref.status === UPWARD_STATUS.IN_TRANSIT && (
+                                <>
+                                  <TextAction tone="success" onClick={() => confirmCompleteReferral(ref)}>完成接诊确认</TextAction>
+                                  <TextAction tone="neutral" onClick={() => openNegotiateClose(ref)}>协商关闭</TextAction>
+                                </>
+                              )}
+                            </>
+                          ) : (
+                            <TextAction tone="warning" onClick={remindReferral}>催办</TextAction>
                           )}
                         </>
                       )}
@@ -322,7 +401,7 @@ export default function AdminAnomaly() {
           <div className="bg-white rounded-lg shadow-xl w-full max-w-md p-6">
             <h3 className="text-base font-semibold text-gray-900 mb-1">协商关闭转诊单</h3>
             <p className="text-sm text-gray-500 mb-4">
-              转诊单号：<span className="font-medium text-gray-800">{negotiateDialog.ref?.referralNo ?? negotiateDialog.ref?.id}</span>
+              转诊单号：<span className="font-medium text-gray-800">{negotiateDialog.ref ? getReferralNo(negotiateDialog.ref) : '—'}</span>
               &nbsp;·&nbsp;患者：<span className="font-medium text-gray-800">{negotiateDialog.ref?.patient?.name}</span>
             </p>
             <div className="bg-amber-50 border border-amber-200 rounded p-3 mb-4 text-sm text-amber-800">
