@@ -1,0 +1,124 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 刘
+        - generic [ref=e13]:
+          - generic [ref=e14]: 刘系统
+          - generic [ref=e15]: xx市医共体管理层
+      - generic [ref=e17]: 系统管理员
+    - navigation [ref=e18]:
+      - generic [ref=e19]:
+        - button "⚙️ 系统管理 ›" [ref=e20] [cursor=pointer]:
+          - generic [ref=e21]:
+            - generic [ref=e22]: ⚙️
+            - generic [ref=e23]: 系统管理
+          - generic [ref=e24]: ›
+        - generic [ref=e25]:
+          - link "机构转诊能力配置" [ref=e26] [cursor=pointer]:
+            - /url: /admin/institution-manage
+          - link "专病规则配置" [ref=e27] [cursor=pointer]:
+            - /url: /admin/disease-dir
+          - link "超时规则" [ref=e28] [cursor=pointer]:
+            - /url: /admin/timeout-config
+          - link "通知模板" [ref=e29] [cursor=pointer]:
+            - /url: /admin/notify-template
+          - link "审核规则" [ref=e30] [cursor=pointer]:
+            - /url: /admin/audit-rule-config
+          - link "操作日志" [ref=e31] [cursor=pointer]:
+            - /url: /admin/operation-log
+  - generic [ref=e32]:
+    - banner [ref=e33]:
+      - generic [ref=e34]: 双向转诊平台
+      - generic [ref=e35]:
+        - button "🎭 切换角色 ▾" [ref=e37] [cursor=pointer]:
+          - generic [ref=e38]: 🎭
+          - generic [ref=e39]: 切换角色
+          - generic [ref=e40]: ▾
+        - link [ref=e41] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e42]
+        - link "刘" [ref=e44] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e45]:
+      - generic [ref=e46]:
+        - generic [ref=e47]:
+          - heading "操作日志" [level=2] [ref=e48]
+          - generic [ref=e49]: 系统管理配置类操作记录查询，涵盖敏感配置、规则与权限变更 · 只读
+        - generic [ref=e50]:
+          - generic [ref=e51]:
+            - generic [ref=e52]:
+              - generic [ref=e53]: 操作时间
+              - generic [ref=e54]:
+                - textbox [ref=e55]: 2026-05-02
+                - generic [ref=e56]: ~
+                - textbox [ref=e57]: 2026-05-09
+            - generic [ref=e58]:
+              - generic [ref=e59]: 操作人
+              - textbox "姓名" [ref=e60]
+            - generic [ref=e61]:
+              - generic [ref=e62]: 配置域
+              - combobox [ref=e63]:
+                - option "全部" [selected]
+                - option "机构配置"
+                - option "角色管理"
+                - option "专病规则配置"
+                - option "通知模板"
+                - option "审核规则"
+                - option "超时规则"
+            - generic [ref=e64]:
+              - generic [ref=e65]: 操作类型
+              - combobox [ref=e66]:
+                - option "全部" [selected]
+                - option "新增"
+                - option "编辑"
+                - option "删除"
+                - option "启用"
+                - option "停用"
+                - option "审核通过"
+                - option "审核拒绝"
+                - option "指派"
+                - option "催办"
+                - option "撤销"
+                - option "关闭"
+            - generic [ref=e67]:
+              - generic [ref=e68]: 关联转诊单号
+              - textbox "如 REF2026003" [ref=e69]
+            - generic [ref=e70]:
+              - button "查询" [active] [ref=e71] [cursor=pointer]
+              - button "重置" [ref=e72] [cursor=pointer]
+              - button "导出日志" [ref=e73] [cursor=pointer]
+          - generic [ref=e74]: 当前仅记录系统管理配置类操作；转诊业务过程仍在转诊单日志/台账中查看。
+        - generic [ref=e75]:
+          - table [ref=e77]:
+            - rowgroup [ref=e78]:
+              - row "序号 操作时间 操作人 操作角色 配置域 操作类型 关联对象 操作结果 操作" [ref=e79]:
+                - columnheader "序号" [ref=e80]
+                - columnheader "操作时间" [ref=e81]
+                - columnheader "操作人" [ref=e82]
+                - columnheader "操作角色" [ref=e83]
+                - columnheader "配置域" [ref=e84]
+                - columnheader "操作类型" [ref=e85]
+                - columnheader "关联对象" [ref=e86]
+                - columnheader "操作结果" [ref=e87]
+                - columnheader "操作" [ref=e88]
+            - rowgroup [ref=e89]:
+              - row "📋 暂无操作日志 请调整筛选条件后重新查询" [ref=e90]:
+                - cell "📋 暂无操作日志 请调整筛选条件后重新查询" [ref=e91]:
+                  - generic [ref=e92]: 📋
+                  - generic [ref=e93]: 暂无操作日志
+                  - generic [ref=e94]: 请调整筛选条件后重新查询
+          - generic [ref=e95]:
+            - generic [ref=e96]:
+              - text: 共
+              - strong [ref=e97]: "0"
+              - text: 条记录，每页 20 条，第 1/1 页
+            - generic [ref=e98]:
+              - button "‹ 上一页" [disabled] [ref=e99]
+              - button "1" [ref=e100] [cursor=pointer]
+              - button "下一页 ›" [disabled] [ref=e101]

@@ -1,9 +1,10 @@
-import React, { useEffect, useMemo, useState } from 'react'
+import { useEffect, useMemo, useState } from 'react'
 import {
   getSystemOperationLogs,
   SYSTEM_OPERATION_LOG_DOMAINS,
   SYSTEM_OPERATION_LOG_TYPES,
 } from '../../data/systemAdminConfig'
+import { buildOperationLogDetailViewModel } from '../../utils/operationLogDetail'
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
@@ -49,50 +50,53 @@ function TypeBadge({ type }) {
   return <span className={`text-xs px-2 py-0.5 rounded ${cls}`}>{type}</span>
 }
 
-function buildCompareRows(detail) {
-  const compareRows = []
-  const metadataEntries = []
-  const handledKeys = new Set()
+function DetailBlock({ detail, operationType }) {
+  const detailModel = buildOperationLogDetailViewModel(detail, operationType)
+  const { compareRows, metadataEntries, reasonEntries } = detailModel
 
-  Object.entries(detail).forEach(([key, value]) => {
-    if (handledKeys.has(key)) return
-
-    if (key.startsWith('原') && detail[`新${key.slice(1)}`] !== undefined) {
-      compareRows.push({
-        field: key.slice(1),
-        before: value,
-        after: detail[`新${key.slice(1)}`],
-      })
-      handledKeys.add(key)
-      handledKeys.add(`新${key.slice(1)}`)
-      return
-    }
-
-    if (typeof value === 'string' && value.includes(' → ')) {
-      const [before, after] = value.split(' → ')
-      compareRows.push({ field: key, before, after })
-      handledKeys.add(key)
-      return
-    }
-
-    metadataEntries.push([key, value])
-    handledKeys.add(key)
-  })
-
-  return { compareRows, metadataEntries }
-}
-
-function DetailBlock({ detail }) {
-  const { compareRows, metadataEntries } = buildCompareRows(detail)
+  if (detailModel.mode === 'action') {
+    return (
+      <div className="space-y-4">
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50 px-4 py-3">
+          <div className="text-xs text-cyan-700 mb-1">关联转诊单号</div>
+          <div className="font-mono text-sm font-semibold text-gray-900">{detailModel.associationNo}</div>
+        </div>
+        <div className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3 text-sm font-medium text-gray-800">
+          {detailModel.actionSentence}
+        </div>
+        {reasonEntries.length > 0 && (
+          <div className="grid grid-cols-1 gap-3">
+            {reasonEntries.map(([k, v]) => (
+              <div key={k} className="rounded-lg border border-amber-100 bg-amber-50 px-4 py-3">
+                <div className="text-xs text-amber-700 mb-1">{k}</div>
+                <div className="text-sm text-gray-800 break-all">{String(v || '—')}</div>
+              </div>
+            ))}
+          </div>
+        )}
+      </div>
+    )
+  }
 
   return (
-    <div className="space-y-3">
+    <div className="space-y-4">
+      {metadataEntries.length > 0 && (
+        <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+          {metadataEntries.map(([k, v]) => (
+            <div key={k} className="rounded-lg border border-gray-200 bg-gray-50 px-4 py-3">
+              <div className="text-xs text-gray-400 mb-1">{k}</div>
+              <div className="text-sm font-medium text-gray-800 break-all">{String(v || '—')}</div>
+            </div>
+          ))}
+        </div>
+      )}
+
       {compareRows.length > 0 && (
-        <div className="rounded-lg border border-cyan-100 bg-cyan-50 p-3">
-          <div className="mb-2 text-xs font-medium text-cyan-700">变更前后对比</div>
+        <div className="rounded-xl border border-cyan-100 bg-cyan-50 p-4">
+          <div className="mb-3 text-xs font-medium text-cyan-700">值</div>
           <div className="space-y-2">
             {compareRows.map(row => (
-              <div key={row.field} className="grid grid-cols-[88px_1fr_24px_1fr] items-start gap-2 text-xs">
+              <div key={row.field} className="grid grid-cols-[72px_1fr_24px_1fr] items-start gap-2 text-xs">
                 <div className="pt-1 text-gray-500">{row.field}</div>
                 <div className="rounded-md border border-gray-200 bg-white px-2 py-1.5 text-gray-600 break-all">
                   <div className="mb-1 text-[11px] text-gray-400">变更前</div>
@@ -108,17 +112,35 @@ function DetailBlock({ detail }) {
           </div>
         </div>
       )}
+    </div>
+  )
+}
 
-      {metadataEntries.length > 0 && (
-        <div className="bg-gray-50 border border-gray-200 rounded-lg px-4 py-3 font-mono text-xs text-gray-700 space-y-1">
-          {metadataEntries.map(([k, v]) => (
-            <div key={k} className="flex gap-2">
-              <span className="text-gray-400 min-w-[88px] shrink-0">{k}:</span>
-              <span className="text-gray-700 break-all">{String(v)}</span>
-            </div>
-          ))}
+function DetailDialog({ log, onClose }) {
+  if (!log) return null
+
+  return (
+    <div className="fixed inset-0 z-50 flex items-center justify-center px-4">
+      <div className="absolute inset-0 bg-black/40" onClick={onClose} />
+      <div className="relative w-full max-w-2xl overflow-hidden rounded-2xl bg-white shadow-2xl">
+        <div className="flex items-start justify-between gap-4 border-b border-gray-100 px-6 py-4">
+          <div>
+            <h3 className="text-base font-semibold text-gray-900">操作详情</h3>
+            <div className="mt-1 text-xs text-gray-400">{log.time} · {log.operator}</div>
+          </div>
+          <button
+            type="button"
+            onClick={onClose}
+            className="rounded-lg px-2 py-1 text-lg leading-none text-gray-400 hover:bg-gray-100 hover:text-gray-600"
+            aria-label="关闭"
+          >
+            ×
+          </button>
         </div>
-      )}
+        <div className="px-6 py-5">
+          <DetailBlock detail={log.detail} operationType={log.type} />
+        </div>
+      </div>
     </div>
   )
 }
@@ -140,7 +162,7 @@ export default function OperationLog() {
     keyword: '',
   })
   const [applied, setApplied] = useState({ ...filters })
-  const [expandedId, setExpandedId] = useState(null)
+  const [selectedLog, setSelectedLog] = useState(null)
   const [page, setPage] = useState(1)
 
   useEffect(() => {
@@ -165,7 +187,7 @@ export default function OperationLog() {
   const totalPages = Math.max(1, Math.ceil(filtered.length / PAGE_SIZE))
   const pageData = filtered.slice((page - 1) * PAGE_SIZE, page * PAGE_SIZE)
 
-  const handleQuery = () => { setApplied({ ...filters }); setPage(1); setExpandedId(null) }
+  const handleQuery = () => { setApplied({ ...filters }); setPage(1); setSelectedLog(null) }
   const handleReset = () => {
     const init = {
       startDate: fmtDate(sevenDaysAgo),
@@ -178,7 +200,7 @@ export default function OperationLog() {
     setFilters(init)
     setApplied(init)
     setPage(1)
-    setExpandedId(null)
+    setSelectedLog(null)
   }
 
   const [toast, setToast] = useState('')
@@ -325,10 +347,10 @@ export default function OperationLog() {
                   </td>
                 </tr>
               ) : pageData.map((log, i) => (
-                <React.Fragment key={log.id}>
                   <tr
+                    key={log.id}
                     style={{
-                      borderBottom: expandedId === log.id ? 'none' : '1px solid #EEF7F9',
+                      borderBottom: '1px solid #EEF7F9',
                       background: i % 2 === 0 ? '#fff' : '#FAFEFE',
                     }}
                   >
@@ -344,24 +366,14 @@ export default function OperationLog() {
                     <td className={TD}><ResultBadge result={log.result} /></td>
                     <td className={TD} onClick={e => e.stopPropagation()}>
                       <button
-                        onClick={() => setExpandedId(expandedId === log.id ? null : log.id)}
+                        onClick={() => setSelectedLog(log)}
                         className="text-sm font-medium hover:underline"
                         style={{ color: '#0BBECF' }}
                       >
-                        {expandedId === log.id ? '收起' : '查看详情'}
+                        查看详情
                       </button>
                     </td>
                   </tr>
-
-                  {expandedId === log.id && (
-                    <tr style={{ borderBottom: '1px solid #EEF7F9' }}>
-                      <td colSpan={9} style={{ background: i % 2 === 0 ? '#fff' : '#FAFEFE', padding: '0 12px 12px 48px' }}>
-                        <div className="text-xs text-gray-400 mb-2 font-medium">操作详情</div>
-                        <DetailBlock detail={log.detail} />
-                      </td>
-                    </tr>
-                  )}
-                </React.Fragment>
               ))}
             </tbody>
           </table>
@@ -404,6 +416,7 @@ export default function OperationLog() {
           </div>
         </div>
       </div>
+      <DetailDialog log={selectedLog} onClose={() => setSelectedLog(null)} />
     </div>
   )
 }
