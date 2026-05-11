@@ -34,18 +34,28 @@ function getReferralNo(ref) {
 
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
-const STATUS_FILTERS = ['全部', '待受理', '急诊', '转诊中', '已完成', '已拒绝']
+const INITIAL_FILTERS = {
+  patientName: '',
+  diagnosis: '',
+  referralNo: '',
+  fromInstitution: '',
+  applyDate: '',
+}
 
 export default function CountyReviewList() {
   const { referrals, currentUser, deleteDraftReferral } = useApp()
   const navigate = useNavigate()
-  const [filter, setFilter] = useState('全部')
-  const [search, setSearch] = useState('')
+  const [filters, setFilters] = useState(INITIAL_FILTERS)
   const isOrdinaryCountyDoctor = currentUser.role === ROLES.COUNTY
   const isCountyDepartmentHead = currentUser.role === ROLES.COUNTY2
 
+  const updateFilter = (key, value) => {
+    setFilters(prev => ({ ...prev, [key]: value }))
+  }
+
   const upwardRefs = referrals.filter(r =>
     r.type === 'upward' &&
+    r.status === UPWARD_STATUS.PENDING &&
     (
       isOrdinaryCountyDoctor
         ? (!r.is_emergency && canCurrentCountyDoctorViewIncomingReferral(r, currentUser))
@@ -55,17 +65,17 @@ export default function CountyReviewList() {
     )
   )
 
-  const availableStatusFilters = (isOrdinaryCountyDoctor || isCountyDepartmentHead)
-    ? STATUS_FILTERS.filter(item => item !== '急诊')
-    : STATUS_FILTERS
   const filtered = upwardRefs
     .filter(r => {
-      if (filter === '全部') return true
-      if (filter === '急诊') return r.is_emergency === true
-      if (filter === '待受理') return r.status === UPWARD_STATUS.PENDING
-      return r.status === filter
+      const referralNo = getReferralNo(r)
+      const applyDate = r.createdAt ? String(r.createdAt).slice(0, 10) : ''
+      if (filters.patientName && !r.patient.name.includes(filters.patientName)) return false
+      if (filters.diagnosis && !`${r.diagnosis.code || ''}${r.diagnosis.name || ''}`.includes(filters.diagnosis)) return false
+      if (filters.referralNo && !referralNo.includes(filters.referralNo)) return false
+      if (filters.fromInstitution && !String(r.fromInstitution || '').includes(filters.fromInstitution)) return false
+      if (filters.applyDate && applyDate !== filters.applyDate) return false
+      return true
     })
-    .filter(r => !search || r.patient.name.includes(search) || r.diagnosis.name.includes(search))
 
   // 急诊置顶排序（state-machine.md：急诊转诊列表中置顶显示）
   const sorted = [...filtered].sort((a, b) => {
@@ -85,10 +95,10 @@ export default function CountyReviewList() {
         <h2 className="text-base font-semibold text-gray-700">{isCountyDepartmentHead ? '科室待受理转入' : '待受理转入列表'}</h2>
         <div className="text-xs text-gray-400 mt-0.5">
           {isOrdinaryCountyDoctor
-            ? '仅显示当前县级医生本人负责或当前可受理的普通转入单据'
+            ? '仅显示当前县级医生本人可受理的普通待受理转入单据'
             : isCountyDepartmentHead
-              ? '仅显示本科室相关普通转入单据'
-              : '待受理及历史转入申请，急诊申请自动置顶展示 · 急诊/绿通由转诊中心处理，县级医生此页只读查看'}
+              ? '仅显示本科室相关普通待受理转入单据'
+              : '仅显示待受理转入申请 · 急诊/绿通由转诊中心处理，县级医生此页只读查看'}
         </div>
       </div>
 
@@ -97,27 +107,47 @@ export default function CountyReviewList() {
         <div className="flex items-center gap-2">
           <span className="text-sm text-gray-600">患者姓名：</span>
           <input
-            type="text" value={search} onChange={e => setSearch(e.target.value)}
-            placeholder="请输入患者姓名或诊断"
-            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-44 focus:outline-none"
+            type="text" value={filters.patientName} onChange={e => updateFilter('patientName', e.target.value)}
+            placeholder="请输入患者姓名"
+            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-36 focus:outline-none"
           />
         </div>
         <div className="flex items-center gap-2">
-          <span className="text-sm text-gray-600">申请状态：</span>
-          <div className="flex gap-2 flex-wrap">
-            {availableStatusFilters.map(s => (
-              <label key={s} className="flex items-center gap-1 cursor-pointer text-sm text-gray-600">
-                <input type="radio" name="rstatus" checked={filter === s} onChange={() => setFilter(s)} style={{ accentColor: '#0BBECF' }} />
-                {s === '急诊' ? <span style={{ color: '#DC2626', fontWeight: 600 }}>🔴 急诊</span> : s}
-              </label>
-            ))}
-          </div>
+          <span className="text-sm text-gray-600">诊断：</span>
+          <input
+            type="text" value={filters.diagnosis} onChange={e => updateFilter('diagnosis', e.target.value)}
+            placeholder="编码或名称"
+            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-36 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">转诊单号：</span>
+          <input
+            type="text" value={filters.referralNo} onChange={e => updateFilter('referralNo', e.target.value)}
+            placeholder="请输入单号"
+            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-36 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">转出机构：</span>
+          <input
+            type="text" value={filters.fromInstitution} onChange={e => updateFilter('fromInstitution', e.target.value)}
+            placeholder="请输入机构"
+            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-36 focus:outline-none"
+          />
+        </div>
+        <div className="flex items-center gap-2">
+          <span className="text-sm text-gray-600">申请时间：</span>
+          <input
+            type="date" value={filters.applyDate} onChange={e => updateFilter('applyDate', e.target.value)}
+            className="border border-gray-200 rounded px-2.5 py-1.5 text-sm w-40 focus:outline-none"
+          />
         </div>
         <div className="flex gap-2 ml-auto">
           <button className="flex items-center gap-1 px-4 py-1.5 rounded text-sm text-white" style={{ background: '#0BBECF' }}>
             🔍 查询
           </button>
-          <button onClick={() => { setSearch(''); setFilter('全部') }} className="flex items-center gap-1 px-4 py-1.5 rounded text-sm border" style={{ color: '#0BBECF', borderColor: '#0BBECF' }}>
+          <button onClick={() => setFilters(INITIAL_FILTERS)} className="flex items-center gap-1 px-4 py-1.5 rounded text-sm border" style={{ color: '#0BBECF', borderColor: '#0BBECF' }}>
             ↺ 重置
           </button>
         </div>

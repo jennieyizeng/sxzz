@@ -893,6 +893,7 @@ export default function ReferralDetail() {
   const isPrimaryDoctor = currentRole === ROLES.PRIMARY
   const isPrimaryCoordinator = currentRole === ROLES.PRIMARY_HEAD && currentUser?.institution === ref.toInstitution
   const isPrimaryScopedRole = [ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(currentRole)
+  const canViewPatientArrivalGuidance = isPrimaryScopedRole
   const isCountyScopedRole = [ROLES.COUNTY, ROLES.COUNTY2].includes(currentRole)
   const upwardDisplayLabel = isPrimaryScopedRole ? '转出' : isCountyScopedRole ? '转入' : '上转'
   const downwardDisplayLabel = isPrimaryScopedRole ? '转入' : isCountyScopedRole ? '转出' : '下转'
@@ -944,9 +945,7 @@ export default function ReferralDetail() {
   const canAcceptUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
   const canRejectUpward = isCountyAttendingDoctor && !isEmergencyReferral && ref.status === UPWARD_STATUS.PENDING && claimLockOk && canCurrentCountyDoctorHandleOrdinaryUpward(ref, currentUser)
   const hideAnomalyMockDetailActions = ref.id === 'REF_MOCK_TIMEOUT_UP_IN_TRANSIT'
-  const canCompleteUpward = isAdmin && isUpward && !hideAnomalyMockDetailActions && ref.status === UPWARD_STATUS.IN_TRANSIT && (
-    isEmergencyReferral ? emergencySupplemented : !!ref.admissionArrangement
-  )
+  const canCompleteUpward = isAdmin && isUpward && !isEmergencyReferral && !hideAnomalyMockDetailActions && ref.status === UPWARD_STATUS.IN_TRANSIT && !!ref.admissionArrangement
   // C-3 修复：PENDING_INTERNAL_REVIEW 状态下基层医生也可撤销（state-machine v1.3）
   // 注意：PRIMARY_HEAD 是审核人，不应有撤销权限，故此处只允许 ROLES.PRIMARY
   const canCancelUpward = currentRole === ROLES.PRIMARY && (ref.status === UPWARD_STATUS.PENDING || ref.status === UPWARD_STATUS.PENDING_INTERNAL_REVIEW)
@@ -2026,7 +2025,7 @@ export default function ReferralDetail() {
                 )}
               </div>
             </div>
-          ) : ref.admissionArrangement ? (() => {
+          ) : canViewPatientArrivalGuidance && ref.admissionArrangement ? (() => {
             const arr = ref.admissionArrangement
             const isInpatientGuidance = ref.admissionType === 'inpatient' || ref.emergencyAdmissionType === 'inpatient'
             const appointmentCode = ref.appointmentCode || arr.appointmentCode
@@ -2103,21 +2102,9 @@ export default function ReferralDetail() {
                     已同步短信通知患者。
                   </div>
                 )}
-                {/* 变更五：模拟短信预览入口（管理员视角） */}
-                {currentRole === ROLES.ADMIN && (
-                  <div className="mt-3 pt-3 border-t border-blue-200 flex justify-end">
-                    <button
-                      onClick={() => setShowSmsPreview(true)}
-                      className="text-xs font-medium px-3 py-1.5 rounded-lg border"
-                      style={{ borderColor: '#bfdbfe', color: '#1d4ed8', background: '#dbeafe' }}
-                    >
-                      📱 预览患者通知短信
-                    </button>
-                  </div>
-                )}
               </div>
             )
-          })() : (
+          })() : !ref.admissionArrangement ? (
             <div className="px-5 py-4 rounded-xl bg-gray-50 border border-gray-200">
               <div className="flex items-center gap-2">
                 <span className="text-gray-400 text-sm">🏥</span>
@@ -2132,7 +2119,7 @@ export default function ReferralDetail() {
                 </div>
               )}
             </div>
-          )}
+          ) : null}
         </div>
       )}
 

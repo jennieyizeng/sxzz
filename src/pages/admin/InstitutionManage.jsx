@@ -6,8 +6,16 @@ import {
   SYSTEM_INSTITUTION_CONFIGS,
   SYSTEM_SSO_USERS,
 } from '../../data/systemAdminConfig'
+import {
+  getInstitutionLevel,
+  getReceivingAbilityKey,
+  getReceivingAbilityLabel,
+  getReceivingAbilityTip,
+  getReceivingServiceStatus,
+  getReceivingServiceStatusDetail,
+} from '../../utils/institutionReferralParams'
 
-let _nextId = 6
+let _nextId = 8
 
 // ── 常量 ───────────────────────────────────────────────────
 const INSTITUTION_TYPES = ['综合医院', '中医医院', '专科医院', '妇幼保健院', '社区卫生服务中心', '乡镇卫生院']
@@ -36,7 +44,7 @@ const EMPTY_FORM = {
   referralConsultPhone: '', referralContactUserId: '', referralContactName: '', referralContactPhone: '',
   referralCoordinatorUserId: '', referralCoordinatorName: '',
   emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '',
-  canUp: true, canDown: true, enabled: true,
+  canUp: true, canDown: true, enabled: true, outgoingAuditEnabled: true,
 }
 
 function isCountyInstitutionType(type) {
@@ -47,17 +55,23 @@ function isPrimaryInstitutionType(type) {
   return Boolean(type) && !isCountyInstitutionType(type)
 }
 
+function getReceivingStatusClass(status) {
+  if (status === '可用') return 'bg-green-100 text-green-700'
+  if (status === '配置不完整') return 'bg-amber-100 text-amber-700'
+  return 'bg-gray-100 text-gray-500'
+}
+
 // ── 辅助小组件 ─────────────────────────────────────────────
 const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
 const TD = 'px-3 py-2.5 text-sm'
 
 function Toggle({ value, onChange }) {
   return (
-    <label className="flex items-center gap-2 cursor-pointer" onClick={() => onChange(!value)}>
+    <label className="flex shrink-0 items-center gap-2 whitespace-nowrap cursor-pointer" onClick={() => onChange(!value)}>
       <div className={`w-10 h-5 rounded-full transition-colors relative ${value ? 'bg-[#0BBECF]' : 'bg-gray-300'}`}>
         <div className={`absolute top-0.5 w-4 h-4 bg-white rounded-full shadow transition-transform ${value ? 'translate-x-5' : 'translate-x-0.5'}`} />
       </div>
-      <span className="text-sm text-gray-700">{value ? '开启' : '关闭'}</span>
+      <span className="min-w-8 text-sm text-gray-700 whitespace-nowrap">{value ? '开启' : '关闭'}</span>
     </label>
   )
 }
@@ -112,53 +126,13 @@ function SuccessToast({ message }) {
   )
 }
 
-// ── 停用确认弹窗 ───────────────────────────────────────────
-function DisableConfirmModal({ institution, onCancel, onConfirm }) {
-  return (
-    <>
-      <div className="fixed inset-0 bg-black/40 z-40" onClick={onCancel} />
-      <div className="fixed inset-0 z-50 flex items-center justify-center">
-        <div className="bg-white rounded-xl shadow-2xl w-[400px] p-6">
-          <div className="flex items-start gap-3 mb-4">
-            <div className="w-9 h-9 rounded-full bg-red-100 flex items-center justify-center flex-shrink-0 mt-0.5">
-              <svg className="w-5 h-5 text-red-500" fill="none" viewBox="0 0 24 24" stroke="currentColor">
-                <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 9v2m0 4h.01M10.29 3.86L1.82 18a2 2 0 001.71 3h16.94a2 2 0 001.71-3L13.71 3.86a2 2 0 00-3.42 0z" />
-              </svg>
-            </div>
-            <div>
-              <div className="text-sm font-semibold text-gray-800 mb-1">停用机构确认</div>
-              <div className="text-sm text-gray-500 leading-relaxed">
-                确认停用 <span className="font-medium text-gray-800">「{institution.name}」</span> ？<br />
-                停用后该机构将无法接收新转诊申请，已进行中的转诊不受影响。
-              </div>
-            </div>
-          </div>
-          <div className="flex justify-end gap-2 pt-2">
-            <button
-              onClick={onCancel}
-              className="px-4 py-1.5 rounded-lg text-sm border border-gray-200 text-gray-600 hover:bg-gray-50 transition-colors"
-            >
-              取消
-            </button>
-            <button
-              onClick={onConfirm}
-              className="px-4 py-1.5 rounded-lg text-sm font-medium text-white bg-red-500 hover:bg-red-600 transition-colors"
-            >
-              确认停用
-            </button>
-          </div>
-        </div>
-      </div>
-    </>
-  )
-}
-
 // ── 新增 / 编辑抽屉 ────────────────────────────────────────
 function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   const [form, setForm] = useState(() => ({
     ...EMPTY_FORM,
     ...(initial || {}),
     type: INSTITUTION_TYPES.includes(initial?.type) ? initial.type : '',
+    outgoingAuditEnabled: initial?.outgoingAuditEnabled ?? (isCountyInstitutionType(initial?.type) ? false : true),
     referralContactUserId: initial?.referralContactUserId || '',
     referralContactName: initial?.referralContactName || '',
     referralContactPhone: initial?.referralContactPhone || '',
@@ -171,6 +145,8 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
   const isEdit = mode === 'edit'
   const isCountyInstitution = isCountyInstitutionType(form.type)
   const isPrimaryInstitution = isPrimaryInstitutionType(form.type)
+  const receivingAbilityKey = getReceivingAbilityKey(form)
+  const receivingServiceDetail = getReceivingServiceStatusDetail(form, { users: SYSTEM_SSO_USERS, deptConfigs: SYSTEM_DEPT_CONFIGS })
   const referralContactOptions = SYSTEM_SSO_USERS.filter(user =>
     user.enabled &&
     (form.id ? user.institutionId === form.id : true)
@@ -190,6 +166,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     setForm(f => ({
       ...f,
       type: nextType,
+      outgoingAuditEnabled: isCountyInstitutionType(nextType) ? false : true,
       ...(isCountyInstitutionType(nextType)
         ? { referralCoordinatorUserId: '', referralCoordinatorName: '' }
         : { emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '' }),
@@ -254,6 +231,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
         canUp: normalized.canUp,
         canDown: normalized.canDown,
         enabled: normalized.enabled,
+        outgoingAuditEnabled: normalized.outgoingAuditEnabled,
       })
       return
     }
@@ -274,10 +252,10 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
         <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
           <div>
             <div className="text-sm font-semibold text-gray-800">
-              {mode === 'create' ? '新增机构' : '机构转诊配置'}
+              {mode === 'create' ? '新增机构' : '机构转诊参数配置'}
             </div>
             <div className="text-xs text-gray-400 mt-0.5">
-              {mode === 'create' ? '填写新机构基本信息与转诊能力配置' : '配置当前机构的双向转诊联系人、基层转诊负责人及相关业务参数'}
+              {mode === 'create' ? '填写新机构基本信息与转诊业务参数' : '配置当前机构的双向转诊业务运行参数和通知联系人'}
             </div>
           </div>
           <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none">
@@ -292,18 +270,13 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             机构基础信息
           </div>
 
-          {isEdit && (
-            <div className="rounded-lg border border-blue-100 bg-blue-50 px-3 py-2 text-xs text-blue-700">
-              机构基础信息来自医共体统一门户，本系统仅维护双向转诊业务配置；如需修改机构档案，请前往门户系统。
-            </div>
-          )}
-
           {isEdit ? (
             <>
               <div className="grid grid-cols-2 gap-4">
                 <ReadOnlyField label="机构名称" value={form.name} />
                 <ReadOnlyField label="机构代码" value={form.code} />
                 <ReadOnlyField label="机构类别" value={form.type} />
+                <ReadOnlyField label="机构级别" value={getInstitutionLevel(form)} />
                 <ReadOnlyField label="区划地址" value={form.address} />
               </div>
             </>
@@ -372,7 +345,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             双转业务配置
           </div>
 
-          <div className="grid grid-cols-3 gap-3">
+          <div className={`grid gap-3 ${isPrimaryInstitution ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <DrawerField label="转诊咨询专用电话" error={errors.referralConsultPhone}>
               <input
                 value={form.referralConsultPhone || ''}
@@ -402,65 +375,60 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                 ))}
               </select>
             </DrawerField>
-            <DrawerField label="联系电话" error={errors.referralContactPhone}>
-              <input
-                value={form.referralContactPhone || ''}
-                onChange={e => set('referralContactPhone', e.target.value)}
-                className={inputCls('referralContactPhone')}
-                placeholder="手机号或固话"
-              />
-            </DrawerField>
-            {isPrimaryInstitution && (
-              <DrawerField label="基层转诊负责人">
-                <select
-                  value={form.referralCoordinatorUserId || ''}
-                  disabled={primaryCoordinatorOptions.length === 0}
-                  onChange={e => {
-                    const nextId = e.target.value
-                    const selectedCoordinator = primaryCoordinatorOptions.find(user => user.userId === nextId)
-                    setForm(prev => ({
-                      ...prev,
-                      referralCoordinatorUserId: nextId,
-                      referralCoordinatorName: selectedCoordinator?.name || '',
-                    }))
-                  }}
-                  className={inputCls('referralCoordinatorUserId') + ' bg-white'}
-                >
-                  <option value="">{primaryCoordinatorOptions.length ? '请选择基层转诊负责人' : '暂无可选基层负责人'}</option>
-                  {primaryCoordinatorOptions.map(user => (
-                    <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
-                  ))}
-                </select>
+            {!isPrimaryInstitution && (
+              <DrawerField label="联系电话" error={errors.referralContactPhone}>
+                <input
+                  value={form.referralContactPhone || ''}
+                  onChange={e => set('referralContactPhone', e.target.value)}
+                  className={inputCls('referralContactPhone')}
+                  placeholder="手机号或固话"
+                />
               </DrawerField>
             )}
           </div>
 
           <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            转诊能力配置
+            接收转诊能力
           </div>
 
           <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-medium text-gray-800">上转能力</div>
-                <div className="text-xs text-gray-400 mt-0.5">允许该机构发起上转申请</div>
+            <div className="flex items-center justify-between gap-4 px-4 py-3">
+              <div className="min-w-0">
+                <div className="text-sm font-medium text-gray-800">{getReceivingAbilityLabel(form)}</div>
+                <div className="text-xs text-gray-400 mt-0.5">{getReceivingAbilityTip(form)}</div>
               </div>
-              <Toggle value={form.canUp} onChange={value => set('canUp', value)} />
+              <Toggle value={form[receivingAbilityKey]} onChange={value => set(receivingAbilityKey, value)} />
             </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-medium text-gray-800">下转能力</div>
-                <div className="text-xs text-gray-400 mt-0.5">允许该机构接收下转患者</div>
+            <div className="px-4 py-3">
+              <div className="flex items-center gap-2">
+                <div className="text-sm font-medium text-gray-800">接收服务状态</div>
+                <span className={`text-xs px-2 py-0.5 rounded ${receivingServiceDetail.tagClass}`}>{receivingServiceDetail.status}</span>
               </div>
-              <Toggle value={form.canDown} onChange={value => set('canDown', value)} />
+              <div className="mt-1 text-xs text-gray-500">{receivingServiceDetail.description}</div>
+              {receivingServiceDetail.missingItems.length > 0 && (
+                <div className="mt-2 space-y-1">
+                  {receivingServiceDetail.missingItems.map(item => (
+                    <div key={item} className="text-xs text-amber-600">- {item}</div>
+                  ))}
+                </div>
+              )}
             </div>
-            <div className="flex items-center justify-between px-4 py-3">
-              <div>
-                <div className="text-sm font-medium text-gray-800">启用状态</div>
-                <div className="text-xs text-gray-400 mt-0.5">停用后该机构无法参与新的转诊业务</div>
+          </div>
+
+          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+            院内审核配置
+          </div>
+
+          <div className="rounded-lg border border-gray-100 px-4 py-3 flex items-center justify-between gap-4">
+            <div className="min-w-0">
+              <div className="text-sm font-medium text-gray-800">转出院内审核</div>
+              <div className="text-xs text-gray-400 mt-0.5">
+                {isCountyInstitution
+                  ? '开启后，县级医生提交转出申请后进入“待内审”；关闭后直接进入“待接收”。建议默认关闭，避免影响患者下转效率。'
+                  : '开启后，基层医生提交普通转出申请后进入“待内审”；关闭后直接进入“待受理”。急诊/绿通始终跳过院内审核。'}
               </div>
-              <Toggle value={form.enabled} onChange={value => set('enabled', value)} />
             </div>
+            <Toggle value={form.outgoingAuditEnabled} onChange={value => set('outgoingAuditEnabled', value)} />
           </div>
 
           {isCountyInstitution && (
@@ -568,8 +536,6 @@ function DeptConfigTab({ institutions }) {
           配置项: '科室配置',
           机构: instName,
           科室: form.dept,
-          科室负责人: `${original.head || '未设置'} → ${form.head || '未设置'}`,
-          对口联系医生: `${original.partnerDoctor || '未设置'} → ${form.partnerDoctor || '未设置'}`,
           门诊号源配置: `${original.dailyQuota ?? 0} → ${form.dailyQuota ?? 0}`,
           门诊位置: `${original.outpatientLocation || '未设置'} → ${form.outpatientLocation || '未设置'}`,
           科室电话: `${original.departmentPhone || '未设置'} → ${form.departmentPhone || '未设置'}`,
@@ -582,21 +548,6 @@ function DeptConfigTab({ institutions }) {
       ? '已启用床位池，建议填写护士站联系电话，便于患者到院联系。'
       : '科室配置已保存')
   }
-
-  const headOptions = editRow
-    ? SYSTEM_SSO_USERS.filter(user =>
-      user.enabled &&
-      user.institutionId === editRow.instId &&
-      user.deptName === editRow.form.dept
-    )
-    : []
-
-  const partnerOptions = editRow
-    ? SYSTEM_SSO_USERS.filter(user =>
-      user.enabled &&
-      user.institutionId === editRow.form.counterpartInstitutionId
-    )
-    : []
 
   return (
     <div>
@@ -613,7 +564,7 @@ function DeptConfigTab({ institutions }) {
         <span className="text-xs text-gray-400">仅医院类机构可配置科室号源（基层机构号源由HIS维护）</span>
       </div>
       <div className="mb-4 rounded-lg bg-cyan-50 border border-cyan-100 px-4 py-3 text-xs text-cyan-700">
-        科室配置用于维护双向转诊通知联系人、转诊保留名额及住院床位参考信息；科室基础信息来自统一门户，不在本系统维护。
+        科室基础信息来自统一门户，本页仅维护每日转诊保留号源、门诊位置、科室电话、床位、病区、护士站联系电话及急诊/绿通资源说明。
       </div>
 
       {configs.length === 0 ? (
@@ -623,7 +574,7 @@ function DeptConfigTab({ institutions }) {
           <table className="w-full" style={{ borderCollapse: 'collapse' }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['科室', '科室负责人', '对口联系医生', '转诊保留名额', '床位配置', '最后更新', '最后修改人', '操作'].map(h => (
+                {['科室名称', '科室代码', '所属机构', '转诊保留号源', '床位配置', '科室电话', '最后更新', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -632,13 +583,8 @@ function DeptConfigTab({ institutions }) {
               {configs.map((row, idx) => (
                 <tr key={row.dept} style={{ borderBottom: '1px solid #EEF7F9' }}>
                   <td className={TD + ' font-medium text-gray-800'}>{row.dept}</td>
-                  <td className={TD + ' text-sm text-gray-600'}>{row.head || '—'}</td>
-                  <td className={TD}>
-                    {row.partnerDoctor && row.partnerDoctor !== '—'
-                      ? <span className="text-xs px-2 py-0.5 rounded-full" style={{ background: '#E0F6F9', color: '#0892a0' }}>{row.partnerDoctor}</span>
-                      : <span className="text-xs text-gray-400">未配置</span>
-                    }
-                  </td>
+                  <td className={TD + ' text-gray-500 text-xs font-mono'}>{row.deptCode || row.code || `DEPT-${String(idx + 1).padStart(3, '0')}`}</td>
+                  <td className={TD + ' text-gray-600'}>{institutions.find(inst => inst.id === selectedInst)?.name || '—'}</td>
                   <td className={TD}>
                     <span className="font-mono text-sm">{row.dailyQuota === 0 ? <span className="text-gray-400">未启用</span> : `${row.dailyQuota}/日`}</span>
                   </td>
@@ -652,8 +598,8 @@ function DeptConfigTab({ institutions }) {
                       <span className="text-xs text-gray-400">未启用</span>
                     )}
                   </td>
+                  <td className={TD + ' text-xs text-gray-500'}>{row.departmentPhone || '—'}</td>
                   <td className={TD + ' text-xs text-gray-400'}>{row.updatedAt}</td>
-                  <td className={TD + ' text-xs text-gray-500'}>{row.updatedBy || '—'}</td>
                   <td className={TD}>
                     <button
                       onClick={() => handleEdit(selectedInst, idx)}
@@ -675,59 +621,14 @@ function DeptConfigTab({ institutions }) {
           <div className="fixed inset-0 z-50 flex items-center justify-center">
             <div className="bg-white rounded-xl shadow-2xl w-[640px] max-h-[88vh] overflow-y-auto p-6">
               <h3 className="text-sm font-semibold text-gray-800 mb-4">编辑科室配置 — {editRow.form.dept}</h3>
+              <div className="grid grid-cols-3 gap-3 mb-4">
+                <ReadOnlyField label="科室名称" value={editRow.form.dept} />
+                <ReadOnlyField label="科室代码" value={editRow.form.deptCode || editRow.form.code || `DEPT-${String(editRow.deptIndex + 1).padStart(3, '0')}`} />
+                <ReadOnlyField label="所属机构" value={institutions.find(inst => inst.id === editRow.instId)?.name} />
+              </div>
               <div className="border-t border-gray-100 pt-4 mb-4">
-                <div className="text-xs font-medium text-gray-600 mb-3">转诊协同配置</div>
+                <div className="text-xs font-medium text-gray-600 mb-3">科室业务参数</div>
                 <div className="grid grid-cols-2 gap-4">
-                  <div>
-                  <label className="block text-xs text-gray-500 mb-1">科室负责人</label>
-                  <select
-                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
-                    value={editRow.form.headUserId || ''}
-                    disabled={headOptions.length === 0}
-                    onChange={e => {
-                      const selectedUser = headOptions.find(user => user.userId === e.target.value)
-                      setEditRow(p => ({
-                        ...p,
-                        form: {
-                          ...p.form,
-                          headUserId: selectedUser?.userId || '',
-                          head: selectedUser?.name || '',
-                        },
-                      }))
-                    }}
-                  >
-                    <option value="">{headOptions.length ? '请选择科室负责人' : '该科室暂无用户'}</option>
-                    {headOptions.map(user => (
-                      <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
-                    ))}
-                  </select>
-                  {headOptions.length === 0 && (
-                    <p className="text-xs text-amber-600 mt-1">该科室暂无用户，请前往医共体统一门户维护用户归属 →</p>
-                  )}
-                </div>
-                <div>
-                  <label className="block text-xs text-gray-500 mb-1">对口联系医生（可选）</label>
-                  <select
-                    className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
-                    value={editRow.form.partnerDoctorUserId || ''}
-                    onChange={e => {
-                      const selectedUser = partnerOptions.find(user => user.userId === e.target.value)
-                      setEditRow(p => ({
-                        ...p,
-                        form: {
-                          ...p.form,
-                          partnerDoctorUserId: selectedUser?.userId || '',
-                          partnerDoctor: selectedUser?.name || '—',
-                        },
-                      }))
-                    }}
-                  >
-                    <option value="">{partnerOptions.length ? '不指定' : '暂无可选医生'}</option>
-                    {partnerOptions.map(user => (
-                      <option key={user.userId} value={user.userId}>{formatSsoUser(user)}</option>
-                    ))}
-                  </select>
-                </div>
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
                     每日转诊保留号源数<span className="text-red-500 ml-0.5">*</span>
@@ -827,8 +728,8 @@ export default function InstitutionManage() {
   const [syncState, setSyncState] = useState({ status: 'success', lastSyncText: '2 小时前' })
 
   // 筛选
-  const [filters, setFilters] = useState({ name: '', type: 'all', enabled: 'all' })
-  const [applied, setApplied] = useState({ name: '', type: 'all', enabled: 'all' })
+  const [filters, setFilters] = useState({ name: '', type: 'all' })
+  const [applied, setApplied] = useState({ name: '', type: 'all' })
 
   // 分页
   const [page, setPage] = useState(1)
@@ -836,9 +737,6 @@ export default function InstitutionManage() {
 
   // 抽屉
   const [drawer, setDrawer] = useState(null) // null | { mode: 'create'|'edit', data: obj|null }
-
-  // 停用确认弹窗
-  const [disableTarget, setDisableTarget] = useState(null) // institution obj
 
   // 成功提示
   const [toast, setToast] = useState('')
@@ -852,10 +750,6 @@ export default function InstitutionManage() {
   const filtered = useMemo(() => {
     return list.filter(inst => {
       if (applied.type !== 'all' && inst.type !== applied.type) return false
-      if (applied.enabled !== 'all') {
-        const wantEnabled = applied.enabled === 'enabled'
-        if (inst.enabled !== wantEnabled) return false
-      }
       if (applied.name.trim() && !inst.name.includes(applied.name.trim())) return false
       return true
     })
@@ -866,7 +760,7 @@ export default function InstitutionManage() {
 
   const handleQuery = () => { setApplied({ ...filters }); setPage(1) }
   const handleReset = () => {
-    const empty = { name: '', type: 'all', enabled: 'all' }
+    const empty = { name: '', type: 'all' }
     setFilters(empty); setApplied(empty); setPage(1)
   }
 
@@ -902,8 +796,8 @@ export default function InstitutionManage() {
           基层转诊负责人: newInst.referralCoordinatorName || '未设置',
           急诊科值班联系人: isCounty ? (newInst.emergencyDutyContactName || '未设置') : '不适用',
           急诊科联系电话: isCounty ? (newInst.emergencyDeptPhone || '未设置') : '不适用',
-          上转能力: newInst.canUp ? '开启' : '关闭',
-          下转能力: newInst.canDown ? '开启' : '关闭',
+          接收转诊能力: `${getReceivingAbilityLabel(newInst)}：${newInst[getReceivingAbilityKey(newInst)] ? '开启' : '关闭'}`,
+          转出院内审核: newInst.outgoingAuditEnabled ? '开启' : '关闭',
         },
       })
       showToast('机构新增成功')
@@ -922,6 +816,7 @@ export default function InstitutionManage() {
         canUp: formData.canUp,
         canDown: formData.canDown,
         enabled: formData.enabled,
+        outgoingAuditEnabled: formData.outgoingAuditEnabled,
       }
       setList(prev => prev.map(inst => inst.id === drawer.data.id ? { ...inst, ...editablePayload } : inst))
       appendSystemOperationLog({
@@ -936,54 +831,13 @@ export default function InstitutionManage() {
           基层转诊负责人: `${original.referralCoordinatorName || '未设置'} → ${formData.referralCoordinatorName || '未设置'}`,
           急诊科值班联系人: `${original.emergencyDutyContactName || '未设置'} → ${formData.emergencyDutyContactName || '未设置'}`,
           急诊科联系电话: `${original.emergencyDeptPhone || '未设置'} → ${formData.emergencyDeptPhone || '未设置'}`,
-          上转能力: `${original.canUp ? '开启' : '关闭'} → ${formData.canUp ? '开启' : '关闭'}`,
-          下转能力: `${original.canDown ? '开启' : '关闭'} → ${formData.canDown ? '开启' : '关闭'}`,
-          启用状态: `${original.enabled ? '开启' : '关闭'} → ${formData.enabled ? '开启' : '关闭'}`,
+          接收转诊能力: `${original[getReceivingAbilityKey(original)] ? '开启' : '关闭'} → ${formData[getReceivingAbilityKey(original)] ? '开启' : '关闭'}`,
+          转出院内审核: `${original.outgoingAuditEnabled ? '开启' : '关闭'} → ${formData.outgoingAuditEnabled ? '开启' : '关闭'}`,
         },
       })
       showToast('机构转诊配置已保存')
     }
     setDrawer(null)
-  }
-
-  // 停用点击
-  const handleDisableClick = (inst) => setDisableTarget(inst)
-
-  // 确认停用
-  const handleConfirmDisable = () => {
-    setList(prev => prev.map(inst => inst.id === disableTarget.id ? { ...inst, enabled: false } : inst))
-    appendSystemOperationLog({
-      domain: '机构配置',
-      type: '机构信息变更',
-      target: disableTarget.name,
-      detail: {
-        操作: '停用机构',
-        机构名称: disableTarget.name,
-        变更字段: '启用状态',
-        原值: '启用',
-        新值: '停用',
-      },
-    })
-    showToast(`已停用「${disableTarget.name}」`)
-    setDisableTarget(null)
-  }
-
-  // 直接启用（无需确认）
-  const handleEnable = (inst) => {
-    setList(prev => prev.map(i => i.id === inst.id ? { ...i, enabled: true } : i))
-    appendSystemOperationLog({
-      domain: '机构配置',
-      type: '机构信息变更',
-      target: inst.name,
-      detail: {
-        操作: '启用机构',
-        机构名称: inst.name,
-        变更字段: '启用状态',
-        原值: '停用',
-        新值: '启用',
-      },
-    })
-    showToast(`已启用「${inst.name}」`)
   }
 
   const [mainTab, setMainTab] = useState('institutions') // 'institutions' | 'deptConfig'
@@ -997,7 +851,7 @@ export default function InstitutionManage() {
       {/* 页面标题区 */}
       <div className="flex items-start justify-between mb-4">
         <div>
-          <h2 className="text-base font-semibold text-gray-800">机构转诊能力配置</h2>
+          <h2 className="text-base font-semibold text-gray-800">机构转诊参数配置</h2>
         </div>
         {mainTab === 'institutions' && <button
           onClick={handleCreate}
@@ -1034,13 +888,13 @@ export default function InstitutionManage() {
       {/* 筛选栏（仅机构列表 Tab 显示）*/}
       {mainTab === 'institutions' && <>
       <div className="mb-4 rounded-lg bg-slate-50 border border-slate-200 px-4 py-3">
-        <div className="text-xs font-medium text-slate-600 uppercase tracking-wider mb-1">机构基础信息</div>
-        <div className="text-xs text-gray-500">维护机构档案、启停状态与基础转诊能力；转诊资源与科室承接能力请在“科室配置”中维护。</div>
+        <div className="text-xs font-medium text-slate-600 uppercase tracking-wider mb-1">配置说明</div>
+        <div className="text-xs text-gray-500">机构基础信息、用户、角色、菜单及按钮权限由医共体统一门户统一维护；本页仅维护双向转诊业务运行参数和通知联系人配置。</div>
       </div>
 
       {/* 筛选栏 */}
       <div className="bg-white rounded-xl p-4 mb-4" style={{ border: '1px solid #DDF0F3' }}>
-        <div className="grid grid-cols-4 gap-3 mb-3">
+        <div className="grid grid-cols-3 gap-3 mb-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">机构名称</label>
             <input
@@ -1060,18 +914,6 @@ export default function InstitutionManage() {
             >
               <option value="all">全部</option>
               {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
-            </select>
-          </div>
-          <div>
-            <label className="block text-xs text-gray-500 mb-1">启用状态</label>
-            <select
-              value={filters.enabled}
-              onChange={e => setFilters(f => ({ ...f, enabled: e.target.value }))}
-              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
-            >
-              <option value="all">全部</option>
-              <option value="enabled">启用</option>
-              <option value="disabled">停用</option>
             </select>
           </div>
           <div className="flex items-end gap-2">
@@ -1112,10 +954,10 @@ export default function InstitutionManage() {
       {/* 数据表格 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 980 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
-                {['序号', '机构名称', '机构代码', '机构类别', '联系人', '联系电话', '上转能力', '下转能力', '状态', '操作'].map(h => (
+                {['序号', '机构名称', '机构代码', '机构类别', '机构级别', '区划地址', '接收转诊能力', '接收服务状态', '操作'].map(h => (
                   <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
                 ))}
               </tr>
@@ -1123,7 +965,7 @@ export default function InstitutionManage() {
             <tbody>
               {pageData.length === 0 ? (
                 <tr>
-                  <td colSpan={10} className="py-16 text-center">
+                  <td colSpan={9} className="py-16 text-center">
                     <div className="flex flex-col items-center gap-2 text-gray-400">
                       <svg className="w-10 h-10 text-gray-300" fill="none" viewBox="0 0 24 24" stroke="currentColor">
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M19 21V5a2 2 0 00-2-2H7a2 2 0 00-2 2v16m14 0h2m-2 0h-5m-9 0H3m2 0h5M9 7h1m-1 4h1m4-4h1m-1 4h1m-5 10v-5a1 1 0 011-1h2a1 1 0 011 1v5m-4 0h4" />
@@ -1133,7 +975,10 @@ export default function InstitutionManage() {
                     </div>
                   </td>
                 </tr>
-              ) : pageData.map((inst, i) => (
+              ) : pageData.map((inst, i) => {
+                const serviceStatus = getReceivingServiceStatus(inst, { users: SYSTEM_SSO_USERS, deptConfigs: SYSTEM_DEPT_CONFIGS })
+                const abilityKey = getReceivingAbilityKey(inst)
+                return (
                 <tr
                   key={inst.id}
                   style={{
@@ -1155,25 +1000,17 @@ export default function InstitutionManage() {
                       {inst.type}
                     </span>
                   </td>
-                  <td className={TD + ' text-gray-600'}>{inst.contact}</td>
-                  <td className={TD + ' text-gray-500 text-xs font-mono'}>{inst.phone}</td>
-                  <td className={TD}>
-                    {inst.canUp
-                      ? <span className="text-green-600 font-medium text-sm">✓</span>
-                      : <span className="text-gray-400 text-sm">—</span>
-                    }
+                  <td className={TD + ' text-gray-600'}>{getInstitutionLevel(inst)}</td>
+                  <td className={TD + ' text-gray-500 max-w-[180px]'}>
+                    <span className="truncate block" title={inst.address}>{inst.address || '—'}</span>
                   </td>
                   <td className={TD}>
-                    {inst.canDown
-                      ? <span className="text-green-600 font-medium text-sm">✓</span>
-                      : <span className="text-gray-400 text-sm">—</span>
-                    }
+                    <span className={`inline-flex rounded px-2 py-0.5 text-xs font-medium ${inst[abilityKey] ? 'bg-cyan-50 text-cyan-700' : 'bg-gray-100 text-gray-500'}`}>
+                      {inst[abilityKey] ? '开启' : '关闭'}
+                    </span>
                   </td>
                   <td className={TD}>
-                    {inst.enabled
-                      ? <span className="bg-green-100 text-green-700 text-xs px-2 py-0.5 rounded">启用</span>
-                      : <span className="bg-gray-100 text-gray-500 text-xs px-2 py-0.5 rounded">停用</span>
-                    }
+                    <span className={`text-xs px-2 py-0.5 rounded ${getReceivingStatusClass(serviceStatus)}`}>{serviceStatus}</span>
                   </td>
                   <td className={TD}>
                     <div className="flex items-center gap-3">
@@ -1186,25 +1023,10 @@ export default function InstitutionManage() {
                       >
                         编辑
                       </button>
-                      {inst.enabled ? (
-                        <button
-                          onClick={() => handleDisableClick(inst)}
-                          className="text-sm font-medium text-red-500 hover:text-red-600 transition-colors"
-                        >
-                          停用
-                        </button>
-                      ) : (
-                        <button
-                          onClick={() => handleEnable(inst)}
-                          className="text-sm font-medium text-green-600 hover:text-green-700 transition-colors"
-                        >
-                          启用
-                        </button>
-                      )}
                     </div>
                   </td>
                 </tr>
-              ))}
+              )})}
             </tbody>
           </table>
         </div>
@@ -1250,15 +1072,6 @@ export default function InstitutionManage() {
           </div>
         </div>
       </div>
-
-      {/* 停用确认弹窗 */}
-      {disableTarget && (
-        <DisableConfirmModal
-          institution={disableTarget}
-          onCancel={() => setDisableTarget(null)}
-          onConfirm={handleConfirmDisable}
-        />
-      )}
 
       {/* 新增 / 编辑抽屉 */}
       {drawer && (

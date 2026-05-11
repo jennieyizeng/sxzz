@@ -3,7 +3,7 @@ import { useNavigate, useLocation } from 'react-router-dom'
 import ConsentOfflinePanel from '../../components/ConsentOfflinePanel'
 import { useApp } from '../../context/AppContext'
 import { INSTITUTIONS } from '../../data/mockData'
-import { SYSTEM_DISEASE_CONFIGS, SYSTEM_TERMINOLOGY_ICD10_MASTER } from '../../data/systemAdminConfig'
+import { SYSTEM_DISEASE_CONFIGS, SYSTEM_SSO_USERS, SYSTEM_TERMINOLOGY_ICD10_MASTER } from '../../data/systemAdminConfig'
 import {
   buildEmergencyInitialSms,
   buildEmergencyUrgencyFeedback,
@@ -12,6 +12,7 @@ import {
   isValidChineseMainlandMobile,
 } from '../../utils/emergencyReferral'
 import { buildConsentFileRecord, validateConsentFile } from '../../utils/consentUpload'
+import { getReceivingServiceStatus, getReceivingServiceStatusDescription, isReceivingServiceAvailable, RECEIVING_INCOMPLETE_HINT } from '../../utils/institutionReferralParams'
 import {
   UPWARD_REFERRAL_PURPOSE_OPTIONS,
   getReasonOptionLabel,
@@ -26,6 +27,7 @@ const URGENCY_LEVELS = [
 
 const NORMAL_STEPS = ['患者信息', '诊断及目的', '选择机构', '知情同意', '确认提交']
 const EMERGENCY_STEPS = ['急诊信息', '确认提交']
+const RECEIVING_SERVICE_OPTIONS = { users: SYSTEM_SSO_USERS }
 const EMERGENCY_ENTRY_MODES = [
   { value: 'realtime', label: '实时转诊', description: '默认模式，提交后立即触发急诊联动、工作台通知和患者短信。' },
   { value: 'retro', label: '补录录入', description: '仅用于患者已先到院的事后补录，不触发实时通知，也不发送患者短信。' },
@@ -1593,16 +1595,29 @@ export default function CreateReferral() {
           <div className="p-6">
             <h2 className="text-base font-semibold text-gray-800 mb-4">选择目标医院及科室</h2>
             <div className="space-y-3">
-              {INSTITUTIONS.filter(item => item.type === 'county').map(inst => (
-                <div key={inst.id} onClick={() => setForm(prev => ({ ...prev, toInstitutionId: inst.id, toDept: '' }))}
-                  className="border rounded-xl p-4 cursor-pointer transition-all"
+              {INSTITUTIONS.filter(item => item.type === 'county').map(inst => {
+                const serviceStatus = getReceivingServiceStatus(inst, RECEIVING_SERVICE_OPTIONS)
+                const canSelect = isReceivingServiceAvailable(inst, RECEIVING_SERVICE_OPTIONS)
+                const disabledHint = serviceStatus === '配置不完整'
+                  ? RECEIVING_INCOMPLETE_HINT
+                  : getReceivingServiceStatusDescription(serviceStatus)
+                return (
+                <div
+                  key={inst.id}
+                  title={!canSelect ? disabledHint : undefined}
+                  onClick={() => {
+                    if (!canSelect) return
+                    setForm(prev => ({ ...prev, toInstitutionId: inst.id, toDept: '' }))
+                  }}
+                  className={`border rounded-xl p-4 transition-all ${canSelect ? 'cursor-pointer' : 'cursor-not-allowed opacity-60'}`}
                   style={form.toInstitutionId === inst.id
                     ? { borderColor: '#0BBECF', background: '#F0FBFC', boxShadow: '0 0 0 2px #a4edf5' }
                     : { borderColor: '#e5e7eb', background: '#fff' }}>
                   <div className="font-medium text-gray-800 mb-2">{inst.name}</div>
-                  <div className="text-xs text-gray-500">医共体成员机构 · 县级医院</div>
+                  <div className="text-xs text-gray-500">医共体成员机构 · 县级医院 · 接收服务状态：{serviceStatus}</div>
+                  {!canSelect && <div className="text-xs text-amber-600 mt-2">{disabledHint}</div>}
                 </div>
-              ))}
+              )})}
             </div>
 
             {selectedInstitution && (
@@ -2289,20 +2304,32 @@ export default function CreateReferral() {
                 </div>
               ) : (
                 <div className="space-y-2 mb-3">
-                  {emergencyHospitalConfig.hospitals.map(hospital => (
+                  {emergencyHospitalConfig.hospitals.map(hospital => {
+                    const serviceStatus = getReceivingServiceStatus(hospital, RECEIVING_SERVICE_OPTIONS)
+                    const canSelect = isReceivingServiceAvailable(hospital, RECEIVING_SERVICE_OPTIONS)
+                    const disabledHint = serviceStatus === '配置不完整'
+                      ? RECEIVING_INCOMPLETE_HINT
+                      : getReceivingServiceStatusDescription(serviceStatus)
+                    return (
                     <button
                       key={hospital.id}
                       type="button"
-                      onClick={() => setForm(prev => ({ ...prev, toInstitutionId: hospital.id, toDept: '急诊科' }))}
-                      className="w-full rounded-lg border px-4 py-3 text-left transition-colors"
+                      disabled={!canSelect}
+                      title={!canSelect ? disabledHint : undefined}
+                      onClick={() => {
+                        if (!canSelect) return
+                        setForm(prev => ({ ...prev, toInstitutionId: hospital.id, toDept: '急诊科' }))
+                      }}
+                      className={`w-full rounded-lg border px-4 py-3 text-left transition-colors ${canSelect ? '' : 'cursor-not-allowed opacity-60'}`}
                       style={form.toInstitutionId === hospital.id
                         ? { borderColor: '#ef4444', background: '#fef2f2' }
                         : { borderColor: '#e5e7eb', background: '#fff' }}
                     >
                       <div className="font-medium text-gray-800">{hospital.name}</div>
-                      <div className="text-xs text-gray-400 mt-1">县级医院 · 急诊不受名额限制</div>
+                      <div className="text-xs text-gray-400 mt-1">县级医院 · 急诊不受名额限制 · 接收服务状态：{serviceStatus}</div>
+                      {!canSelect && <div className="text-xs text-amber-600 mt-2">{disabledHint}</div>}
                     </button>
-                  ))}
+                  )})}
                 </div>
               )}
 

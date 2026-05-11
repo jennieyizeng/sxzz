@@ -66,6 +66,8 @@ export const SYSTEM_INSTITUTION_CONFIGS = [
   { id: 'I003', name: 'xx市汉旺镇卫生院', code: '5106820013', type: '乡镇卫生院', contact: '李主任', phone: '0838-6202001', address: 'xx市汉旺镇健康街8号', referralConsultPhone: '0838-6202010', referralContactUserId: 'primary_doc_003', referralContactName: '李慧医生', referralContactPhone: '0838-6202010', referralCoordinatorUserId: '', referralCoordinatorName: '', referralCoordinatorPhone: '0838-6202018', canUp: true, canDown: false, enabled: true },
   { id: 'I004', name: 'xx市清平乡卫生院', code: '5106820014', type: '乡镇卫生院', contact: '陈主任', phone: '0838-6203001', address: 'xx市清平乡清平路6号', referralConsultPhone: '0838-6203010', referralContactUserId: 'primary_doc_005', referralContactName: '孙医生', referralContactPhone: '0838-6203010', referralCoordinatorUserId: '', referralCoordinatorName: '', referralCoordinatorPhone: '0838-6203018', canUp: true, canDown: true, enabled: true },
   { id: 'I005', name: 'xx市九龙镇卫生室', code: '5106820021', type: '社区卫生服务中心', contact: '赵医生', phone: '0838-6204001', address: 'xx市九龙镇便民服务点旁', referralConsultPhone: '', referralContactUserId: '', referralContactName: '', referralContactPhone: '0838-6204001', canUp: false, canDown: false, enabled: false },
+  { id: 'I006', name: 'xx市第五人民医院', code: '5106820005', type: '综合医院', contact: '马主任', phone: '0838-6205001', address: 'xx市城北新区健康路5号', referralConsultPhone: '0838-6205010', referralContactUserId: '', referralContactName: '', referralContactPhone: '', canUp: false, canDown: true, enabled: true, emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '', patientNoticeTemplate: '' },
+  { id: 'I007', name: 'xx市中医医院', code: '5106820007', type: '中医医院', contact: '何主任', phone: '0838-6207001', address: 'xx市中医路18号', referralConsultPhone: '0838-6207010', referralContactUserId: '', referralContactName: '', referralContactPhone: '', canUp: true, canDown: true, enabled: true, emergencyDutyContactId: '', emergencyDutyContactName: '', emergencyDeptPhone: '', patientNoticeTemplate: '' },
 ]
 
 export const SYSTEM_DEPT_CONFIGS = {
@@ -78,6 +80,9 @@ export const SYSTEM_DEPT_CONFIGS = {
     { dept: '内分泌科', head: '孙主任', headUserId: 'county_doc_006', partnerDoctor: '—', partnerDoctorUserId: '', counterpartInstitutionId: 'I005', dailyQuota: 3, outpatientLocation: '门诊2楼内分泌诊区', departmentPhone: '0838-6213307', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
     { dept: '骨科', head: '赵主任', headUserId: 'county_doc_007', partnerDoctor: '王医生', partnerDoctorUserId: 'primary_doc_001', counterpartInstitutionId: 'I002', dailyQuota: 2, outpatientLocation: '门诊3楼骨科诊区', departmentPhone: '0838-6213308', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:30', updatedBy: SYSTEM_ADMIN_OPERATOR },
     { dept: '急诊科', head: '周主任', headUserId: 'county_doc_008', partnerDoctor: '—', partnerDoctorUserId: '', counterpartInstitutionId: 'I004', dailyQuota: 0, outpatientLocation: '急诊楼1楼', departmentPhone: '0838-6213200', dailyReservedBeds: 2, ward: '急诊留观区', nurseStationPhone: '0838-6213201', rescueResources: '急诊抢救室、除颤仪、呼吸机均已待命', updatedAt: '2026-03-25 09:45', updatedBy: SYSTEM_ADMIN_OPERATOR },
+  ],
+  I007: [
+    { dept: '内科', head: '', headUserId: '', partnerDoctor: '—', partnerDoctorUserId: '', counterpartInstitutionId: 'I002', dailyQuota: 2, outpatientLocation: '门诊2楼中医内科诊区', departmentPhone: '0838-6207020', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '', updatedAt: '2026-03-25 08:00', updatedBy: SYSTEM_ADMIN_OPERATOR },
   ],
 }
 

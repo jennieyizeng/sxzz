@@ -2,12 +2,14 @@ import { useMemo, useState } from 'react'
 import { useNavigate } from 'react-router-dom'
 import { useApp } from '../../context/AppContext'
 import { INSTITUTIONS } from '../../data/mockData'
-import { SYSTEM_INSTITUTION_CONFIGS } from '../../data/systemAdminConfig'
+import { SYSTEM_INSTITUTION_CONFIGS, SYSTEM_SSO_USERS } from '../../data/systemAdminConfig'
 import ConsentOfflinePanel from '../../components/ConsentOfflinePanel'
 import { buildConsentFileRecord, validateConsentFile } from '../../utils/consentUpload'
+import { getReceivingServiceStatus, getReceivingServiceStatusDescription, isReceivingServiceAvailable, RECEIVING_INCOMPLETE_HINT } from '../../utils/institutionReferralParams'
 import { DOWNWARD_REASON_OPTIONS } from '../../constants/reasonCodes'
 
 const STEPS = ['患者与出院资料', '康复方案与接收安排', '知情同意', '提交确认']
+const RECEIVING_SERVICE_OPTIONS = { users: SYSTEM_SSO_USERS }
 const EMPTY_WESTERN_MEDICATION = {
   drugName: '',
   spec: '',
@@ -1755,9 +1757,23 @@ export default function CreateDownward() {
                     }}
                   >
                     <option value="">请选择目标基层机构</option>
-                    {INSTITUTIONS.filter(item => item.type === 'primary').map(inst => (
-                      <option key={inst.id} value={inst.id}>{inst.name}</option>
-                    ))}
+                    {INSTITUTIONS.filter(item => item.type === 'primary').map(inst => {
+                      const serviceStatus = getReceivingServiceStatus(inst, RECEIVING_SERVICE_OPTIONS)
+                      const canSelect = isReceivingServiceAvailable(inst, RECEIVING_SERVICE_OPTIONS)
+                      const disabledHint = serviceStatus === '配置不完整'
+                        ? RECEIVING_INCOMPLETE_HINT
+                        : getReceivingServiceStatusDescription(serviceStatus)
+                      return (
+                        <option
+                          key={inst.id}
+                          value={inst.id}
+                          disabled={!canSelect}
+                          title={!canSelect ? disabledHint : undefined}
+                        >
+                          {inst.name}{canSelect ? '' : `（${serviceStatus}，暂不可选）`}
+                        </option>
+                      )
+                    })}
                   </select>
                   {familyDoctorInstitutionMismatch && (
                     <div className="mt-2 rounded-lg px-3 py-2 text-xs text-amber-700 bg-amber-50 border border-amber-200">

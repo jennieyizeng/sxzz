@@ -103,15 +103,17 @@ export default function AdminLedger() {
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">转诊方向</label>
-            <div className="flex gap-2">
+            <select
+              value={filters.type}
+              onChange={e => setFilters(f => ({ ...f, type: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white"
+            >
               {[['all', '全部'], ['upward', '基层至县级'], ['downward', '县级至基层']].map(([v, l]) => (
-                <button key={v} onClick={() => setFilters(f => ({ ...f, type: v }))}
-                  className="flex-1 py-1.5 rounded-lg text-xs border transition-colors"
-                  style={filters.type === v ? { background: '#0BBECF', color: '#fff', borderColor: '#0BBECF' } : { color: '#4b5563', borderColor: '#e5e7eb' }}>
+                <option key={v} value={v}>
                   {l}
-                </button>
+                </option>
               ))}
-            </div>
+            </select>
           </div>
           <div>
             <label className="block text-xs text-gray-500 mb-1">状态筛选</label>

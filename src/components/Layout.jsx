@@ -72,11 +72,10 @@ const NAV_CONFIG = {
   [ROLES.SYSTEM_ADMIN]: [
     {
       label: '系统管理', icon: '⚙️', children: [
-        { path: '/admin/institution-manage', label: '机构转诊能力配置' },
+        { path: '/admin/institution-manage', label: '机构转诊参数配置' },
         { path: '/admin/disease-dir', label: '专病规则配置' },
         { path: '/admin/timeout-config', label: '超时规则' },
         { path: '/admin/notify-template', label: '通知模板' },
-        { path: '/admin/audit-rule-config', label: '审核规则' },
         { path: '/admin/operation-log', label: '操作日志' },
       ]
     },

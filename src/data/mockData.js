@@ -229,6 +229,32 @@ export const INSTITUTIONS = [
     },
   },
   {
+    id: 'inst005',
+    name: 'xx市第五人民医院',
+    type: 'county',
+    canUp: false,
+    departments: ['内科', '外科'],
+    status: '已签约',
+    emergencyDeptPhone: '',
+    departmentInfo: {
+      '内科': { dailyQuota: 2, todayReserved: 0, outpatientLocation: '门诊2楼内科诊区', departmentPhone: '0838-6205020', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '' },
+      '外科': { dailyQuota: 2, todayReserved: 0, outpatientLocation: '门诊3楼外科诊区', departmentPhone: '0838-6205021', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '' },
+    },
+  },
+  {
+    id: 'inst006',
+    name: 'xx市中医医院',
+    type: 'county',
+    canUp: true,
+    departments: ['内科', '康复科'],
+    status: '已签约',
+    emergencyDeptPhone: '',
+    departmentInfo: {
+      '内科': { dailyQuota: 2, todayReserved: 0, outpatientLocation: '门诊2楼中医内科诊区', departmentPhone: '0838-6207020', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '' },
+      '康复科': { dailyQuota: 2, todayReserved: 0, outpatientLocation: '门诊3楼康复诊区', departmentPhone: '0838-6207021', dailyReservedBeds: 0, ward: '', nurseStationPhone: '', rescueResources: '' },
+    },
+  },
+  {
     id: 'inst002',
     name: 'xx市拱星镇卫生院',
     type: 'primary',
