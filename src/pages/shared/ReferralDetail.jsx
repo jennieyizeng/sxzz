@@ -144,7 +144,7 @@ function renderDetailValue(item) {
     return (
       <div className="space-y-1 mt-0.5">
         {item.value.map(value => (
-          <div key={value} className="text-sm text-gray-800 font-medium">{value}</div>
+          <div key={value} className="text-sm text-gray-800 font-medium whitespace-pre-line">{value}</div>
         ))}
       </div>
     )
@@ -851,7 +851,7 @@ export default function ReferralDetail() {
   const isEmergencyReferral = !!ref.is_emergency
   const isRetroEntry = !!ref.isRetroEntry
   const isGreenChannel = ref.referral_type === 'green_channel'  // CHG-30
-  const referralDocumentAvailability = getReferralDocumentAvailability(ref)
+  const referralDocumentAvailability = getReferralDocumentAvailability(ref, currentUser)
   const referralDocumentModel = referralDocumentAvailability.canShow ? buildReferralDocumentModel(ref) : null
   const referralDocumentHtml = referralDocumentModel ? buildReferralDocumentHtml(referralDocumentModel) : ''
   const canGenerateFormalDocument = referralDocumentAvailability.canShow
@@ -2302,12 +2302,21 @@ export default function ReferralDetail() {
                       <h3 className="text-sm font-semibold text-gray-500 uppercase mb-3">{section.title}</h3>
                       <div className="rounded p-4" style={{ background: '#F5FCFD', border: '1px solid #DDF0F3' }}>
                         <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
-                          {section.items.map(item => (
-                            <div key={`${section.title}-${item.label}`} className={typeof item.value === 'string' && item.value.length > 60 ? 'md:col-span-2' : ''}>
-                              <div className="text-xs text-gray-400">{item.label}</div>
-                              {renderDetailValue(item)}
-                            </div>
-                          ))}
+                          {section.items.map(item => {
+                            if (item.type === 'subheading') {
+                              return (
+                                <div key={`${section.title}-${item.label}`} className="md:col-span-2 text-xs font-medium text-gray-400 pt-2">
+                                  {item.label}
+                                </div>
+                              )
+                            }
+                            return (
+                              <div key={`${section.title}-${item.label}`} className={typeof item.value === 'string' && item.value.length > 60 ? 'md:col-span-2' : ''}>
+                                <div className="text-xs text-gray-400">{item.label}</div>
+                                {renderDetailValue(item)}
+                              </div>
+                            )
+                          })}
                         </div>
                       </div>
                     </div>

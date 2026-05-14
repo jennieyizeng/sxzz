@@ -19,6 +19,15 @@ const basePatient = {
   archiveNo: 'A-0001',
 }
 
+const users = {
+  primaryInitiator: { id: 'u001', name: '王医生', role: 'primary', institution: 'xx市拱星镇卫生院' },
+  primaryOther: { id: 'u009', name: '李医生', role: 'primary', institution: 'xx市拱星镇卫生院' },
+  primaryHead: { id: 'u001_head', name: '赵负责人', role: 'primary_head', institution: 'xx市拱星镇卫生院' },
+  countyInitiator: { id: 'county_doctor_1', name: '李志远', role: 'county', institution: 'xx市人民医院' },
+  countyOther: { id: 'county_doctor_2', name: '王晓敏', role: 'county2', institution: 'xx市人民医院' },
+  admin: { id: 'u003', name: '赵管理员', role: 'admin', institution: 'xx市医共体管理层' },
+}
+
 function upward(overrides = {}) {
   return {
     id: 'REF_UP',
@@ -39,6 +48,7 @@ function upward(overrides = {}) {
     toInstitution: 'xx市人民医院',
     toDept: '心血管科',
     toDoctor: '刘医生',
+    admissionArrangement: { department: '心血管科', visitTime: '2026-05-06T10:30:00.000Z' },
     createdAt: '2026-05-06T08:30:00.000Z',
     internalAuditLog: [
       { result: '通过', note: '符合上转评估标准' },
@@ -62,7 +72,7 @@ function downward(overrides = {}) {
     medicationAdvice: '阿司匹林肠溶片 100mg qd',
     precautions: '监测血压，警惕再发症状',
     fromInstitution: 'xx市人民医院',
-    fromDoctor: '刘医生',
+    fromDoctor: '李志远',
     fromDeptPhone: '0838-6213301',
     toInstitution: 'xx市拱星镇卫生院',
     toDept: '全科',
@@ -73,10 +83,116 @@ function downward(overrides = {}) {
   }
 }
 
-test('formal upward document is only available after county acceptance and uses transfer-out wording', () => {
-  assert.equal(getReferralDocumentAvailability(upward({ status: UPWARD_STATUS.PENDING })).canShow, false)
+function visible(referral, user) {
+  return getReferralDocumentAvailability(referral, user).canShow
+}
 
-  const availability = getReferralDocumentAvailability(upward())
+function label(referral, user) {
+  return getReferralDocumentAvailability(referral, user).previewLabel
+}
+
+test('ordinary upward preview waits for admission arrangement before active document exists', () => {
+  const pendingArrangement = upward({
+    status: UPWARD_STATUS.IN_TRANSIT,
+    admissionArrangement: null,
+  })
+  assert.equal(visible(pendingArrangement, users.primaryInitiator), false)
+  assert.equal(visible(pendingArrangement, users.admin), false)
+
+  const arranged = upward({
+    status: UPWARD_STATUS.IN_TRANSIT,
+    admissionArrangement: { department: '心血管科', visitTime: '2026-05-06T10:30:00.000Z' },
+  })
+  assert.equal(visible(arranged, users.primaryInitiator), true)
+  assert.equal(label(arranged, users.primaryInitiator), '预览双向转诊（转出）单')
+})
+
+test('emergency upward active preview follows supplement and retro-entry confirmation rules', () => {
+  const livePendingSupplement = upward({
+    status: UPWARD_STATUS.IN_TRANSIT,
+    is_emergency: true,
+    admissionArrangement: null,
+  })
+  assert.equal(visible(livePendingSupplement, users.primaryInitiator), false)
+
+  const liveSupplemented = upward({
+    status: UPWARD_STATUS.IN_TRANSIT,
+    is_emergency: true,
+    admissionArrangement: { department: '急诊科', visitTime: '2026-05-06T10:30:00.000Z' },
+  })
+  assert.equal(visible(liveSupplemented, users.primaryInitiator), true)
+  assert.equal(visible(liveSupplemented, users.admin), true)
+  assert.equal(visible(liveSupplemented, users.countyInitiator), false)
+
+  const retroPendingConfirmation = upward({
+    status: UPWARD_STATUS.IN_TRANSIT,
+    is_emergency: true,
+    isRetroEntry: true,
+    admissionArrangement: { department: '急诊科', visitTime: '2026-05-06T10:30:00.000Z' },
+  })
+  assert.equal(visible(retroPendingConfirmation, users.primaryInitiator), false)
+})
+
+test('downward pending accept hides preview and in-transfer is limited to initiator or assignee', () => {
+  const pendingAccept = downward({ status: DOWNWARD_STATUS.PENDING })
+  assert.equal(visible(pendingAccept, users.countyInitiator), false)
+  assert.equal(visible(pendingAccept, users.primaryInitiator), false)
+
+  const inTransfer = downward({
+    status: DOWNWARD_STATUS.IN_TRANSIT,
+    downwardAssignedDoctorId: 'u001',
+    designatedDoctorId: 'u001',
+  })
+  assert.equal(visible(inTransfer, users.countyInitiator), true)
+  assert.equal(visible(inTransfer, users.primaryInitiator), true)
+  assert.equal(visible(inTransfer, users.primaryOther), false)
+  assert.equal(visible(inTransfer, users.primaryHead), false)
+  assert.equal(visible(inTransfer, users.admin), false)
+  assert.equal(label(inTransfer, users.countyInitiator), '预览双向转诊（回转）单')
+})
+
+test('completed previews use archive label for allowed upward and downward roles', () => {
+  const completedUpward = upward({ status: UPWARD_STATUS.COMPLETED })
+  assert.equal(visible(completedUpward, users.primaryInitiator), true)
+  assert.equal(visible(completedUpward, users.countyInitiator), true)
+  assert.equal(visible(completedUpward, users.admin), true)
+  assert.equal(label(completedUpward, users.primaryInitiator), '预览归档转诊单')
+
+  const completedDownward = downward({
+    status: DOWNWARD_STATUS.COMPLETED,
+    downwardAssignedDoctorId: 'u001',
+    designatedDoctorId: 'u001',
+  })
+  assert.equal(visible(completedDownward, users.countyInitiator), true)
+  assert.equal(visible(completedDownward, users.primaryInitiator), true)
+  assert.equal(visible(completedDownward, users.primaryHead), true)
+  assert.equal(visible(completedDownward, users.admin), true)
+  assert.equal(label(completedDownward, users.admin), '预览归档转诊单')
+})
+
+test('closed previews use closed archive label and hide from county upward or primary-head downward roles', () => {
+  const closedUpward = upward({ status: UPWARD_STATUS.CLOSED })
+  assert.equal(visible(closedUpward, users.primaryInitiator), true)
+  assert.equal(visible(closedUpward, users.admin), true)
+  assert.equal(visible(closedUpward, users.countyInitiator), false)
+  assert.equal(label(closedUpward, users.primaryInitiator), '预览关闭归档单')
+
+  const closedDownward = downward({
+    status: DOWNWARD_STATUS.CLOSED,
+    downwardAssignedDoctorId: 'u001',
+    designatedDoctorId: 'u001',
+  })
+  assert.equal(visible(closedDownward, users.countyInitiator), true)
+  assert.equal(visible(closedDownward, users.primaryInitiator), true)
+  assert.equal(visible(closedDownward, users.primaryHead), false)
+  assert.equal(visible(closedDownward, users.admin), true)
+  assert.equal(label(closedDownward, users.admin), '预览关闭归档单')
+})
+
+test('formal upward document is only available after county acceptance and uses transfer-out wording', () => {
+  assert.equal(getReferralDocumentAvailability(upward({ status: UPWARD_STATUS.PENDING }), users.primaryInitiator).canShow, false)
+
+  const availability = getReferralDocumentAvailability(upward(), users.primaryInitiator)
   assert.equal(availability.canShow, true)
   assert.equal(availability.previewLabel, '预览双向转诊（转出）单')
   assert.equal(availability.documentTitle, '双向转诊（转出）单')
@@ -110,7 +226,7 @@ test('completed upward document includes stub archive and closed document shows 
 })
 
 test('downward document uses return wording and archive stub fields', () => {
-  assert.equal(getReferralDocumentAvailability(downward({ status: DOWNWARD_STATUS.PENDING })).canShow, false)
+  assert.equal(getReferralDocumentAvailability(downward({ status: DOWNWARD_STATUS.PENDING }), users.countyInitiator).canShow, false)
 
   const model = buildReferralDocumentModel(downward({ status: DOWNWARD_STATUS.COMPLETED }))
   assert.equal(model.title, 'xx市医疗机构双向转诊单（回转用）')

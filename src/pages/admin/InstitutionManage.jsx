@@ -247,32 +247,34 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
     <>
       <div className="fixed inset-0 bg-black/40 z-40" onClick={onClose} />
       <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6 pointer-events-none">
-      <div className="w-full max-w-3xl max-h-[88vh] bg-white rounded-xl shadow-2xl flex flex-col pointer-events-auto overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
+      <div className="w-full max-w-4xl max-h-[88vh] bg-white rounded-2xl shadow-2xl flex flex-col pointer-events-auto overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         {/* 标题栏 */}
-        <div className="flex items-center justify-between px-6 py-4 border-b border-gray-100">
+        <div className="flex items-center justify-between px-7 py-5 border-b border-gray-100 bg-white">
           <div>
-            <div className="text-sm font-semibold text-gray-800">
+            <div className="text-base font-semibold text-gray-900">
               {mode === 'create' ? '新增机构' : '机构转诊参数配置'}
             </div>
-            <div className="text-xs text-gray-400 mt-0.5">
+            <div className="text-xs text-gray-500 mt-1">
               {mode === 'create' ? '填写新机构基本信息与转诊业务参数' : '配置当前机构的双向转诊业务运行参数和通知联系人'}
             </div>
           </div>
-          <button onClick={onClose} className="w-7 h-7 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none">
+          <button onClick={onClose} className="w-8 h-8 flex items-center justify-center rounded-lg text-gray-400 hover:bg-gray-100 transition-colors text-lg leading-none">
             ×
           </button>
         </div>
 
         {/* 表单内容 */}
-        <div className="flex-1 overflow-y-auto px-6 py-5 space-y-4">
+        <div className="flex-1 overflow-y-auto bg-slate-50/70 px-7 py-5 space-y-4">
 
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100">
-            机构基础信息
-          </div>
+          <section className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+              机构基础信息
+            </div>
 
           {isEdit ? (
             <>
-              <div className="grid grid-cols-2 gap-4">
+              <div className="grid grid-cols-2 gap-3">
                 <ReadOnlyField label="机构名称" value={form.name} />
                 <ReadOnlyField label="机构代码" value={form.code} />
                 <ReadOnlyField label="机构类别" value={form.type} />
@@ -340,10 +342,13 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               </DrawerField>
             </>
           )}
+          </section>
 
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            双转业务配置
-          </div>
+          <section className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+              双转业务配置
+            </div>
 
           <div className={`grid gap-3 ${isPrimaryInstitution ? 'grid-cols-2' : 'grid-cols-3'}`}>
             <DrawerField label="转诊咨询专用电话" error={errors.referralConsultPhone}>
@@ -386,10 +391,13 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               </DrawerField>
             )}
           </div>
+          </section>
 
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            接收转诊能力
-          </div>
+          <section className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+              接收转诊能力
+            </div>
 
           <div className="divide-y divide-gray-100 rounded-lg border border-gray-100">
             <div className="flex items-center justify-between gap-4 px-4 py-3">
@@ -414,10 +422,13 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
               )}
             </div>
           </div>
+          </section>
 
-          <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
-            院内审核配置
-          </div>
+          <section className="rounded-xl border border-gray-100 bg-white p-4">
+            <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+              <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+              院内审核配置
+            </div>
 
           <div className="rounded-lg border border-gray-100 px-4 py-3 flex items-center justify-between gap-4">
             <div className="min-w-0">
@@ -430,10 +441,12 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
             </div>
             <Toggle value={form.outgoingAuditEnabled} onChange={value => set('outgoingAuditEnabled', value)} />
           </div>
+          </section>
 
           {isCountyInstitution && (
-            <>
-              <div className="text-xs font-medium text-gray-400 uppercase tracking-wider pb-1 border-b border-gray-100 pt-2">
+            <section className="rounded-xl border border-gray-100 bg-white p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
                 急诊转诊配置
               </div>
 
@@ -469,7 +482,7 @@ function InstitutionDrawer({ mode, initial, onClose, onSave }) {
                   <p className="text-xs text-gray-400 mt-0.5">将作为急诊转诊提交时患者首条短信中的联系电话</p>
                 </DrawerField>
               </div>
-            </>
+            </section>
           )}
 
         </div>
@@ -561,7 +574,7 @@ function DeptConfigTab({ institutions }) {
         >
           {countyInsts.map(i => <option key={i.id} value={i.id}>{i.name}</option>)}
         </select>
-        <span className="text-xs text-gray-400">仅医院类机构可配置科室号源（基层机构号源由HIS维护）</span>
+        <span className="text-xs text-gray-400">仅医院类机构可配置科室号源</span>
       </div>
       <div className="mb-4 rounded-lg bg-cyan-50 border border-cyan-100 px-4 py-3 text-xs text-cyan-700">
         科室基础信息来自统一门户，本页仅维护每日转诊保留号源、门诊位置、科室电话、床位、病区、护士站联系电话及急诊/绿通资源说明。
@@ -618,16 +631,32 @@ function DeptConfigTab({ institutions }) {
       {editRow && (
         <>
           <div className="fixed inset-0 bg-black/40 z-40" onClick={() => setEditRow(null)} />
-          <div className="fixed inset-0 z-50 flex items-center justify-center">
-            <div className="bg-white rounded-xl shadow-2xl w-[640px] max-h-[88vh] overflow-y-auto p-6">
-              <h3 className="text-sm font-semibold text-gray-800 mb-4">编辑科室配置 — {editRow.form.dept}</h3>
-              <div className="grid grid-cols-3 gap-3 mb-4">
+          <div className="fixed inset-0 z-50 flex items-center justify-center px-4 py-6">
+            <div className="flex max-h-[88vh] w-full max-w-3xl flex-col overflow-hidden rounded-2xl bg-white shadow-2xl" style={{ border: '1px solid #DDF0F3' }}>
+              <div className="flex items-center justify-between border-b border-gray-100 px-6 py-4">
+                <div>
+                  <h3 className="text-base font-semibold text-gray-900">编辑科室配置 — {editRow.form.dept}</h3>
+                  <div className="mt-1 text-xs text-gray-500">维护当前科室的转诊保留资源、联系电话和急诊/绿通展示信息</div>
+                </div>
+                <button onClick={() => setEditRow(null)} className="flex h-8 w-8 items-center justify-center rounded-lg text-lg leading-none text-gray-400 hover:bg-gray-100">×</button>
+              </div>
+              <div className="flex-1 space-y-4 overflow-y-auto bg-slate-50/70 px-6 py-5">
+              <section className="rounded-xl border border-gray-100 bg-white p-4">
+              <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+                科室基础信息
+              </div>
+              <div className="grid grid-cols-3 gap-3">
                 <ReadOnlyField label="科室名称" value={editRow.form.dept} />
                 <ReadOnlyField label="科室代码" value={editRow.form.deptCode || editRow.form.code || `DEPT-${String(editRow.deptIndex + 1).padStart(3, '0')}`} />
                 <ReadOnlyField label="所属机构" value={institutions.find(inst => inst.id === editRow.instId)?.name} />
               </div>
-              <div className="border-t border-gray-100 pt-4 mb-4">
-                <div className="text-xs font-medium text-gray-600 mb-3">科室业务参数</div>
+              </section>
+              <section className="rounded-xl border border-gray-100 bg-white p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+                  科室业务参数
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                 <div>
                   <label className="block text-xs text-gray-500 mb-1">
@@ -657,9 +686,13 @@ function DeptConfigTab({ institutions }) {
                   <p className="text-xs text-gray-400 mt-1">用于接诊安排、患者到院指引和短信通知。</p>
                 </div>
               </div>
-              </div>
+              </section>
 
-              <div className="border-t border-dashed border-gray-200 pt-4 mb-4">
+              <section className="rounded-xl border border-gray-100 bg-white p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+                  床位与病区参数
+                </div>
                 <div className="grid grid-cols-2 gap-4">
                   <div>
                     <label className="block text-xs text-gray-500 mb-1">
@@ -692,10 +725,13 @@ function DeptConfigTab({ institutions }) {
                     />
                   </div>
                 </div>
-              </div>
+              </section>
 
-              <div className="border-t border-dashed border-gray-200 pt-4 mb-4">
-                <div className="text-xs font-medium text-gray-600 mb-3">急诊/绿通展示配置</div>
+              <section className="rounded-xl border border-gray-100 bg-white p-4">
+                <div className="mb-3 flex items-center gap-2 text-sm font-semibold text-gray-800">
+                  <span className="h-4 w-1 rounded-full bg-[#0BBECF]" />
+                  急诊/绿通展示配置
+                </div>
                 <label className="block text-xs text-gray-500 mb-1">绿色通道资源说明</label>
                 <textarea
                   rows={2}
@@ -705,12 +741,13 @@ function DeptConfigTab({ institutions }) {
                   onChange={e => setEditRow(p => ({ ...p, form: { ...p.form, rescueResources: e.target.value } }))}
                 />
                 <p className="text-xs text-gray-400 mt-1">仅用于急诊/绿通转诊详情页展示，便于转诊中心了解科室资源状态，不参与自动分诊判断。</p>
-              </div>
+              </section>
 
-              <div className="bg-gray-50 border border-gray-100 rounded p-3 mb-4 text-xs text-gray-500">
+              <div className="rounded-lg border border-gray-100 bg-white px-3 py-2 text-xs text-gray-500">
                 科室配置仅用于转诊通知、接诊安排预填及号源/床位参考；配置为0表示不启用对应资源池，具体接诊地点和联系电话以转诊中心最终安排为准。
               </div>
-              <div className="flex gap-3 justify-end">
+              </div>
+              <div className="flex justify-end gap-3 border-t border-gray-100 px-6 py-4">
                 <button onClick={() => setEditRow(null)} className="px-4 py-2 text-sm border border-gray-200 rounded-lg text-gray-600">取消</button>
                 <button onClick={handleSave} className="px-4 py-2 text-sm text-white rounded-lg" style={{ background: '#0BBECF' }}>保存</button>
               </div>
@@ -728,8 +765,8 @@ export default function InstitutionManage() {
   const [syncState, setSyncState] = useState({ status: 'success', lastSyncText: '2 小时前' })
 
   // 筛选
-  const [filters, setFilters] = useState({ name: '', type: 'all' })
-  const [applied, setApplied] = useState({ name: '', type: 'all' })
+  const [filters, setFilters] = useState({ name: '', type: 'all', receiveAbility: 'all' })
+  const [applied, setApplied] = useState({ name: '', type: 'all', receiveAbility: 'all' })
 
   // 分页
   const [page, setPage] = useState(1)
@@ -750,6 +787,11 @@ export default function InstitutionManage() {
   const filtered = useMemo(() => {
     return list.filter(inst => {
       if (applied.type !== 'all' && inst.type !== applied.type) return false
+      if (applied.receiveAbility !== 'all') {
+        const abilityKey = getReceivingAbilityKey(inst)
+        const abilityValue = inst[abilityKey] ? 'enabled' : 'disabled'
+        if (abilityValue !== applied.receiveAbility) return false
+      }
       if (applied.name.trim() && !inst.name.includes(applied.name.trim())) return false
       return true
     })
@@ -760,7 +802,7 @@ export default function InstitutionManage() {
 
   const handleQuery = () => { setApplied({ ...filters }); setPage(1) }
   const handleReset = () => {
-    const empty = { name: '', type: 'all' }
+    const empty = { name: '', type: 'all', receiveAbility: 'all' }
     setFilters(empty); setApplied(empty); setPage(1)
   }
 
@@ -870,7 +912,7 @@ export default function InstitutionManage() {
       {/* 主 Tab 切换：机构列表 / 科室配置 */}
       <div className="flex gap-0 mb-4" style={{ borderBottom: '2px solid #E0F6F9' }}>
         {[
-          { key: 'institutions', label: '机构列表' },
+          { key: 'institutions', label: '机构配置' },
           { key: 'deptConfig',   label: '科室配置' },
         ].map(t => (
           <button key={t.key} onClick={() => setMainTab(t.key)}
@@ -894,7 +936,7 @@ export default function InstitutionManage() {
 
       {/* 筛选栏 */}
       <div className="bg-white rounded-xl p-4 mb-4" style={{ border: '1px solid #DDF0F3' }}>
-        <div className="grid grid-cols-3 gap-3 mb-3">
+        <div className="grid grid-cols-4 gap-3 mb-3">
           <div>
             <label className="block text-xs text-gray-500 mb-1">机构名称</label>
             <input
@@ -914,6 +956,18 @@ export default function InstitutionManage() {
             >
               <option value="all">全部</option>
               {INSTITUTION_TYPES.map(t => <option key={t} value={t}>{t}</option>)}
+            </select>
+          </div>
+          <div>
+            <label className="block text-xs text-gray-500 mb-1">接收转诊能力</label>
+            <select
+              value={filters.receiveAbility}
+              onChange={e => setFilters(f => ({ ...f, receiveAbility: e.target.value }))}
+              className="w-full border border-gray-200 rounded-lg px-3 py-1.5 text-sm focus:outline-none bg-white focus:ring-1 focus:ring-[#0BBECF]"
+            >
+              <option value="all">全部</option>
+              <option value="enabled">开启</option>
+              <option value="disabled">关闭</option>
             </select>
           </div>
           <div className="flex items-end gap-2">

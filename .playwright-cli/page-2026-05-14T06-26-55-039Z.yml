@@ -1,0 +1,152 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 赵
+        - generic [ref=e13]:
+          - generic [ref=e14]: 赵管理员
+          - generic [ref=e15]: xx市医共体管理层
+      - generic [ref=e17]: 转诊管理员
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - link "📋 转诊台账" [ref=e22] [cursor=pointer]:
+        - /url: /admin/ledger
+        - generic [ref=e23]: 📋
+        - generic [ref=e24]: 转诊台账
+      - link "⚠️ 异常处理" [ref=e25] [cursor=pointer]:
+        - /url: /admin/anomaly
+        - generic [ref=e26]: ⚠️
+        - generic [ref=e27]: 异常处理
+      - generic [ref=e28]:
+        - button "📈 统计报表 ›" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]:
+            - generic [ref=e31]: 📈
+            - generic [ref=e32]: 统计报表
+          - generic [ref=e33]: ›
+        - generic [ref=e34]:
+          - link "统计看板" [ref=e35] [cursor=pointer]:
+            - /url: /admin/stats
+          - link "考核报表" [ref=e36] [cursor=pointer]:
+            - /url: /admin/exam-report
+          - link "绩效统计" [ref=e37] [cursor=pointer]:
+            - /url: /admin/doctor-perf
+          - link "数据上报" [ref=e38] [cursor=pointer]:
+            - /url: /admin/data-report
+      - link "🔔 消息中心" [ref=e39] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e40]: 🔔
+        - generic [ref=e41]: 消息中心
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]: 双向转诊平台
+      - generic [ref=e45]:
+        - button "🎭 切换角色 ▾" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: 🎭
+          - generic [ref=e49]: 切换角色
+          - generic [ref=e50]: ▾
+        - link "2" [ref=e51] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e52]
+          - generic [ref=e54]: "2"
+        - link "赵" [ref=e55] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e56]:
+      - generic [ref=e132]:
+        - generic [ref=e133]:
+          - generic [ref=e134]:
+            - generic [ref=e135]: 绩效统计 / 刘医生（心血管科 · xx市人民医院）
+            - generic [ref=e136]:
+              - button "← 返回" [ref=e137] [cursor=pointer]
+              - heading "刘医生绩效详情" [level=2] [ref=e138]
+          - button "导出 Excel" [ref=e139] [cursor=pointer]
+        - generic [ref=e140]:
+          - generic [ref=e141]:
+            - generic [ref=e142]: 发起申请量
+            - generic [ref=e143]: 12例
+          - generic [ref=e144]:
+            - generic [ref=e145]: 完成接收量
+            - generic [ref=e146]: 18例
+          - generic [ref=e147]:
+            - generic [ref=e148]: 受理完成率
+            - generic [ref=e149]: 96.2%
+          - generic [ref=e150]:
+            - generic [ref=e151]: 平均响应时长(h)
+            - generic [ref=e152]: 1.4h
+          - generic [ref=e153]:
+            - generic [ref=e154]: 拒绝数
+            - generic [ref=e155]: 0次
+        - generic [ref=e156]:
+          - generic [ref=e158]: 转诊记录
+          - generic [ref=e159]:
+            - button "全部" [ref=e160] [cursor=pointer]
+            - button "转入" [ref=e161] [cursor=pointer]
+            - button "转出" [ref=e162] [cursor=pointer]
+          - table [ref=e164]:
+            - rowgroup [ref=e165]:
+              - row "转诊单号 患者信息 转诊类型 诊断（ICD-10） 状态 更新时间" [ref=e166]:
+                - columnheader "转诊单号" [ref=e167]
+                - columnheader "患者信息" [ref=e168]
+                - columnheader "转诊类型" [ref=e169]
+                - columnheader "诊断（ICD-10）" [ref=e170]
+                - columnheader "状态" [ref=e171]
+                - columnheader "更新时间" [ref=e172]
+            - rowgroup [ref=e173]:
+              - row "ZZ20260403001 刘建国 男 · 67岁 转入 I10.x00 原发性高血压 已完成 2026-05-12 14:30" [ref=e174]:
+                - cell "ZZ20260403001" [ref=e175]:
+                  - button "ZZ20260403001" [ref=e176] [cursor=pointer]
+                - cell "刘建国 男 · 67岁" [ref=e177]:
+                  - generic [ref=e178]: 刘建国
+                  - generic [ref=e179]: 男 · 67岁
+                - cell "转入" [ref=e180]:
+                  - generic [ref=e181]: 转入
+                - cell "I10.x00 原发性高血压" [ref=e182]:
+                  - generic [ref=e183]: I10.x00
+                  - generic [ref=e184]: 原发性高血压
+                - cell "已完成" [ref=e185]:
+                  - generic [ref=e186]: 已完成
+                - cell "2026-05-12 14:30" [ref=e188]
+              - row "ZZ20260402002 陈秀兰 女 · 72岁 转出 I50.900 心力衰竭 已完成 2026-05-11 10:20" [ref=e189]:
+                - cell "ZZ20260402002" [ref=e190]:
+                  - button "ZZ20260402002" [ref=e191] [cursor=pointer]
+                - cell "陈秀兰 女 · 72岁" [ref=e192]:
+                  - generic [ref=e193]: 陈秀兰
+                  - generic [ref=e194]: 女 · 72岁
+                - cell "转出" [ref=e195]:
+                  - generic [ref=e196]: 转出
+                - cell "I50.900 心力衰竭" [ref=e197]:
+                  - generic [ref=e198]: I50.900
+                  - generic [ref=e199]: 心力衰竭
+                - cell "已完成" [ref=e200]:
+                  - generic [ref=e201]: 已完成
+                - cell "2026-05-11 10:20" [ref=e203]
+              - row "ZZ20260401003 周明 男 · 58岁 转入 E11.900 2型糖尿病 已拒绝 2026-05-10 16:10" [ref=e204]:
+                - cell "ZZ20260401003" [ref=e205]:
+                  - button "ZZ20260401003" [ref=e206] [cursor=pointer]
+                - cell "周明 男 · 58岁" [ref=e207]:
+                  - generic [ref=e208]: 周明
+                  - generic [ref=e209]: 男 · 58岁
+                - cell "转入" [ref=e210]:
+                  - generic [ref=e211]: 转入
+                - cell "E11.900 2型糖尿病" [ref=e212]:
+                  - generic [ref=e213]: E11.900
+                  - generic [ref=e214]: 2型糖尿病
+                - cell "已拒绝" [ref=e215]:
+                  - generic [ref=e216]: 已拒绝
+                - cell "2026-05-10 16:10" [ref=e218]
+          - generic [ref=e219]:
+            - generic [ref=e220]:
+              - text: 共
+              - strong [ref=e221]: "3"
+              - text: 条记录，每页 10 条，第 1/1 页
+            - generic [ref=e222]:
+              - button "‹ 上一页" [disabled] [ref=e223]
+              - button "1" [ref=e224] [cursor=pointer]
+              - button "下一页 ›" [disabled] [ref=e225]

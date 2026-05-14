@@ -101,30 +101,58 @@ test('outpatient upward detail shows medical history and allergy in diagnosis se
   assert.equal(diagnosisSection.items.find(item => item.label === '过敏史')?.value, '青霉素过敏。')
 })
 
-test('emergency upward detail shows patient safety information with empty-value rules', () => {
+test('emergency upward detail follows launch form order and shows optional fields', () => {
   const sections = getUpwardDetailSections({
     type: 'upward',
     is_emergency: true,
     patient: { name: '张三', gender: '男', age: 67 },
+    emergencyContactPhone: '13900001111',
     consciousnessStatus: 'conscious',
     pastMedicalHistory: '',
     allergyHistoryStatus: 'unknown',
     allergyHistoryDetail: '',
     diagnosis: { code: 'I10', name: '原发性高血压' },
+    chiefComplaint: '突发胸痛',
+    reason: '已吸氧并建立静脉通道',
+    transportCondition: '适合转运',
+    transportNeeds: ['吸氧', '监护'],
+    toInstitution: 'xx市人民医院',
+    toDept: '急诊科',
+    linkedSpecialty: '心血管科',
   })
+
+  assert.deepEqual(sections[0].items.map(item => item.label), [
+    '患者姓名',
+    '联系电话',
+    '紧急联系方式',
+    '性别',
+    '年龄',
+    '身份证号',
+    '患者意识状态',
+  ])
+  assert.equal(sections[0].items.find(item => item.label === '紧急联系方式')?.value, '13900001111')
 
   const safetySection = sections.find(section => section.title === '患者安全信息')
   assert.ok(safetySection)
   assert.deepEqual(safetySection.items.map(item => item.label), [
-    '患者意识状态',
     '主要既往史',
     '过敏史',
   ])
   assert.equal(safetySection.items.find(item => item.label === '主要既往史')?.value, '未填写')
   assert.equal(safetySection.items.find(item => item.label === '过敏史')?.value, '暂不清楚')
+
+  const emergencySection = sections.find(section => section.title === '急诊信息')
+  assert.deepEqual(emergencySection.items.map(item => item.label), [
+    '录入方式',
+    '急诊紧急程度',
+    '主诉/急转原因',
+    '病情补充/已做处置',
+    'ICD-10诊断',
+  ])
+  assert.equal(emergencySection.items.find(item => item.label === '病情补充/已做处置')?.value, '已吸氧并建立静脉通道')
 })
 
-test('inpatient upward detail shows medical history before current diagnosis', () => {
+test('inpatient upward detail follows launch form grouping and shows uploaded materials', () => {
   const sections = getUpwardDetailSections({
     type: 'upward',
     sourceVisitType: 'inpatient',
@@ -137,7 +165,22 @@ test('inpatient upward detail shows medical history before current diagnosis', (
     medicationSummary: '阿司匹林口服治疗',
     currentTreatmentPlanSummary: '拟行冠脉造影',
     conditionChangeNote: '近日胸痛加重',
+    inpatientTransferPurpose: '需专科进一步评估',
+    conditionAssessment: '需重点关注',
+    transportSuitability: '需评估后转运',
+    transportNotes: '转运途中持续心电监护',
+    attachments: [{ name: '心电图.pdf' }],
+    nursingAttachments: [{ name: '护理记录.pdf' }],
   })
+
+  const purposeSection = sections.find(section => section.title === '诊断与转诊目的')
+  assert.ok(purposeSection)
+  assert.deepEqual(purposeSection.items.map(item => item.label), [
+    '转院目的',
+    '当前病情评估',
+    '是否适合转运',
+    '转运注意事项',
+  ])
 
   const summarySection = sections.find(section => section.title === '病历摘要')
   assert.ok(summarySection)
@@ -151,4 +194,25 @@ test('inpatient upward detail shows medical history before current diagnosis', (
     '病情变化说明',
   ])
   assert.equal(summarySection.items.find(item => item.label === '过敏史')?.value, '无明确过敏史')
+
+  const uploadSection = sections.find(section => section.title === '资料上传')
+  assert.deepEqual(uploadSection.items.map(item => item.label), [
+    '检查 / 检验资料上传',
+    '护理记录上传',
+  ])
+  assert.deepEqual(uploadSection.items.find(item => item.label === '护理记录上传')?.value, ['护理记录.pdf'])
+})
+
+test('upward consent detail shows uploaded consent file names', () => {
+  const sections = getUpwardDetailSections({
+    type: 'upward',
+    sourceVisitType: 'outpatient',
+    patient: { name: '王五', gender: '男', age: 45 },
+  }, {
+    fileNames: ['转院知情同意书.pdf'],
+    isUploaded: true,
+  })
+
+  const consentSection = sections.find(section => section.title === '知情同意')
+  assert.equal(consentSection.items.find(item => item.label === '已上传文件名')?.value, '转院知情同意书.pdf')
 })

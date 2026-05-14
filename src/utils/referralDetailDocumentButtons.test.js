@@ -1,10 +1,9 @@
 import assert from 'node:assert/strict'
 import fs from 'node:fs'
-import path from 'node:path'
 import test from 'node:test'
 
 const source = fs.readFileSync(
-  path.resolve(process.cwd(), 'src/pages/shared/ReferralDetail.jsx'),
+  new URL('../pages/shared/ReferralDetail.jsx', import.meta.url),
   'utf8',
 )
 
@@ -15,4 +14,8 @@ test('referral detail only keeps PDF and print actions inside document preview m
   assert.equal(downloadActionCount, 1)
   assert.equal(printActionCount, 1)
   assert.match(source, /dialog\?\.type === 'documentPreview'[\s\S]*下载 PDF[\s\S]*打印/)
+})
+
+test('referral detail passes current user context into document preview availability', () => {
+  assert.match(source, /getReferralDocumentAvailability\(ref,\s*currentUser\)/)
 })

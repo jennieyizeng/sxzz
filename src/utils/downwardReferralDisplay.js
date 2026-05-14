@@ -72,21 +72,21 @@ function formatWesternMedication(item) {
     item.dose || item.singleDose,
     item.route,
     item.frequency,
-    item.duration,
-    item.remarks || item.remark,
   ].filter(Boolean).join(' · ').trim()
 }
 
 function formatChineseMedication(item) {
   if (!item) return ''
-  return [
+  const mainLine = [
     item.formulaName || item.name,
-    item.dosageForm,
-    item.dailyDose,
-    item.administration || item.method,
-    item.duration,
-    item.specialInstruction || item.specialNote,
+    item.spec || item.dosageForm,
+    item.singleDose || item.dailyDose,
+    item.route || item.administration || item.method,
+    item.frequency,
   ].filter(Boolean).join(' · ').trim()
+  const linkedNames = Array.isArray(item.linkedNames) ? item.linkedNames.filter(Boolean) : []
+  if (mainLine && linkedNames.length > 0) return [mainLine, ...linkedNames.map(name => `  ${name}`)].join('\n')
+  return mainLine
 }
 
 function getMedicationList(ref) {
@@ -97,6 +97,31 @@ function getMedicationList(ref) {
   const medications = ref?.rehabPlan?.medications || []
   const items = medications.map(formatMedication).filter(Boolean)
   return items.length > 0 ? items : '—'
+}
+
+function getMedicationMetaValue(items, key) {
+  const values = (Array.isArray(items) ? items : [])
+    .map(item => item?.meta?.[key])
+    .filter(Boolean)
+  return values.length > 0 ? Array.from(new Set(values)).join('、') : '—'
+}
+
+function getMedicationExtraItems(ref) {
+  const western = ref?.westernMedications || []
+  const chinese = ref?.chineseMedications || ref?.rehabPlan?.chineseMedications || []
+
+  return [
+    { label: '西药/中成药：开单科室', value: getMedicationMetaValue(western, 'department') },
+    { label: '西药/中成药：开单医生', value: getMedicationMetaValue(western, 'doctor') },
+    { label: '西药/中成药：下单日期', value: getMedicationMetaValue(western, 'orderedAt') },
+    { label: '西药/中成药：停嘱日期', value: getMedicationMetaValue(western, 'stoppedAt') },
+    { label: '西药/中成药：医嘱类型', value: getMedicationMetaValue(western, 'orderType') },
+    { label: '中药：开单科室', value: getMedicationMetaValue(chinese, 'department') },
+    { label: '中药：开单医生', value: getMedicationMetaValue(chinese, 'doctor') },
+    { label: '中药：下单日期', value: getMedicationMetaValue(chinese, 'orderedAt') },
+    { label: '中药：停单日期', value: getMedicationMetaValue(chinese, 'stoppedAt') },
+    { label: '中药：医嘱类型', value: getMedicationMetaValue(chinese, 'orderType') },
+  ]
 }
 
 export function formatDownwardAllocationMode(ref) {
@@ -134,6 +159,8 @@ function getMedicationNotes(ref) {
 }
 
 function getReviewSuggestions(ref) {
+  const followUpAdvice = asText(ref?.followUpAdvice, '')
+  if (followUpAdvice) return followUpAdvice
   const suggestions = ref?.reviewSuggestions || ref?.rehabPlan?.reviewSuggestions || []
   if (!Array.isArray(suggestions) || suggestions.length === 0) return '—'
   const items = suggestions.map(item => (
@@ -193,8 +220,10 @@ export function getDownwardDetailSections(ref, consentInfo) {
       ],
     },
     {
-      title: '转出资料',
+      title: '出院资料',
       items: [
+        { label: '最近一次出院记录时间', value: asText(ref?.latestDischargeAt || ref?.autoDataMeta?.latestDischargeAt) },
+        { label: '资料更新时间', value: asText(ref?.archiveUpdatedAt || ref?.autoDataMeta?.archiveUpdatedAt) },
         { label: '出院诊断/主要诊断', value: asText(ref?.diagnosis?.name) },
         { label: 'ICD-10', value: asText(ref?.diagnosis?.code) },
         { label: '出院小结摘要', value: asText(ref?.chiefComplaint || ref?.structuredData?.sections?.[0]?.items?.find?.(item => item.label === '出院小结摘要')?.value) },
@@ -202,6 +231,8 @@ export function getDownwardDetailSections(ref, consentInfo) {
         { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
         { label: '下转交接摘要', value: asText(ref?.handoffSummary) },
         { label: '继续用药', value: getMedicationList(ref) },
+        { label: '健康档案关联信息', value: '', type: 'subheading' },
+        ...getMedicationExtraItems(ref),
         { label: '用药注意事项', value: getMedicationNotes(ref) },
         { label: '复查建议', value: getReviewSuggestions(ref) },
         { label: '推荐资料包', value: getAttachmentNames(ref, 'recommended') },
@@ -209,7 +240,7 @@ export function getDownwardDetailSections(ref, consentInfo) {
       ],
     },
     {
-      title: '基层执行方案',
+      title: '康复方案',
       items: [
         {
           label: '下转原因',

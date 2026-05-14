@@ -497,6 +497,7 @@ function buildAutoData(record) {
     chineseMedications: record.chineseMedications || [],
     medicationNoteTags: record.medicationNotes || [],
     medicationNoteExtra: '',
+    followUpAdvice: record.followUpAdvice || '',
     reviewSuggestions: record.reviewSuggestions || [],
     attachments: record.attachments,
     patientDataSource: 'health_archive',
@@ -617,6 +618,7 @@ export default function CreateDownward() {
     chineseMedications: [],
     medicationNoteTags: [],
     medicationNoteExtra: '',
+    followUpAdvice: '',
     reviewSuggestions: [],
     attachments: [],
     autoPulledAt: '',
@@ -789,6 +791,7 @@ export default function CreateDownward() {
     chineseMedications: [],
     medicationNoteTags: [],
     medicationNoteExtra: '',
+    followUpAdvice: '',
     reviewSuggestions: [],
     attachments: [],
     autoPulledAt: '',
@@ -1074,6 +1077,8 @@ export default function CreateDownward() {
       doctorRemarks: form.doctorRemarks || null,
       patientDataSource: form.patientDataSource || 'manual_entry',
       healthArchiveId: form.healthArchiveId || null,
+      latestDischargeAt: form.latestDischargeAt || null,
+      archiveUpdatedAt: form.archiveUpdatedAt || null,
       autoDataMeta: {
         pulledAt: form.autoPulledAt || null,
         archiveUpdatedAt: form.archiveUpdatedAt || null,
@@ -1106,6 +1111,7 @@ export default function CreateDownward() {
       westernMedications: form.westernMedications,
       chineseMedications: form.chineseMedications,
       medicationNotes: [...form.medicationNoteTags, ...(form.medicationNoteExtra.trim() ? [form.medicationNoteExtra.trim()] : [])],
+      followUpAdvice: form.followUpAdvice || null,
       attachments: form.attachments.map(item => ({
         name: item.name,
         size: item.size,
@@ -1139,6 +1145,8 @@ export default function CreateDownward() {
               { label: '出院小结摘要', value: form.clinicalSummary || '—' },
               { label: '下转交接摘要', value: form.handoffSummary || '—' },
               { label: '继续用药', value: getMedicationSummary() },
+              { label: '用药注意事项', value: [...form.medicationNoteTags, ...(form.medicationNoteExtra.trim() ? [form.medicationNoteExtra.trim()] : [])].join('、') || '—' },
+              { label: '复查建议', value: form.followUpAdvice || '—' },
             ],
           },
         ],
@@ -1347,6 +1355,8 @@ export default function CreateDownward() {
                   <FieldLabel required>出院小结摘要</FieldLabel>
                   <textarea className={`${inputCls} resize-none`} rows={4} value={form.clinicalSummary} onChange={event => setField('clinicalSummary', event.target.value)} placeholder="请输入出院小结摘要" />
                 </div>
+
+                <SectionTitle title="病史信息" />
 
                 {renderMedicalSafetyFields()}
 
@@ -1559,6 +1569,20 @@ export default function CreateDownward() {
                   ))}
                 </div>
                 <textarea className={`${inputCls} resize-none mt-4`} rows={3} value={form.medicationNoteExtra} onChange={event => setField('medicationNoteExtra', event.target.value)} placeholder="补充其他需要重点提醒的用药注意事项" />
+              </div>
+            </div>
+
+            <div style={{ opacity: canEditMainSections ? 1 : 0.55, pointerEvents: canEditMainSections ? 'auto' : 'none' }}>
+              <div className="rounded-xl border px-4 py-4" style={{ background: '#F9FAFB', borderColor: '#E5E7EB' }}>
+                <FieldLabel>复查建议</FieldLabel>
+                <textarea
+                  className={`${inputCls} resize-none`}
+                  rows={3}
+                  value={form.followUpAdvice}
+                  onChange={event => setField('followUpAdvice', event.target.value.slice(0, 300))}
+                  placeholder="请输入随访复查建议，如复查项目、复查时间等（最多 300 字）"
+                />
+                <div className="text-xs text-gray-400 mt-1 text-right">{form.followUpAdvice.length}/300</div>
               </div>
             </div>
 
@@ -1960,6 +1984,7 @@ export default function CreateDownward() {
                 ['下转交接摘要', form.handoffSummary || '—'],
                 ['继续用药', getMedicationSummary()],
                 ['用药注意事项', [...form.medicationNoteTags, ...(form.medicationNoteExtra.trim() ? [form.medicationNoteExtra.trim()] : [])]],
+                ['复查建议', form.followUpAdvice || '—'],
                 ['推荐资料包', recommendedAttachments.map(item => item.name)],
                 ['补充资料', supplementalAttachments.map(item => item.name)],
               ]}

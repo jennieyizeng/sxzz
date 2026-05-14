@@ -22,6 +22,8 @@ import AdminOperationLog from './pages/admin/OperationLog'
 import AdminDataReport from './pages/admin/DataReport'
 import AdminExamReport from './pages/admin/ExamReport'
 import AdminDoctorPerf from './pages/admin/DoctorPerf'
+import AdminDepartmentPerfDetail from './pages/admin/DepartmentPerfDetail'
+import AdminDoctorPerfDetail from './pages/admin/DoctorPerfDetail'
 import AdminInstitutionManage from './pages/admin/InstitutionManage'
 import AdminRoleManage from './pages/admin/RoleManage'
 import AdminDiseaseDir from './pages/admin/DiseaseDir'
@@ -32,7 +34,6 @@ import CountyInternalReview from './pages/county/InternalReview'
 import CountyCreateDownward from './pages/county/CreateDownward'
 import CountyReferralRecords from './pages/county/ReferralRecords'
 import CountyDownwardRecords from './pages/county/DownwardRecords'
-import DirectorDashboard from './pages/director/Dashboard'
 import DirectorAnalytics from './pages/director/Analytics'
 import DirectorReport from './pages/director/Report'
 import ReferralDetail from './pages/shared/ReferralDetail'
@@ -52,7 +53,7 @@ function RoleRedirect() {
     [ROLES.COUNTY2]:      '/county/dashboard',
     [ROLES.ADMIN]:        '/admin/dashboard',
     [ROLES.SYSTEM_ADMIN]: '/admin/institution-manage',
-    [ROLES.DIRECTOR]:     '/director/dashboard',
+    [ROLES.DIRECTOR]:     '/director/analytics',
   }
   return <Navigate to={roleDefaultPaths[currentRole] || '/primary/dashboard'} replace />
 }
@@ -110,6 +111,8 @@ function AppRoutes() {
         <Route path="/admin/report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminExamReport /></RoleRoute>} />
         <Route path="/admin/exam-report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminExamReport /></RoleRoute>} />
         <Route path="/admin/doctor-perf" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDoctorPerf /></RoleRoute>} />
+        <Route path="/performance/department/:deptId" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDepartmentPerfDetail /></RoleRoute>} />
+        <Route path="/performance/doctor/:doctorId" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDoctorPerfDetail /></RoleRoute>} />
         <Route path="/admin/data-report" element={<RoleRoute allowedRoles={[ROLES.ADMIN]}><AdminDataReport /></RoleRoute>} />
         <Route path="/admin/operation-log" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminOperationLog /></RoleRoute>} />
         <Route path="/system/operation-log" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><AdminOperationLog /></RoleRoute>} />
@@ -122,7 +125,7 @@ function AppRoutes() {
         <Route path="/admin/settings" element={<RoleRoute allowedRoles={[ROLES.SYSTEM_ADMIN]}><Placeholder title="系统管理" description="机构信息、角色权限、规则配置等。" /></RoleRoute>} />
 
         {/* ── 院长 ── */}
-        <Route path="/director/dashboard" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorDashboard /></RoleRoute>} />
+        <Route path="/director/dashboard" element={<Navigate to="/director/analytics" replace />} />
         <Route path="/director/analytics" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorAnalytics /></RoleRoute>} />
         <Route path="/director/report" element={<RoleRoute allowedRoles={[ROLES.DIRECTOR]}><DirectorReport /></RoleRoute>} />
 

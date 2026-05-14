@@ -28,3 +28,11 @@ test('referral detail exposes editable draft actions with delete confirmation', 
   assert.equal(detailSource.includes("dialog?.type === 'deleteDraft'"), true)
   assert.equal(contextSource.includes('deleteDraftReferral'), true)
 })
+
+test('downward detail renders subheading items and preserves medication line breaks', () => {
+  const detailSource = readSource('pages/shared/ReferralDetail.jsx')
+
+  assert.equal(detailSource.includes("item.type === 'subheading'"), true)
+  assert.equal(detailSource.includes('md:col-span-2 text-xs font-medium text-gray-400'), true)
+  assert.equal(detailSource.includes('whitespace-pre-line'), true)
+})

@@ -28,23 +28,40 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
         duration: '连服3个月',
         remarks: '饭后服用',
         source: '健康档案带出',
+        meta: {
+          department: '心内科',
+          doctor: '张医生',
+          orderedAt: '2026/04/09',
+          stoppedAt: '',
+          orderType: '出院带药',
+        },
       },
     ],
     chineseMedications: [
       {
-        formulaName: '丹参颗粒',
-        dosageForm: '颗粒剂',
-        dailyDose: '每日2次',
-        method: '温水冲服',
+        formulaName: '补阳还五汤',
+        linkedNames: ['黄芪 30g', '当归 10g'],
+        dosageForm: '汤剂',
+        singleDose: '1剂',
+        route: '水煎服',
+        frequency: '每日1剂',
         duration: '14天',
         specialNote: '如胃部不适及时反馈',
         source: '手工新增',
+        meta: {
+          department: '中西医结合科',
+          doctor: '赵医生',
+          orderedAt: '2026/04/08',
+          stoppedAt: '2026/04/15',
+          orderType: '中药处方',
+        },
       },
     ],
     medicationNotes: [
       '注意监测出血倾向',
       '按时复诊评估',
     ],
+    followUpAdvice: '出院后2周复查心电图和血脂。',
     reviewSuggestions: [
       { itemName: '心电图', sampleType: '心脏', timing: '2周后复查', remarks: '如胸闷加重提前复查', source: '健康档案带出' },
     ],
@@ -69,6 +86,8 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
     consentProxyRelation: '配偶',
     consentProxyReason: '患者授权',
     consentFileUrl: 'mock://consent/ref-1',
+    latestDischargeAt: '2026/04/10 09:30',
+    archiveUpdatedAt: '2026/04/17 10:24',
   }
 
   const consentInfo = {
@@ -82,28 +101,52 @@ test('prefers CHG-43 structured downward fields in detail sections', () => {
 
   assert.deepEqual(sections.map(section => section.title), [
     '患者信息',
-    '转出资料',
-    '基层执行方案',
+    '出院资料',
+    '康复方案',
     '接收安排',
     '知情同意',
   ])
   assert.equal(sections[0].items.some(item => item.label === '数据来源'), false)
   assert.equal(sections[1].items.find(item => item.label === '出院诊断/主要诊断')?.value, '冠状动脉粥样硬化性心脏病')
   assert.deepEqual(sections[1].items.slice(0, 6).map(item => item.label), [
+    '最近一次出院记录时间',
+    '资料更新时间',
     '出院诊断/主要诊断',
     'ICD-10',
     '出院小结摘要',
     '主要既往史',
-    '过敏史',
-    '下转交接摘要',
   ])
+  assert.equal(sections[1].items.find(item => item.label === '最近一次出院记录时间')?.value, '2026/04/10 09:30')
+  assert.equal(sections[1].items.find(item => item.label === '资料更新时间')?.value, '2026/04/17 10:24')
   assert.equal(sections[1].items.find(item => item.label === '主要既往史')?.value, '冠心病、高血压病史多年。')
   assert.equal(sections[1].items.find(item => item.label === '过敏史')?.value, '头孢类药物过敏。')
   assert.equal(sections[1].items.find(item => item.label === '下转交接摘要')?.value, '下转后重点关注血压、心率与服药依从性。')
-  assert.equal(sections[1].items.find(item => item.label === '继续用药')?.value.some(item => item.includes('阿司匹林肠溶片')), true)
-  assert.equal(sections[1].items.find(item => item.label === '继续用药')?.value.some(item => item.includes('丹参颗粒')), true)
+  assert.deepEqual(sections[1].items.find(item => item.label === '继续用药')?.value, [
+    '阿司匹林肠溶片 · 100mg · 100mg · 口服 · qd',
+    '补阳还五汤 · 汤剂 · 1剂 · 水煎服 · 每日1剂\n  黄芪 30g\n  当归 10g',
+  ])
+  assert.equal(sections[1].items.find(item => item.label === '继续用药')?.value.some(item => item.includes('/') || item.includes('连服3个月') || item.includes('饭后服用')), false)
+  const handFilledIndex = sections[1].items.findIndex(item => item.label === '继续用药')
+  const hisHeadingIndex = sections[1].items.findIndex(item => item.label === '健康档案关联信息')
+  const firstHisFieldIndex = sections[1].items.findIndex(item => item.label === '西药/中成药：开单科室')
+  assert.equal(sections[1].items[hisHeadingIndex]?.type, 'subheading')
+  assert.ok(hisHeadingIndex > handFilledIndex)
+  assert.ok(firstHisFieldIndex > hisHeadingIndex)
+  assert.equal(sections[1].items.find(item => item.label === '西药/中成药：开单科室')?.value, '心内科')
+  assert.equal(sections[1].items.find(item => item.label === '西药/中成药：开单医生')?.value, '张医生')
+  assert.equal(sections[1].items.find(item => item.label === '西药/中成药：下单日期')?.value, '2026/04/09')
+  assert.equal(sections[1].items.find(item => item.label === '西药/中成药：医嘱类型')?.value, '出院带药')
+  assert.equal(sections[1].items.find(item => item.label === '中药：开单科室')?.value, '中西医结合科')
+  assert.equal(sections[1].items.find(item => item.label === '中药：开单医生')?.value, '赵医生')
+  assert.equal(sections[1].items.find(item => item.label === '中药：停单日期')?.value, '2026/04/15')
+  assert.equal(sections[1].items.find(item => item.label === '中药：医嘱类型')?.value, '中药处方')
   assert.deepEqual(sections[1].items.find(item => item.label === '用药注意事项')?.value, ['注意监测出血倾向', '按时复诊评估'])
-  assert.equal(sections[1].items.find(item => item.label === '复查建议')?.value.some(item => item.includes('心电图')), true)
+  assert.equal(sections[1].items.find(item => item.label === '复查建议')?.value, '出院后2周复查心电图和血脂。')
+  const medicationNotesIndex = sections[1].items.findIndex(item => item.label === '用药注意事项')
+  const followUpAdviceIndex = sections[1].items.findIndex(item => item.label === '复查建议')
+  const attachmentIndex = sections[1].items.findIndex(item => item.label === '推荐资料包')
+  assert.ok(followUpAdviceIndex > medicationNotesIndex)
+  assert.ok(attachmentIndex > followUpAdviceIndex)
   assert.deepEqual(sections[1].items.find(item => item.label === '推荐资料包')?.value, ['出院小结.pdf'])
   assert.deepEqual(sections[1].items.find(item => item.label === '补充资料')?.value, ['冠脉CTA报告.pdf'])
   assert.deepEqual(sections[2].items.find(item => item.label === '康复目标')?.value, ['血压控制', '用药管理'])
@@ -125,7 +168,7 @@ test('downward detail uses not-filled display for empty medical history and alle
     handoffSummary: '回基层继续康复',
   })
 
-  const transferSection = sections.find(section => section.title === '转出资料')
+  const transferSection = sections.find(section => section.title === '出院资料')
   assert.equal(transferSection.items.find(item => item.label === '主要既往史')?.value, '未填写')
   assert.equal(transferSection.items.find(item => item.label === '过敏史')?.value, '未填写')
 })

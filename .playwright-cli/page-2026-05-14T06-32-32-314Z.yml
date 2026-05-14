@@ -1,0 +1,241 @@
+- generic [ref=e3]:
+  - complementary [ref=e4]:
+    - generic [ref=e5]:
+      - generic [ref=e6]: 转
+      - generic [ref=e7]:
+        - generic [ref=e8]: 双向转诊平台
+        - generic [ref=e9]: xx市医共体
+    - generic [ref=e10]:
+      - generic [ref=e11]:
+        - generic [ref=e12]: 赵
+        - generic [ref=e13]:
+          - generic [ref=e14]: 赵管理员
+          - generic [ref=e15]: xx市医共体管理层
+      - generic [ref=e17]: 转诊管理员
+    - navigation [ref=e18]:
+      - link "📊 工作台" [ref=e19] [cursor=pointer]:
+        - /url: /admin/dashboard
+        - generic [ref=e20]: 📊
+        - generic [ref=e21]: 工作台
+      - link "📋 转诊台账" [ref=e22] [cursor=pointer]:
+        - /url: /admin/ledger
+        - generic [ref=e23]: 📋
+        - generic [ref=e24]: 转诊台账
+      - link "⚠️ 异常处理" [ref=e25] [cursor=pointer]:
+        - /url: /admin/anomaly
+        - generic [ref=e26]: ⚠️
+        - generic [ref=e27]: 异常处理
+      - generic [ref=e28]:
+        - button "📈 统计报表 ›" [ref=e29] [cursor=pointer]:
+          - generic [ref=e30]:
+            - generic [ref=e31]: 📈
+            - generic [ref=e32]: 统计报表
+          - generic [ref=e33]: ›
+        - generic [ref=e34]:
+          - link "统计看板" [ref=e35] [cursor=pointer]:
+            - /url: /admin/stats
+          - link "考核报表" [ref=e36] [cursor=pointer]:
+            - /url: /admin/exam-report
+          - link "绩效统计" [ref=e37] [cursor=pointer]:
+            - /url: /admin/doctor-perf
+          - link "数据上报" [ref=e38] [cursor=pointer]:
+            - /url: /admin/data-report
+      - link "🔔 消息中心" [ref=e39] [cursor=pointer]:
+        - /url: /messages
+        - generic [ref=e40]: 🔔
+        - generic [ref=e41]: 消息中心
+  - generic [ref=e42]:
+    - banner [ref=e43]:
+      - generic [ref=e44]: 双向转诊平台
+      - generic [ref=e45]:
+        - button "🎭 切换角色 ▾" [ref=e47] [cursor=pointer]:
+          - generic [ref=e48]: 🎭
+          - generic [ref=e49]: 切换角色
+          - generic [ref=e50]: ▾
+        - link "2" [ref=e51] [cursor=pointer]:
+          - /url: /messages
+          - img [ref=e52]
+          - generic [ref=e54]: "2"
+        - link "赵" [ref=e55] [cursor=pointer]:
+          - /url: /settings
+    - main [ref=e56]:
+      - generic [ref=e57]:
+        - generic [ref=e58]:
+          - heading "数据上报管理" [level=2] [ref=e59]
+          - generic [ref=e60]: 健康通数据上报状态监控 · 失败重试
+        - generic [ref=e61]:
+          - generic [ref=e63]:
+            - generic [ref=e64]: "1"
+            - generic [ref=e65]: 待上报
+          - generic [ref=e67]:
+            - generic [ref=e68]: "2"
+            - generic [ref=e69]: 已上报
+          - generic [ref=e71]:
+            - generic [ref=e72]: "1"
+            - generic [ref=e73]: 上报失败
+          - generic [ref=e75]:
+            - generic [ref=e76]: "1"
+            - generic [ref=e77]: 待手动补报
+        - generic [ref=e79]:
+          - generic [ref=e80]:
+            - generic [ref=e81]: 完成时间
+            - generic [ref=e82]:
+              - textbox [ref=e83]: 2026-03-01
+              - generic [ref=e84]: ~
+              - textbox [ref=e85]: 2026-03-31
+          - generic [ref=e86]:
+            - generic [ref=e87]: 上报状态
+            - combobox [ref=e88]:
+              - option "全部状态" [selected]
+              - option "待上报"
+              - option "已上报"
+              - option "上报失败"
+              - option "重试中"
+              - option "待手动补报"
+          - generic [ref=e89]:
+            - generic [ref=e90]: 机构
+            - combobox [ref=e91]:
+              - option "全部机构" [selected]
+          - generic [ref=e92]:
+            - button "查询" [ref=e93] [cursor=pointer]
+            - button "重置" [ref=e94] [cursor=pointer]
+        - generic [ref=e95]:
+          - table [ref=e97]:
+            - rowgroup [ref=e98]:
+              - row "仅可选择「待手动补报」记录 转诊单号 患者姓名 转诊类型 完成时间 上报状态 重试次数 最后重试时间 操作" [ref=e99]:
+                - columnheader "仅可选择「待手动补报」记录" [ref=e100]:
+                  - checkbox "仅可选择「待手动补报」记录" [ref=e101]
+                - columnheader "转诊单号" [ref=e102]
+                - columnheader "患者姓名" [ref=e103]
+                - columnheader "转诊类型" [ref=e104]
+                - columnheader "完成时间" [ref=e105]
+                - columnheader "上报状态" [ref=e106]
+                - columnheader "重试次数" [ref=e107]
+                - columnheader "最后重试时间" [ref=e108]
+                - columnheader "操作" [ref=e109]
+            - rowgroup [ref=e110]:
+              - row "REF2026001 张三 ↑上转 2026-03-19 10:54 待上报 0 — 查看" [ref=e122]:
+                - cell [ref=e123]
+                - cell "REF2026001" [ref=e124]
+                - cell "张三" [ref=e125]
+                - cell "↑上转" [ref=e126]
+                - cell "2026-03-19 10:54" [ref=e127]
+                - cell "待上报" [ref=e128]
+                - cell "0" [ref=e129]
+                - cell "—" [ref=e130]
+                - cell "查看" [ref=e131]:
+                  - button "查看" [active] [ref=e133] [cursor=pointer]
+              - row "REF2026002 李四 ↑上转 2026-03-18 15:30 已上报 0 — 查看" [ref=e134]:
+                - cell [ref=e135]
+                - cell "REF2026002" [ref=e136]
+                - cell "李四" [ref=e137]
+                - cell "↑上转" [ref=e138]
+                - cell "2026-03-18 15:30" [ref=e139]
+                - cell "已上报" [ref=e140]
+                - cell "0" [ref=e141]
+                - cell "—" [ref=e142]
+                - cell "查看" [ref=e143]:
+                  - button "查看" [ref=e145] [cursor=pointer]
+              - row "REF2026003 王五 ↓下转 2026-03-17 09:15 待手动补报 3 2026-03-18 08:00 查看 手动补报" [ref=e146]:
+                - cell [ref=e147]:
+                  - checkbox [ref=e148]
+                - cell "REF2026003" [ref=e149]
+                - cell "王五" [ref=e150]
+                - cell "↓下转" [ref=e151]
+                - cell "2026-03-17 09:15" [ref=e152]
+                - cell "待手动补报" [ref=e153]
+                - cell "3" [ref=e154]
+                - cell "2026-03-18 08:00" [ref=e155]
+                - cell "查看 手动补报" [ref=e156]:
+                  - generic [ref=e157]:
+                    - button "查看" [ref=e158] [cursor=pointer]
+                    - button "手动补报" [ref=e159] [cursor=pointer]
+              - row "REF2026004 赵六 ↑上转 2026-03-16 14:20 上报失败 1 2026-03-17 10:00 查看 重试" [ref=e160]:
+                - cell [ref=e161]
+                - cell "REF2026004" [ref=e162]
+                - cell "赵六" [ref=e163]
+                - cell "↑上转" [ref=e164]
+                - cell "2026-03-16 14:20" [ref=e165]
+                - cell "上报失败" [ref=e166]
+                - cell "1" [ref=e167]
+                - cell "2026-03-17 10:00" [ref=e168]
+                - cell "查看 重试" [ref=e169]:
+                  - generic [ref=e170]:
+                    - button "查看" [ref=e171] [cursor=pointer]
+                    - button "重试" [ref=e172] [cursor=pointer]
+              - row "REF2026005 钱七 ↓下转 2026-03-15 11:45 已上报 2 2026-03-15 12:00 查看" [ref=e173]:
+                - cell [ref=e174]
+                - cell "REF2026005" [ref=e175]
+                - cell "钱七" [ref=e176]
+                - cell "↓下转" [ref=e177]
+                - cell "2026-03-15 11:45" [ref=e178]
+                - cell "已上报" [ref=e179]
+                - cell "2" [ref=e180]
+                - cell "2026-03-15 12:00" [ref=e181]
+                - cell "查看" [ref=e182]:
+                  - button "查看" [ref=e184] [cursor=pointer]
+              - row "REF2026006 孙八 ↑上转 2026-03-14 16:30 重试中 2 2026-03-14 17:00 查看" [ref=e185]:
+                - cell [ref=e186]
+                - cell "REF2026006" [ref=e187]
+                - cell "孙八" [ref=e188]
+                - cell "↑上转" [ref=e189]
+                - cell "2026-03-14 16:30" [ref=e190]
+                - cell "重试中" [ref=e191]
+                - cell "2" [ref=e192]
+                - cell "2026-03-14 17:00" [ref=e193]
+                - cell "查看" [ref=e194]:
+                  - button "查看" [ref=e196] [cursor=pointer]
+          - generic [ref=e115]:
+            - generic [ref=e116]:
+              - text: 共
+              - strong [ref=e117]: "6"
+              - text: 条记录，每页 20 条，第 1/1 页
+            - generic [ref=e118]:
+              - button "‹ 上一页" [disabled] [ref=e119]
+              - button "1" [ref=e120] [cursor=pointer]
+              - button "下一页 ›" [disabled] [ref=e121]
+        - generic [ref=e199]:
+          - generic [ref=e200]:
+            - generic [ref=e202]:
+              - generic [ref=e203]: REF2026001
+              - generic [ref=e204]: ·
+              - generic [ref=e205]: ↑上转
+              - generic [ref=e206]: ·
+              - generic [ref=e207]: 张三
+            - generic [ref=e208]:
+              - generic [ref=e209]: 待上报
+              - button "关闭上报详情" [ref=e210] [cursor=pointer]: ×
+          - generic [ref=e212]:
+            - generic [ref=e213]:
+              - generic [ref=e214]: 上报数据
+              - generic [ref=e215]:
+                - generic [ref=e216]:
+                  - generic [ref=e217]:
+                    - generic [ref=e218]: 上报机构代码
+                    - generic [ref=e219]: ORG-510100-001
+                  - generic [ref=e220]:
+                    - generic [ref=e221]: 患者证件号
+                    - generic [ref=e222]: 510***********2345
+                  - generic [ref=e223]:
+                    - generic [ref=e224]: 转诊方向
+                    - generic [ref=e225]: 上转
+                  - generic [ref=e226]:
+                    - generic [ref=e227]: 转出机构
+                    - generic [ref=e228]: xx市拱星镇卫生院
+                - generic [ref=e229]:
+                  - generic [ref=e230]:
+                    - generic [ref=e231]: 转入机构
+                    - generic [ref=e232]: xx市人民医院
+                  - generic [ref=e233]:
+                    - generic [ref=e234]: ICD-10 编码
+                    - generic [ref=e235]: I10.x00
+                  - generic [ref=e236]:
+                    - generic [ref=e237]: 完成时间
+                    - generic [ref=e238]: 2026-03-19 10:54
+                  - generic [ref=e239]:
+                    - generic [ref=e240]: 首次上报时间
+                    - generic [ref=e241]: 待上报
+            - generic [ref=e242]:
+              - generic [ref=e243]: 上报历史
+              - generic [ref=e244]: 暂无上报记录
+          - button "关闭" [ref=e246] [cursor=pointer]

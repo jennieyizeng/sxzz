@@ -34,11 +34,16 @@ function diagnosisText(ref, fallback = '—') {
   return asText(name || code, fallback)
 }
 
-function attachmentText(ref) {
-  const attachments = [
-    ...(Array.isArray(ref?.attachments) ? ref.attachments : []),
-    ...(Array.isArray(ref?.nursingAttachments) ? ref.nursingAttachments : []),
-  ]
+function attachmentText(ref, group = 'all') {
+  const source = group === 'nursing'
+    ? ref?.nursingAttachments
+    : group === 'exam'
+      ? ref?.attachments
+      : [
+          ...(Array.isArray(ref?.attachments) ? ref.attachments : []),
+          ...(Array.isArray(ref?.nursingAttachments) ? ref.nursingAttachments : []),
+        ]
+  const attachments = Array.isArray(source) ? source : []
   const names = attachments.map(item => item?.name).filter(Boolean)
   return names.length > 0 ? names : '—'
 }
@@ -99,6 +104,10 @@ export function formatUpwardHandlingPreference(value) {
 }
 
 function buildConsentSection(ref, consentInfo) {
+  const fileNames = Array.isArray(consentInfo?.fileNames) && consentInfo.fileNames.length > 0
+    ? asText(consentInfo.fileNames)
+    : asText(consentInfo?.fileName)
+
   return {
     title: '知情同意',
     items: [
@@ -106,6 +115,7 @@ function buildConsentSection(ref, consentInfo) {
       { label: '签署人类型', value: consentInfo?.signedByLabel || (ref?.consentSignedBy === 'family' ? '家属代签' : '患者本人') },
       { label: '与患者关系', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyRelation) : '—' },
       { label: '代签原因', value: ref?.consentSignedBy === 'family' ? asText(ref?.consentProxyReason) : '—' },
+      { label: '已上传文件名', value: fileNames },
       { label: '上传时间', value: formatDateTime(consentInfo?.consentUploadedAt) },
       { label: '状态', value: consentInfo?.isUploaded ? '已完成' : '待补充' },
     ],
@@ -133,11 +143,22 @@ export function getUpwardDetailSections(ref, consentInfo) {
 
   if (ref?.is_emergency) {
     return [
-      ...commonSections,
+      {
+        title: '患者基础信息',
+        items: [
+          ...(ref?.isRetroEntry ? [{ label: '患者到院时间', value: asText(ref?.patientArrivedAt) }] : []),
+          { label: '患者姓名', value: asText(ref?.patient?.name) },
+          { label: '联系电话', value: asText(ref?.patient?.phone) },
+          { label: '紧急联系方式', value: asText(ref?.emergencyContactPhone) },
+          { label: '性别', value: asText(ref?.patient?.gender || '未知') },
+          { label: '年龄', value: ref?.patient?.age ? `${ref.patient.age}岁` : '—' },
+          { label: '身份证号', value: asText(ref?.patient?.idCard) },
+          { label: '患者意识状态', value: ref?.consciousnessStatus === 'unclear' ? '意识不清' : ref?.consciousnessStatus === 'conscious' ? '意识清醒' : '—' },
+        ],
+      },
       {
         title: '患者安全信息',
         items: [
-          { label: '患者意识状态', value: ref?.consciousnessStatus === 'unclear' ? '意识不清' : ref?.consciousnessStatus === 'conscious' ? '意识清醒' : '—' },
           { label: '主要既往史', value: asNotFilledText(ref?.pastMedicalHistory) },
           { label: '过敏史', value: formatAllergyHistory(ref?.allergyHistoryStatus, ref?.allergyHistoryDetail) },
         ],
@@ -146,10 +167,10 @@ export function getUpwardDetailSections(ref, consentInfo) {
         title: '急诊信息',
         items: [
           { label: '录入方式', value: ref?.isRetroEntry ? '补录录入' : '实时转诊' },
-          { label: '初步诊断', value: diagnosisText(ref) },
-          { label: '紧急程度', value: ref?.urgencyLevel ? ['I级·急危', 'II级·急重', 'III级·急症', 'IV级·亚急'][ref.urgencyLevel - 1] : '—' },
-          { label: '患者到院时间', value: asText(ref?.patientArrivedAt) },
-          { label: '主诉 / 急转原因', value: asText(ref?.chiefComplaint || ref?.reason) },
+          { label: '急诊紧急程度', value: ref?.urgencyLevel ? ['I级·急危', 'II级·急重', 'III级·急症', 'IV级·亚急'][ref.urgencyLevel - 1] : '—' },
+          { label: '主诉/急转原因', value: asText(ref?.chiefComplaint) },
+          { label: '病情补充/已做处置', value: asText(ref?.reason) },
+          { label: 'ICD-10诊断', value: diagnosisText(ref) },
         ],
       },
       {
@@ -175,6 +196,15 @@ export function getUpwardDetailSections(ref, consentInfo) {
     return [
       ...commonSections,
       {
+        title: '诊断与转诊目的',
+        items: [
+          { label: '转院目的', value: buildPurposeText(ref, sourceVisitType) },
+          { label: '当前病情评估', value: asText(ref?.conditionAssessment) },
+          { label: '是否适合转运', value: asText(ref?.transportSuitability) },
+          { label: '转运注意事项', value: asText(ref?.transportNotes) },
+        ],
+      },
+      {
         title: '病历摘要',
         items: [
           { label: '主诉与现病史', value: asText(ref?.chiefComplaint) },
@@ -184,10 +214,13 @@ export function getUpwardDetailSections(ref, consentInfo) {
           { label: '当前治疗经过 / 当前用药情况', value: asText(ref?.medicationSummary || ref?.currentMedication) },
           { label: '当前治疗方案摘要', value: asText(ref?.currentTreatmentPlanSummary || ref?.currentTreatmentPlan) },
           { label: '病情变化说明', value: asText(ref?.conditionChangeNote) },
-          { label: '转院目的', value: buildPurposeText(ref, sourceVisitType) },
-          { label: '当前病情评估', value: asText(ref?.conditionAssessment) },
-          { label: '是否适合转运', value: asText(ref?.transportSuitability) },
-          { label: '转运注意事项', value: asText(ref?.transportNotes) },
+        ],
+      },
+      {
+        title: '资料上传',
+        items: [
+          { label: '检查 / 检验资料上传', value: attachmentText(ref, 'exam') },
+          { label: '护理记录上传', value: attachmentText(ref, 'nursing') },
         ],
       },
       {

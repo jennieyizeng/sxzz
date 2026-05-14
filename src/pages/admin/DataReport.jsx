@@ -1,21 +1,20 @@
-import { useState, useMemo } from 'react'
+import { useEffect, useState, useMemo } from 'react'
+import DataReportDetailModal from './DataReportDetailModal'
+import {
+  REPORT_STATUS_LABEL,
+  getReportActions,
+  loadDataReportingInstitutions,
+  loadDataReportDetail,
+} from './dataReportModel'
 
 const MOCK_REPORTS = [
-  { id: 'REF2026001', patient: '张三', type: 'upward', completedAt: '2026-03-19 10:54', status: 'pending', retryCount: 0, lastRetry: '—' },
-  { id: 'REF2026002', patient: '李四', type: 'upward', completedAt: '2026-03-18 15:30', status: 'success', retryCount: 0, lastRetry: '—' },
-  { id: 'REF2026003', patient: '王五', type: 'downward', completedAt: '2026-03-17 09:15', status: 'manual_pending', retryCount: 3, lastRetry: '2026-03-18 08:00' },
-  { id: 'REF2026004', patient: '赵六', type: 'upward', completedAt: '2026-03-16 14:20', status: 'failed', retryCount: 1, lastRetry: '2026-03-17 10:00' },
-  { id: 'REF2026005', patient: '钱七', type: 'downward', completedAt: '2026-03-15 11:45', status: 'success', retryCount: 2, lastRetry: '2026-03-15 12:00' },
-  { id: 'REF2026006', patient: '孙八', type: 'upward', completedAt: '2026-03-14 16:30', status: 'retrying', retryCount: 2, lastRetry: '2026-03-14 17:00' },
+  { id: 'ZZ20260430001', patient: '张三', patientGender: '男', patientAge: 67, fromOrgName: 'xx市拱星镇卫生院', type: 'upward', completedAt: '2026-04-30 10:54', status: 'pending', retryCount: 0, lastRetry: '—' },
+  { id: 'ZZ20260429002', patient: '李四', patientGender: '女', patientAge: 72, fromOrgName: 'xx市汉旺镇卫生院', type: 'upward', completedAt: '2026-04-29 15:30', status: 'success', retryCount: 0, lastRetry: '—' },
+  { id: 'ZZ20260428003', patient: '王五', patientGender: '男', patientAge: 58, fromOrgName: 'xx市人民医院', type: 'downward', completedAt: '2026-04-28 09:15', status: 'manual_pending', retryCount: 3, lastRetry: '2026-04-29 08:00' },
+  { id: 'ZZ20260427004', patient: '赵六', patientGender: '男', patientAge: 61, fromOrgName: 'xx市清平乡卫生院', type: 'upward', completedAt: '2026-04-27 14:20', status: 'failed', retryCount: 1, lastRetry: '2026-04-28 10:00' },
+  { id: 'ZZ20260426005', patient: '钱七', patientGender: '女', patientAge: 69, fromOrgName: 'xx市人民医院', type: 'downward', completedAt: '2026-04-26 11:45', status: 'success', retryCount: 2, lastRetry: '2026-04-26 12:00' },
+  { id: 'ZZ20260425006', patient: '孙八', patientGender: '男', patientAge: 55, fromOrgName: 'xx市拱星镇卫生院', type: 'upward', completedAt: '2026-04-25 16:30', status: 'retrying', retryCount: 2, lastRetry: '2026-04-25 17:00' },
 ]
-
-const STATUS_LABEL = {
-  pending: '待上报',
-  success: '已上报',
-  failed: '上报失败',
-  retrying: '重试中',
-  manual_pending: '待手动补报',
-}
 
 const STATUS_CLS = {
   pending: 'bg-blue-100 text-blue-700',
@@ -33,7 +32,15 @@ const PAGE_SIZE = 20
 function StatusBadge({ status }) {
   return (
     <span className={`text-xs px-2 py-0.5 rounded ${STATUS_CLS[status] || 'bg-gray-100 text-gray-600'}`}>
-      {STATUS_LABEL[status] || status}
+      {REPORT_STATUS_LABEL[status] || status}
+    </span>
+  )
+}
+
+function TypeTag({ type }) {
+  return (
+    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${type === 'upward' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
+      {type === 'upward' ? '↑上转' : '↓下转'}
     </span>
   )
 }
@@ -54,9 +61,21 @@ export default function DataReport() {
   const [applied, setApplied] = useState({ ...filters })
   const [selected, setSelected] = useState([])
   const [page, setPage] = useState(1)
+  const [institutionOptions, setInstitutionOptions] = useState([])
 
   // 手动补报弹窗
   const [modal, setModal] = useState(null) // { id, retryCount } | null
+  const [detailModal, setDetailModal] = useState(null) // { loading, detail }
+
+  useEffect(() => {
+    let cancelled = false
+    loadDataReportingInstitutions().then(options => {
+      if (!cancelled) setInstitutionOptions(options)
+    })
+    return () => {
+      cancelled = true
+    }
+  }, [])
 
   const filtered = useMemo(() => {
     return data.filter(r => {
@@ -64,6 +83,7 @@ export default function DataReport() {
       if (applied.startDate && dt < applied.startDate) return false
       if (applied.endDate && dt > applied.endDate) return false
       if (applied.status !== 'all' && r.status !== applied.status) return false
+      if (applied.institution !== 'all' && r.fromOrgName !== applied.institution) return false
       return true
     })
   }, [data, applied])
@@ -85,6 +105,12 @@ export default function DataReport() {
   const handleManualReport = (id) => {
     const item = data.find(r => r.id === id)
     if (item) setModal({ id, retryCount: item.retryCount })
+  }
+
+  const handleViewDetail = async id => {
+    setDetailModal({ loading: true, detail: null })
+    const detail = await loadDataReportDetail({ referralId: id })
+    setDetailModal({ loading: false, detail })
   }
 
   const confirmManualReport = () => {
@@ -207,7 +233,6 @@ export default function DataReport() {
               <option value="manual_pending">待手动补报</option>
             </select>
           </div>
-          {/* TODO: 接入机构下拉数据源 */}
           <div>
             <label className="block text-xs text-gray-500 mb-1">机构</label>
             <select
@@ -216,6 +241,9 @@ export default function DataReport() {
               className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm h-8 focus:outline-none bg-white"
             >
               <option value="all">全部机构</option>
+              {institutionOptions.map(name => (
+                <option key={name} value={name}>{name}</option>
+              ))}
             </select>
           </div>
           <div className="flex items-end gap-2 ml-1">
@@ -246,7 +274,7 @@ export default function DataReport() {
           <button
             onClick={handleBatchReport}
             className="px-4 py-1 rounded text-sm font-medium text-white"
-            style={{ background: '#d97706' }}
+            style={{ background: '#dc2626' }}
           >
             批量手动补报
           </button>
@@ -262,7 +290,7 @@ export default function DataReport() {
       {/* 数据表格 */}
       <div className="bg-white rounded-xl overflow-hidden" style={{ border: '1px solid #DDF0F3' }}>
         <div className="overflow-x-auto">
-          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 860 }}>
+          <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 1040 }}>
             <thead>
               <tr style={{ background: '#E0F6F9' }}>
                 <th className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3', width: 40 }}>
@@ -275,15 +303,25 @@ export default function DataReport() {
                     title="仅可选择「待手动补报」记录"
                   />
                 </th>
-                {['转诊单号', '患者姓名', '转诊类型', '完成时间', '上报状态', '重试次数', '最后重试时间', '操作'].map(h => (
-                  <th key={h} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>{h}</th>
+                {[
+                  { label: '转诊单号' },
+                  { label: '患者信息', width: 120 },
+                  { label: '转诊类型' },
+                  { label: '发起机构', width: 150 },
+                  { label: '完成时间' },
+                  { label: '上报状态' },
+                  { label: '重试次数' },
+                  { label: '最后重试时间' },
+                  { label: '操作' },
+                ].map(({ label, width }) => (
+                  <th key={label} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3', width }}>{label}</th>
                 ))}
               </tr>
             </thead>
             <tbody>
               {pageData.length === 0 ? (
                 <tr>
-                  <td colSpan={9} className="py-14 text-center">
+                  <td colSpan={10} className="py-14 text-center">
                     <div className="text-gray-300 text-4xl mb-2">☁️</div>
                     <div className="text-gray-400 text-sm">暂无符合条件的记录</div>
                   </td>
@@ -309,43 +347,62 @@ export default function DataReport() {
                     )}
                   </td>
                   <td className={TD + ' font-mono text-xs text-gray-700'}>{r.id}</td>
-                  <td className={TD + ' font-medium text-gray-800'}>{r.patient}</td>
-                  <td className={TD}>
-                    <span className={`text-xs px-2 py-0.5 rounded-full font-medium ${r.type === 'upward' ? 'bg-blue-50 text-blue-700' : 'bg-green-50 text-green-700'}`}>
-                      {r.type === 'upward' ? '⬆ 上转' : '⬇ 下转'}
-                    </span>
+                  <td className={TD} style={{ width: 120 }}>
+                    <div className="text-sm font-normal text-gray-800">{r.patient}</div>
+                    <div className="mt-0.5 text-xs text-gray-400">
+                      {[r.patientGender, r.patientAge ? `${r.patientAge}岁` : ''].filter(Boolean).join(' · ') || '—'}
+                    </div>
                   </td>
+                  <td className={TD}>
+                    <TypeTag type={r.type} />
+                  </td>
+                  <td className={TD + ' text-xs text-gray-500'} style={{ width: 150 }}>{r.fromOrgName}</td>
                   <td className={TD + ' text-xs text-gray-500'}>{r.completedAt}</td>
                   <td className={TD}><StatusBadge status={r.status} /></td>
                   <td className={TD + ' text-center text-xs text-gray-500'}>{r.retryCount}</td>
                   <td className={TD + ' text-xs text-gray-400'}>{r.lastRetry}</td>
                   <td className={TD}>
-                    {r.status === 'manual_pending' && (
-                      <button
-                        onClick={() => handleManualReport(r.id)}
-                        className="px-3 py-1 rounded text-xs font-medium text-white"
-                        style={{ background: '#d97706' }}
-                      >
-                        手动补报
-                      </button>
-                    )}
-                    {r.status === 'failed' && (
-                      <button
-                        onClick={() => handleRetry(r.id)}
-                        className="text-sm font-medium hover:underline"
-                        style={{ color: '#0BBECF' }}
-                      >
-                        重试
-                      </button>
-                    )}
-                    {!['manual_pending', 'failed'].includes(r.status) && (
-                      <button
-                        className="text-sm font-medium hover:underline text-gray-400"
-                        onClick={() => alert(`查看详情：${r.id}`)}
-                      >
-                        查看
-                      </button>
-                    )}
+                    <div className="flex items-center gap-2">
+                      {getReportActions(r.status).map(action => {
+                        if (action === 'view') {
+                          return (
+                            <button
+                              key={action}
+                              className="text-sm font-medium hover:underline text-gray-400"
+                              style={{ color: '#2563eb' }}
+                              onClick={() => handleViewDetail(r.id)}
+                            >
+                              查看
+                            </button>
+                          )
+                        }
+                        if (action === 'retry') {
+                          return (
+                            <button
+                              key={action}
+                              onClick={() => handleRetry(r.id)}
+                              className="px-3 py-1 rounded text-xs font-medium text-white"
+                              style={{ background: '#0BBECF' }}
+                            >
+                              重试
+                            </button>
+                          )
+                        }
+                        if (action === 'manualReport') {
+                          return (
+                            <button
+                              key={action}
+                              onClick={() => handleManualReport(r.id)}
+                              className="px-3 py-1 rounded text-xs font-medium text-white"
+                              style={{ background: '#dc2626' }}
+                            >
+                              手动补报
+                            </button>
+                          )
+                        }
+                        return null
+                      })}
+                    </div>
                   </td>
                 </tr>
               ))}
@@ -420,13 +477,23 @@ export default function DataReport() {
               <button
                 onClick={confirmManualReport}
                 className="px-5 py-1.5 rounded-lg text-sm font-medium text-white"
-                style={{ background: '#d97706' }}
+                style={{ background: '#dc2626' }}
               >
                 确认补报
               </button>
             </div>
           </div>
         </div>
+      )}
+
+      {detailModal && (
+        <DataReportDetailModal
+          loading={detailModal.loading}
+          detail={detailModal.detail}
+          onClose={() => setDetailModal(null)}
+          StatusTag={StatusBadge}
+          TypeTag={TypeTag}
+        />
       )}
     </div>
   )

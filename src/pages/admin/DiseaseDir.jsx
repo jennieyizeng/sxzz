@@ -520,11 +520,10 @@ export default function DiseaseDir() {
       <div className="flex items-start justify-between mb-4">
         <div>
           <h2 className="text-base font-semibold text-gray-800">专病规则配置</h2>
-          <div className="text-xs text-gray-400 mt-0.5">主数据同步自医共体术语信息系统，仅维护双转业务属性。</div>
         </div>
         <button
           onClick={() => setSearchModalOpen(true)}
-          className="flex items-center gap-1.5 px-4 py-2 rounded-lg text-sm font-medium text-white transition-colors"
+          className="inline-flex items-center gap-2 rounded-xl px-4 py-2 text-sm font-semibold text-white shadow-sm transition-all hover:-translate-y-0.5 hover:shadow-md"
           style={{ background: '#0BBECF' }}
           onMouseEnter={e => e.currentTarget.style.background = '#0892a0'}
           onMouseLeave={e => e.currentTarget.style.background = '#0BBECF'}
@@ -532,7 +531,7 @@ export default function DiseaseDir() {
           <svg className="w-4 h-4" fill="none" viewBox="0 0 24 24" stroke="currentColor">
             <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={2} d="M12 4v16m8-8H4" />
           </svg>
-          +新增
+          新增病种
         </button>
       </div>
 
@@ -625,7 +624,7 @@ export default function DiseaseDir() {
                         <path strokeLinecap="round" strokeLinejoin="round" strokeWidth={1.5} d="M9 5H7a2 2 0 00-2 2v12a2 2 0 002 2h10a2 2 0 002-2V7a2 2 0 00-2-2h-2M9 5a2 2 0 002 2h2a2 2 0 002-2M9 5a2 2 0 012-2h2a2 2 0 012 2" />
                       </svg>
                       <span className="text-sm">暂无专病规则数据</span>
-                      <span className="text-xs text-gray-300">点击「+新增」后，通过 ICD-10 搜索选择添加业务病种。</span>
+                      <span className="text-xs text-gray-300">点击「新增病种」后，通过 ICD-10 搜索选择添加业务病种。</span>
                     </div>
                   </td>
                 </tr>

@@ -1,4 +1,4 @@
-import { DOWNWARD_STATUS, UPWARD_STATUS } from '../data/mockData.js'
+import { DOWNWARD_STATUS, ROLES, UPWARD_STATUS } from '../data/mockData.js'
 
 const BLANK = '________'
 const AREA_NAME = 'xx市'
@@ -78,26 +78,108 @@ function documentVariant(referral) {
   return 'active'
 }
 
+function hasStatus(referral, statuses) {
+  return statuses.includes(referral?.status)
+}
+
+function hasAdmissionArrangement(referral) {
+  return Boolean(referral?.admissionArrangement && Object.keys(referral.admissionArrangement).length > 0)
+}
+
+function isCountyDoctor(user) {
+  return [ROLES.COUNTY, ROLES.COUNTY2].includes(user?.role)
+}
+
+function isPrimaryInitiator(referral, user) {
+  return user?.role === ROLES.PRIMARY && (
+    user?.id === referral?.fromDoctorId ||
+    user?.name === referral?.fromDoctor
+  )
+}
+
+function isCountyInitiator(referral, user) {
+  return isCountyDoctor(user) && (
+    user?.id === referral?.fromDoctorId ||
+    user?.name === referral?.fromDoctor
+  )
+}
+
+function isPrimaryAssignee(referral, user) {
+  if (![ROLES.PRIMARY, ROLES.PRIMARY_HEAD].includes(user?.role)) return false
+  return [
+    referral?.downwardAssignedDoctorId,
+    referral?.designatedDoctorId,
+  ].filter(Boolean).includes(user?.id) || [
+    referral?.downwardAssignedDoctorName,
+    referral?.designatedDoctorName,
+    referral?.toDoctor,
+  ].filter(Boolean).includes(user?.name)
+}
+
+function isPrimaryCoordinator(referral, user) {
+  return user?.role === ROLES.PRIMARY_HEAD && user?.institution === referral?.toInstitution
+}
+
+export function canPreviewReferralDocument(referral, currentUser) {
+  const isUpward = referral?.type === 'upward'
+  const isDownward = referral?.type === 'downward'
+  const isAdmin = currentUser?.role === ROLES.ADMIN
+  const isCompleted = hasStatus(referral, [UPWARD_STATUS.COMPLETED, DOWNWARD_STATUS.COMPLETED])
+  const isClosed = hasStatus(referral, [UPWARD_STATUS.CLOSED, DOWNWARD_STATUS.CLOSED])
+  const isInTransit = hasStatus(referral, [UPWARD_STATUS.IN_TRANSIT, DOWNWARD_STATUS.IN_TRANSIT])
+
+  if (isUpward) {
+    const isEmergency = Boolean(referral?.is_emergency)
+    if (isEmergency && referral?.isRetroEntry && !isCompleted && !isClosed) return false
+
+    if (isInTransit) {
+      if (!hasAdmissionArrangement(referral)) return false
+      if (isEmergency) return isPrimaryInitiator(referral, currentUser) || isAdmin
+      return true
+    }
+
+    if (isCompleted) return true
+    if (isClosed) return isPrimaryInitiator(referral, currentUser) || isAdmin
+    return false
+  }
+
+  if (isDownward) {
+    const isInitiator = isCountyInitiator(referral, currentUser)
+    const isAssignee = isPrimaryAssignee(referral, currentUser)
+
+    if (isInTransit) return isInitiator || isAssignee
+    if (isCompleted) return isInitiator || isAssignee || isPrimaryCoordinator(referral, currentUser) || isAdmin
+    if (isClosed) return isInitiator || isAssignee || isAdmin
+  }
+
+  return false
+}
+
+function previewLabelForVariant(referral, variant) {
+  if (variant === 'archive') return '预览归档转诊单'
+  if (variant === 'closed-archive') return '预览关闭归档单'
+  const documentTitle = referral?.type === 'downward' ? '双向转诊（回转）单' : '双向转诊（转出）单'
+  return `预览${documentTitle}`
+}
+
 export function getReferralDirectionLabel(referral) {
   return referral?.type === 'downward' ? '县级至基层' : '基层至县级'
 }
 
-export function getReferralDocumentAvailability(referral) {
+export function getReferralDocumentAvailability(referral, currentUser) {
   const isUpward = referral?.type === 'upward'
-  const allowedStatuses = isUpward
-    ? [UPWARD_STATUS.IN_TRANSIT, UPWARD_STATUS.COMPLETED, UPWARD_STATUS.CLOSED]
-    : [DOWNWARD_STATUS.IN_TRANSIT, DOWNWARD_STATUS.COMPLETED, DOWNWARD_STATUS.CLOSED]
-  const canShow = allowedStatuses.includes(referral?.status)
   const documentTitle = isUpward ? '双向转诊（转出）单' : '双向转诊（回转）单'
+  const variant = documentVariant(referral)
+  const canShow = canPreviewReferralDocument(referral, currentUser)
 
   return {
     canShow,
     direction: getReferralDirectionLabel(referral),
     documentTitle,
-    previewLabel: `预览${documentTitle}`,
+    previewLabel: previewLabelForVariant(referral, variant),
     downloadLabel: '下载 PDF',
     printLabel: '打印',
-    variant: canShow ? documentVariant(referral) : 'unavailable',
+    variant: canShow ? variant : 'unavailable',
   }
 }
 

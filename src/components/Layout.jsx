@@ -99,7 +99,6 @@ const NAV_CONFIG = {
     { path: '/messages', label: '消息中心', icon: '🔔' },
   ],
   [ROLES.DIRECTOR]: [
-    { path: '/director/dashboard', label: '数据大屏', icon: '📺' },
     { path: '/director/analytics', label: '统计分析', icon: '📈' },
     { path: '/director/report', label: '考核报表', icon: '📑' },
   ],

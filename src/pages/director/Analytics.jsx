@@ -1,191 +1,222 @@
-import { useState } from 'react'
+import { useMemo, useState } from 'react'
+import {
+  institutionDetailColumns,
+  institutionDetailIntro,
+  institutionDetailRows,
+  monthlyTrend,
+  monthlyTrendSubtitle,
+  monthlyTrendTitle,
+  periodMetrics,
+  realtimeMonitoringCards,
+  timeRangeOptions,
+} from './directorAnalyticsModel'
 
-// ── Mock 数据（内联）──
-// Assumption: 数据来自本院转诊汇总，与 admin/Stats.jsx 口径一致，由后端按机构过滤返回
-const STATS = {
-  upTotal: 67,
-  downTotal: 88,
-  completeRate: 91.0,
-  rejectRate: 8.0,
-  timeoutRate: 4.5,
-  avgTime: 2.9,
-  consentRate: 98.5,
-  reportRate: 96.3,
+const CARD_BORDER = '1px solid #DDF0F3'
+const CARD_HEADER = { background: '#F8FDFE', borderBottom: '1px solid #E0F6F9' }
+const TH = 'px-3 py-2.5 text-left text-xs font-medium whitespace-nowrap'
+const TD = 'px-3 py-3 text-sm whitespace-nowrap'
+
+const toneStyles = {
+  cyan: { bg: '#F0FBFC', border: '#B2EEF5', text: '#0892a0' },
+  blue: { bg: '#eff6ff', border: '#bfdbfe', text: '#2563eb' },
+  amber: { bg: '#fffbeb', border: '#fde68a', text: '#b45309' },
+  red: { bg: '#fef2f2', border: '#fecaca', text: '#dc2626' },
+  green: { bg: '#ecfdf5', border: '#bbf7d0', text: '#047857' },
+  violet: { bg: '#f5f3ff', border: '#ddd6fe', text: '#6d28d9' },
 }
 
-const MONTHLY = [
-  { month: '2025-10', up: 18, down: 22 },
-  { month: '2025-11', up: 22, down: 25 },
-  { month: '2025-12', up: 20, down: 28 },
-  { month: '2026-01', up: 25, down: 30 },
-  { month: '2026-02', up: 19, down: 24 },
-  { month: '2026-03', up: 67, down: 88 },
-]
-
-const MAX_VAL = 100
-
-// ── 指标卡片配置 ──
-const METRIC_CARDS = [
-  { label: '上转总量', value: STATS.upTotal, unit: '例', color: '#2563eb', bg: '#eff6ff' },
-  { label: '下转总量', value: STATS.downTotal, unit: '例', color: '#16a34a', bg: '#f0fdf4' },
-  { label: '完成率', value: STATS.completeRate.toFixed(1), unit: '%', color: '#0BBECF', bg: '#E0F6F9' },
-  { label: '拒绝率', value: STATS.rejectRate.toFixed(1), unit: '%', color: '#d97706', bg: '#fffbeb' },
-  { label: '超时率', value: STATS.timeoutRate.toFixed(1), unit: '%', color: '#dc2626', bg: '#fef2f2' },
-  { label: '平均完成时长', value: STATS.avgTime.toFixed(1), unit: 'h', color: '#7c3aed', bg: '#f5f3ff' },
-  { label: '知情同意签署率', value: STATS.consentRate.toFixed(1), unit: '%', color: '#0891b2', bg: '#ecfeff' },
-  { label: '数据上报完成率', value: STATS.reportRate.toFixed(1), unit: '%', color: '#065f46', bg: '#ecfdf5' },
-]
-
-// ── 横向进度条组件 ──
-function BarRow({ label, upVal, downVal, maxVal }) {
-  const upPct = Math.round((upVal / maxVal) * 100)
-  const downPct = Math.round((downVal / maxVal) * 100)
+function SectionHeader({ title, description, action }) {
   return (
-    <div className="flex items-center gap-3 text-sm">
-      <div className="w-20 text-right text-gray-500 text-xs shrink-0">{label}</div>
-      <div className="flex-1 space-y-1">
-        {/* 上转 */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 text-xs text-blue-600 text-right shrink-0">{upVal}</div>
-          <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div
-              className="h-3 rounded-full bg-[#0BBECF] transition-all"
-              style={{ width: `${upPct}%` }}
-            />
-          </div>
-          <div className="w-6 text-xs text-gray-400 shrink-0">上转</div>
+    <div className="flex flex-wrap items-start justify-between gap-3 mb-3">
+      <div className="min-w-0">
+        <h3 className="text-sm font-semibold text-gray-800">{title}</h3>
+        {description && <div className="text-xs text-gray-400 mt-1 leading-relaxed">{description}</div>}
+      </div>
+      {action}
+    </div>
+  )
+}
+
+function MonitoringCard({ card }) {
+  const style = toneStyles[card.tone] || toneStyles.cyan
+  return (
+    <div className="rounded-xl p-4" style={{ background: style.bg, border: `1px solid ${style.border}` }}>
+      <div className="text-sm font-semibold text-gray-800">{card.title}</div>
+      <div className="text-3xl font-bold mt-3" style={{ color: style.text }}>
+        {card.value}<span className="text-sm font-normal ml-1 text-gray-500">{card.unit}</span>
+      </div>
+      <div className="text-xs text-gray-500 mt-3 leading-relaxed">{card.description}</div>
+    </div>
+  )
+}
+
+function MetricCard({ metric, tone }) {
+  const style = toneStyles[tone] || toneStyles.cyan
+  return (
+    <div className="bg-white rounded-lg p-3 min-h-[112px]" style={{ border: CARD_BORDER }}>
+      <div className="flex items-start justify-between gap-2 mb-2">
+        <div className="text-xs font-medium text-gray-500">{metric.label}</div>
+        {metric.trend && (
+          <span className="text-xs px-2 py-0.5 rounded-full font-medium" style={{ background: style.bg, color: style.text }}>
+            {metric.trend}
+          </span>
+        )}
+      </div>
+      <div className="text-xl font-bold" style={{ color: style.text }}>
+        {metric.value}
+        {metric.unit && <span className="text-sm font-normal ml-1 text-gray-400">{metric.unit}</span>}
+      </div>
+      {metric.sub && <div className="text-[11px] text-gray-400 mt-2 leading-relaxed">{metric.sub}</div>}
+    </div>
+  )
+}
+
+function TimeRangeFilter({ value, onChange, updatedAt }) {
+  return (
+    <div className="bg-white rounded-xl px-4 py-3 mb-4 flex flex-wrap items-end justify-between gap-4" style={{ border: CARD_BORDER }}>
+      <div>
+        <label className="block text-xs text-gray-500 mb-1">时间范围</label>
+        <div className="flex flex-wrap border border-gray-200 rounded-lg overflow-hidden">
+          {timeRangeOptions.map(option => (
+            <button
+              key={option}
+              onClick={() => onChange(option)}
+              className="px-3 py-1.5 text-sm transition-colors"
+              style={value === option
+                ? { background: '#0BBECF', color: '#fff', fontWeight: 500 }
+                : { background: '#fff', color: '#6b7280' }}
+            >
+              {option}
+            </button>
+          ))}
         </div>
-        {/* 下转 */}
-        <div className="flex items-center gap-2">
-          <div className="w-8 text-xs text-green-600 text-right shrink-0">{downVal}</div>
-          <div className="flex-1 bg-gray-200 rounded-full h-3 overflow-hidden">
-            <div
-              className="h-3 rounded-full bg-green-500 transition-all"
-              style={{ width: `${downPct}%` }}
-            />
-          </div>
-          <div className="w-6 text-xs text-gray-400 shrink-0">下转</div>
-        </div>
+      </div>
+      <div className="text-xs text-gray-500">
+        数据更新于 <span className="font-semibold" style={{ color: '#0892a0' }}>{updatedAt}</span>
       </div>
     </div>
   )
 }
 
-export default function DirectorAnalytics() {
-  // 院长仅允许时间范围筛选，无机构/类型筛选
-  const [dateFrom, setDateFrom] = useState('2025-10')
-  const [dateTo, setDateTo] = useState('2026-03')
-  const [queried, setQueried] = useState(true) // 默认展示最新数据
+function TrendChart({ data }) {
+  const maxVal = Math.max(...data.map(row => row.inbound + row.outbound), 1)
+  return (
+    <div className="flex items-end gap-2" style={{ height: 120 }}>
+      {data.map((row, index) => {
+        const isLast = index === data.length - 1
+        const inboundHeight = Math.max((row.inbound / maxVal) * 100, 5)
+        const outboundHeight = Math.max((row.outbound / maxVal) * 100, 5)
+        return (
+          <div key={row.month} className="flex-1 flex flex-col items-center gap-1">
+            <div className="w-full flex items-end gap-1" style={{ height: 104 }}>
+              <div className="flex-1 flex flex-col items-center justify-end gap-1" style={{ height: 104 }}>
+                <span className="text-[11px] font-semibold text-gray-500">{row.inbound}</span>
+                <div className="w-full" style={{ height: inboundHeight, background: isLast ? '#0BBECF' : '#B2EEF5', borderRadius: '3px 3px 0 0' }} />
+              </div>
+              <div className="flex-1 flex flex-col items-center justify-end gap-1" style={{ height: 104 }}>
+                <span className="text-[11px] font-semibold text-gray-500">{row.outbound}</span>
+                <div className="w-full" style={{ height: outboundHeight, background: isLast ? '#10b981' : '#A7F3D0', borderRadius: '3px 3px 0 0' }} />
+              </div>
+            </div>
+            <div className="text-xs text-gray-400 whitespace-nowrap">{row.month}</div>
+          </div>
+        )
+      })}
+    </div>
+  )
+}
 
-  const handleQuery = () => {
-    // TODO: 接入真实统计接口，按时间范围过滤本院数据
-    setQueried(true)
-  }
+export default function DirectorAnalytics() {
+  const [timeRange, setTimeRange] = useState('本月')
+  const updatedAt = useMemo(() => {
+    return new Date().toLocaleTimeString('zh-CN', { hour: '2-digit', minute: '2-digit', hour12: false })
+  }, [])
 
   return (
-    <div className="p-5">
-      {/* 页头 */}
-      <div className="mb-4">
-        {/* 上下文标识 */}
-        <div className="text-xs text-gray-400 mb-1">xx市人民医院</div>
+    <div className="p-3 sm:p-5 bg-white min-h-full">
+      <div className="mb-5">
         <h2 className="text-base font-semibold text-gray-800">统计分析</h2>
-        <div className="text-xs text-gray-400 mt-0.5">xx市人民医院 · 转诊数据概览</div>
       </div>
 
-      {/* 筛选区 — 院长仅时间范围，无机构/类型筛选 */}
-      <div className="bg-white rounded-xl p-4 mb-4 flex flex-wrap items-end gap-4" style={{ border: '1px solid #DDF0F3' }}>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">统计起始月份</label>
-          <input
-            type="month"
-            value={dateFrom}
-            onChange={e => { setDateFrom(e.target.value); setQueried(false) }}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm h-8 focus:outline-none"
-          />
+      <section className="mb-5">
+        <SectionHeader title="实时运行监测" />
+        <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-3">
+          {realtimeMonitoringCards.map(card => (
+            <MonitoringCard key={card.title} card={card} />
+          ))}
         </div>
-        <div>
-          <label className="block text-xs text-gray-500 mb-1">统计截止月份</label>
-          <input
-            type="month"
-            value={dateTo}
-            onChange={e => { setDateTo(e.target.value); setQueried(false) }}
-            className="border border-gray-200 rounded-lg px-3 py-1.5 text-sm h-8 focus:outline-none"
-          />
-        </div>
-        <button
-          onClick={handleQuery}
-          className="px-6 py-1.5 rounded-lg text-sm font-medium text-white h-8"
-          style={{ background: '#0BBECF' }}
-        >
-          查询
-        </button>
-        {/* 只读说明：院长无机构/类型筛选权限 */}
-        <div className="text-xs text-gray-400 ml-2">
-          {/* Assumption: 院长只查看本院数据，无跨机构筛选入口 */}
-          仅显示本院数据
-        </div>
-      </div>
+      </section>
 
-      {queried && (
-        <>
-          {/* 指标卡片 2行4列 */}
-          <div className="grid grid-cols-4 gap-3 mb-4">
-            {METRIC_CARDS.map(m => (
-              <div
-                key={m.label}
-                className="rounded-xl p-4"
-                style={{ background: m.bg, border: `1px solid ${m.bg}` }}
-              >
-                <div className="text-2xl font-bold" style={{ color: m.color }}>
-                  {m.value}
-                  <span className="text-sm font-normal ml-1" style={{ color: m.color, opacity: 0.7 }}>{m.unit}</span>
-                </div>
-                <div className="text-xs text-gray-500 mt-1">{m.label}</div>
-              </div>
-            ))}
-          </div>
+      <section className="mb-5">
+        <SectionHeader title="周期成效分析" />
+        <TimeRangeFilter value={timeRange} onChange={setTimeRange} updatedAt={updatedAt} />
+        <div className="grid grid-cols-1 sm:grid-cols-3 xl:grid-cols-6 gap-2.5">
+          {periodMetrics.map((metric, index) => (
+            <MetricCard
+              key={metric.label}
+              metric={metric}
+              tone={index === 2 ? 'green' : index === 3 ? 'red' : index === 4 ? 'blue' : index === 5 ? 'violet' : 'cyan'}
+            />
+          ))}
+        </div>
+      </section>
 
-          {/* 近6个月趋势图（横向进度条组代替图表库） */}
-          <div className="bg-white rounded-xl overflow-hidden mb-4" style={{ border: '1px solid #DDF0F3' }}>
-            <div className="px-5 py-3 flex items-center justify-between" style={{ background: '#F8FDFE', borderBottom: '1px solid #E0F6F9' }}>
-              <div className="text-sm font-semibold text-gray-800">近6个月转诊量趋势</div>
-              <div className="flex items-center gap-4 text-xs text-gray-500">
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded-full bg-[#0BBECF]" />
-                  上转
-                </span>
-                <span className="flex items-center gap-1">
-                  <span className="inline-block w-3 h-3 rounded-full bg-green-500" />
-                  下转
-                </span>
-              </div>
+      <section className="mb-5">
+        <div className="bg-white rounded-xl overflow-hidden" style={{ border: CARD_BORDER }}>
+          <div className="px-5 py-3 flex flex-wrap items-center justify-between gap-3" style={CARD_HEADER}>
+            <div>
+              <div className="text-sm font-semibold text-gray-800">{monthlyTrendTitle}</div>
+              <div className="text-xs text-gray-400 mt-0.5">{monthlyTrendSubtitle}</div>
             </div>
-            <div className="p-5 space-y-4">
-              {MONTHLY.map(row => (
-                <BarRow
-                  key={row.month}
-                  label={row.month}
-                  upVal={row.up}
-                  downVal={row.down}
-                  maxVal={MAX_VAL}
-                />
-              ))}
+            <div className="flex items-center gap-4 text-xs text-gray-500">
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-3 h-2 rounded-sm" style={{ background: '#0BBECF' }} />
+                转入
+              </span>
+              <span className="inline-flex items-center gap-1.5">
+                <span className="w-3 h-2 rounded-sm" style={{ background: '#10b981' }} />
+                转出
+              </span>
             </div>
           </div>
-
-          {/* 只读说明文字 */}
-          <div className="text-xs text-gray-400 text-right">
-            数据每日凌晨更新
+          <div className="p-5">
+            <TrendChart data={monthlyTrend} />
           </div>
-        </>
-      )}
-
-      {!queried && (
-        <div className="bg-white rounded-xl py-14 text-center" style={{ border: '1px solid #DDF0F3' }}>
-          <div className="text-gray-300 text-4xl mb-3">📊</div>
-          <div className="text-gray-400 text-sm">请选择统计时间范围后点击「查询」</div>
         </div>
-      )}
+      </section>
+
+      <section>
+        <SectionHeader title="转诊机构明细" description={institutionDetailIntro} />
+        <div className="bg-white rounded-xl overflow-hidden" style={{ border: CARD_BORDER }}>
+          <div className="overflow-x-auto">
+            <table className="w-full" style={{ borderCollapse: 'collapse', minWidth: 1040 }}>
+              <thead>
+                <tr style={{ background: '#E0F6F9' }}>
+                  {institutionDetailColumns.map(column => (
+                    <th key={column.key} className={TH} style={{ color: '#2D7A86', borderBottom: '1px solid #C8EEF3' }}>
+                      {column.label}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody>
+                {institutionDetailRows.map((row, index) => (
+                  <tr key={row.name} style={{ borderBottom: '1px solid #EEF7F9', background: index % 2 === 0 ? '#fff' : '#FAFEFE' }}>
+                    {institutionDetailColumns.map(column => (
+                      <td
+                        key={column.key}
+                        className={`${TD} ${column.key === 'name' ? 'font-medium text-gray-800' : column.key.includes('Rejected') ? 'text-red-500 text-center' : 'text-gray-700 text-center'}`}
+                      >
+                        {row[column.key]}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
     </div>
   )
 }
